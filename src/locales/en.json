@@ -30,7 +30,11 @@
     "this_week": "Your mood this week",
     "insights": "Insights",
     "empty": "Keep checking in to see your patterns emerge.",
-    "no_data": "No mood data yet"
+    "no_data": "No mood data yet",
+    "deep_insights": "Deep Insights",
+    "analyzing": "Analyzing...",
+    "loading": "Loading your patterns...",
+    "ai_badge": "AI Powered"
   },
   "checkin": {
     "title": "Check-In",
@@ -65,7 +69,13 @@
     "export": "Export my Anchor Journal",
     "about": "About",
     "about_text": "Anchor is a life alignment system. Supportive, not demanding.",
-    "logout": "Log out"
+    "logout": "Log out",
+    "ai_title": "AI Insights",
+    "ai_enable": "Enable AI insights",
+    "ai_enable_desc": "Get deeper weekly reflections powered by AI",
+    "ai_checkins": "Include check-in notes",
+    "ai_checkins_desc": "Allow AI to read your reflections for richer insights",
+    "ai_no_key": "Add a GROQ API key in your environment to enable AI features."
   },
   "auth": {
     "login": "Log in",

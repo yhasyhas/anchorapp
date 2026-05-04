@@ -30,7 +30,11 @@
     "this_week": "Hali yako ya hisia wiki hii",
     "insights": "Maarifa",
     "empty": "Endelea kujiandikisha ili uone mifumo yako.",
-    "no_data": "Hakuna data ya hisia bado"
+    "no_data": "Hakuna data ya hisia bado",
+    "deep_insights": "Maarifa ya Kina",
+    "analyzing": "Inachambua...",
+    "loading": "Inapakia mifumo yako...",
+    "ai_badge": "Inaendeshwa na AI"
   },
   "checkin": {
     "title": "Kujiangalia",
@@ -65,7 +69,13 @@
     "export": "Hamisha Jarida Langu la Nanga",
     "about": "Kuhusu",
     "about_text": "Anchor ni mfumo wa kuoanisha maisha. Inakusaidia, haikubani.",
-    "logout": "Ondoka"
+    "logout": "Ondoka",
+    "ai_title": "Maarifa ya AI",
+    "ai_enable": "Wezesha maarifa ya AI",
+    "ai_enable_desc": "Pata tafakari za kina za kila wiki zinazoendeshwa na AI",
+    "ai_checkins": "Jumuisha maandiko ya kujiangalia",
+    "ai_checkins_desc": "Ruhusu AI kusoma tafakari zako kwa maarifa tajiri zaidi",
+    "ai_no_key": "Ongeza ufunguo wa GROQ API katika mazingira yako kuwezesha vipengele vya AI."
   },
   "auth": {
     "login": "Ingia",

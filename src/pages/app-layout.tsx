@@ -5,8 +5,15 @@ import { useEffect, useState } from "react"
 import { isOnline, processSyncQueue } from "@/lib/offline-sync"
 import { FocusModeModal } from "@/components/anchor/focus-mode-modal"
 
+// const navItems = [
+//   { path: "/", icon: Home, labelKey: "home.greeting" },
+//   { path: "/patterns", icon: BarChart3, labelKey: "patterns.title" },
+//   { path: "/checkin", icon: Heart, labelKey: "checkin.title" },
+//   { path: "/move", icon: Footprints, labelKey: "move.title" },
+// ]
+
 const navItems = [
-  { path: "/", icon: Home, labelKey: "home.greeting" },
+  { path: "/", icon: Home, labelKey: "home.tab" },
   { path: "/patterns", icon: BarChart3, labelKey: "patterns.title" },
   { path: "/checkin", icon: Heart, labelKey: "checkin.title" },
   { path: "/move", icon: Footprints, labelKey: "move.title" },
@@ -61,7 +68,8 @@ export function AppLayout() {
               }
             >
               <Icon className="h-5 w-5" />
-              <span>{path === "/" ? "Home" : t(labelKey)}</span>
+              {/* <span>{path === "/" ? "Home" : t(labelKey)}</span> */}
+              <span>{t(labelKey)}</span>
             </NavLink>
           ))}
         </div>

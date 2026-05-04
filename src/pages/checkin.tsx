@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Heart, Moon, Mic, Square, Play, Trash2 } from "lucide-react"
 import type { CheckIn } from "@/types"
+import { EveningReleaseAnimation } from "@/components/anchor/evening-release-animation"
 
 function todayStr(): string {
   return new Date().toISOString().split("T")[0]
@@ -291,7 +292,7 @@ export function CheckInPage() {
         </CardContent>
       </Card>
 
-      {/* Evening Release */}
+      {/* Evening Release
       <Card className="border-0 bg-secondary shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
         <CardContent className="p-5 text-center">
           <Moon className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
@@ -306,6 +307,26 @@ export function CheckInPage() {
             className="mt-3 border-primary/20 text-primary"
           >
             {released ? "\u2713" : ""} {t("checkin.release_button")}
+          </Button>
+        </CardContent>
+      </Card> */}
+
+      {/* Evening Release */}
+      <Card className="relative overflow-hidden border-0 bg-secondary shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+        <EveningReleaseAnimation active={released} />
+        <CardContent className="relative p-5 text-center">
+          <Moon className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
+          <p className="font-heading text-sm italic text-foreground/80">
+            {t("checkin.evening_release")}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRelease}
+            disabled={released}
+            className="mt-3 border-primary/20 text-primary transition-all hover:bg-primary/5"
+          >
+            {released ? "\u2713 " : ""}{t("checkin.release_button")}
           </Button>
         </CardContent>
       </Card>

@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Sparkles } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts"
 import type { MoodLog, DailyAnchor, MoodType } from "@/types"
+import { EmptyState } from "@/components/ui/empty-state"
 
 const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
@@ -145,7 +146,11 @@ export function PatternsPage() {
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <p className="py-8 text-center text-sm text-muted-foreground">{t("patterns.no_data")}</p>
+            // <p className="py-8 text-center text-sm text-muted-foreground">{t("patterns.no_data")}</p>
+            <EmptyState
+              icon="moon"
+              titleKey="patterns.empty"
+            />
           )}
         </CardContent>
       </Card>

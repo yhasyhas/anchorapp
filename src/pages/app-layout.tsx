@@ -6,7 +6,7 @@ import { isOnline, processSyncQueue } from "@/lib/offline-sync"
 import { FocusModeModal } from "@/components/anchor/focus-mode-modal"
 
 const navItems = [
-  { path: "/", icon: Home, labelKey: "home.tab" },
+  { path: "/", icon: Home, labelKey: "home.title" },
   { path: "/patterns", icon: BarChart3, labelKey: "patterns.title" },
   { path: "/checkin", icon: Heart, labelKey: "checkin.title" },
   { path: "/move", icon: Footprints, labelKey: "move.title" },

@@ -8,7 +8,7 @@
     "anchors_title": "Your 3 Anchors",
     "why_three": "Why 3? Three anchors keep you grounded without overwhelm.",
     "supportive": "You don't need to do everything today. Small steps still count.",
-    "home.tab": "Home"
+    "title": "Home"
   },
   "anchors": {
     "future": "Future",
@@ -78,5 +78,25 @@
   },
   "offline": {
     "banner": "You're offline. Changes saved locally."
+  },
+    "onboarding": {
+    "welcome_title": "Welcome to Anchor",
+    "welcome_text": "A gentle space to align who you are, how you feel, and what you do — one small step at a time.",
+    "how_title": "Your Daily Anchors",
+    "how_text": "Set 3 simple intentions each morning: one for your growth, one for your wellbeing, and one for your connection to life.",
+    "ritual_title": "Breathe, Reflect, Release",
+    "ritual_text": "Log your mood, check in with yourself, and let go of what is not yours to carry. Small steps still count.",
+    "next": "Next",
+    "back": "Back",
+    "start": "Begin",
+    "skip": "Skip for now"
+  },
+  "ritual": {
+    "inhale": "Breathe in...",
+    "hold": "Hold...",
+    "exhale": "Breathe out...",
+    "done": "You are anchored",
+    "cycle": "Cycle",
+    "skip": "Skip ritual"
   }
 }

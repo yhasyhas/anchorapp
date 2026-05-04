@@ -8,7 +8,7 @@
     "anchors_title": "Nanga Zako 3",
     "why_three": "Kwa nini 3? Nanga tatu zinakuweka imara bila kukuzidi.",
     "supportive": "Huhitaji kufanya kila kitu leo. Hatua ndogo bado zinahesabu.",
-    "home.tab": "Nyumbani"
+    "title": "Nyumbani"
   },
   "anchors": {
     "future": "Mustakabali",
@@ -78,5 +78,25 @@
   },
   "offline": {
     "banner": "Huna mtandao. Mabadiliko yamehifadhiwa."
+  },
+    "onboarding": {
+    "welcome_title": "Karibu kwenye Anchor",
+    "welcome_text": "Nafasi ya upole ili kuoanisha nani ulivyo, unavyohisi, na unachofanya — hatua moja ndogo kwa wakati.",
+    "how_title": "Nanga Zako za Kila Siku",
+    "how_text": "Weka nia 3 rahisi kila asubuhi: moja kwa ustawi wako, moja kwa afya yako, na moja kwa uhusiano wako na maisha.",
+    "ritual_title": "Pumua, Tafakari, Acha",
+    "ritual_text": "Andika hisia zako, jiangalie, na acha kila kitu ambacho si chako kubeba. Hatua ndogo bado zinahesabu.",
+    "next": "Inayofuata",
+    "back": "Rudi",
+    "start": "Anza",
+    "skip": "Ruka kwa sasa"
+  },
+  "ritual": {
+    "inhale": "Pumua ndani...",
+    "hold": "Shikilia...",
+    "exhale": "Pumua nje...",
+    "done": "Umeimarishwa",
+    "cycle": "Mzunguko",
+    "skip": "Ruka mafunjo"
   }
 }

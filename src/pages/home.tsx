@@ -12,6 +12,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Settings, Info, Heart } from "lucide-react"
 import { moodConfig, intentions } from "@/lib/constants"
 import type { DailyAnchor, MoodType } from "@/types"
+import { OnboardingModal } from "@/components/onboarding/onboarding-modal"
+import { MorningRitual } from "@/components/anchor/morning-ritual"
 
 function getGreetingKey(): string {
   const hour = new Date().getHours()
@@ -118,6 +120,8 @@ export function HomePage() {
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
+      <OnboardingModal />
+      <MorningRitual onComplete={() => { }} />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-heading text-2xl font-bold text-foreground">

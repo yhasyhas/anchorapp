@@ -1,0 +1,81 @@
+{
+  "home": {
+    "greeting": "Good morning",
+    "greeting_afternoon": "Good afternoon",
+    "greeting_evening": "Good evening",
+    "subtitle": "How are you feeling today?",
+    "intention_label": "Today I invite:",
+    "anchors_title": "Your 3 Anchors",
+    "why_three": "Why 3? Three anchors keep you grounded without overwhelm.",
+    "supportive": "You don't need to do everything today. Small steps still count."
+  },
+  "anchors": {
+    "future": "Future",
+    "future_sub": "One step towards your goals",
+    "mindbody": "Mind / Body",
+    "mindbody_sub": "Nourish your wellbeing",
+    "life": "Life",
+    "life_sub": "Connect with the world around you"
+  },
+  "mood": {
+    "great": "Great",
+    "okay": "Okay",
+    "meh": "Meh",
+    "low": "Low",
+    "stressed": "Stressed"
+  },
+  "patterns": {
+    "title": "Patterns",
+    "this_week": "Your mood this week",
+    "insights": "Insights",
+    "empty": "Keep checking in to see your patterns emerge.",
+    "no_data": "No mood data yet"
+  },
+  "checkin": {
+    "title": "Check-In",
+    "subtitle": "Take a few seconds for yourself.",
+    "what_matters": "What matters to you this week?",
+    "what_avoiding": "What are you avoiding?",
+    "what_felt_real": "What felt real today?",
+    "evening_release": "Let go of what is not yours to carry tonight.",
+    "release_button": "I release",
+    "save": "Save Reflection",
+    "saved": "Reflection saved"
+  },
+  "move": {
+    "title": "Move",
+    "subtitle": "Small actions. Big change.",
+    "add_custom": "Add your own",
+    "add_to_anchor": "Add to Anchor",
+    "choose_anchor": "Choose an anchor",
+    "added": "Added to your anchors"
+  },
+  "focus": {
+    "title": "Focus Mode",
+    "message": "You've been scrolling for a while. Want to come back to yourself?",
+    "yes": "Yes, let's refocus",
+    "no": "Not now"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "profile": "Profile",
+    "name": "Full Name",
+    "export": "Export my Anchor Journal",
+    "about": "About",
+    "about_text": "Anchor is a life alignment system. Supportive, not demanding.",
+    "logout": "Log out"
+  },
+  "auth": {
+    "login": "Log in",
+    "register": "Create Account",
+    "email": "Email",
+    "password": "Password",
+    "name": "Full Name",
+    "no_account": "Don't have an account?",
+    "has_account": "Already have an account?"
+  },
+  "offline": {
+    "banner": "You're offline. Changes saved locally."
+  }
+}

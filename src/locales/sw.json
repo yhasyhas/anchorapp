@@ -1,0 +1,81 @@
+{
+  "home": {
+    "greeting": "Habari za asubuhi",
+    "greeting_afternoon": "Habari za mchana",
+    "greeting_evening": "Habari za jioni",
+    "subtitle": "Unahisi vipi leo?",
+    "intention_label": "Leo naalika:",
+    "anchors_title": "Nanga Zako 3",
+    "why_three": "Kwa nini 3? Nanga tatu zinakuweka imara bila kukuzidi.",
+    "supportive": "Huhitaji kufanya kila kitu leo. Hatua ndogo bado zinahesabu."
+  },
+  "anchors": {
+    "future": "Mustakabali",
+    "future_sub": "Hatua moja kuelekea malengo yako",
+    "mindbody": "Akili / Mwili",
+    "mindbody_sub": "Lisa ustawi wako",
+    "life": "Maisha",
+    "life_sub": "Ungana na ulimwengu unaokuzunguka"
+  },
+  "mood": {
+    "great": "Vizuri",
+    "okay": "Sawa",
+    "meh": "Kawaida",
+    "low": "Chini",
+    "stressed": "Msongo"
+  },
+  "patterns": {
+    "title": "Mifumo",
+    "this_week": "Hali yako ya hisia wiki hii",
+    "insights": "Maarifa",
+    "empty": "Endelea kujiandikisha ili uone mifumo yako.",
+    "no_data": "Hakuna data ya hisia bado"
+  },
+  "checkin": {
+    "title": "Kujiangalia",
+    "subtitle": "Chukua sekunde chache kwa ajili yako.",
+    "what_matters": "Nini muhimu kwako wiki hii?",
+    "what_avoiding": "Unakwepa nini?",
+    "what_felt_real": "Nini kilihisiwa kuwa halisi leo?",
+    "evening_release": "Acha kila kitu ambacho si chako kubeba usiku huu.",
+    "release_button": "Naachilia",
+    "save": "Hifadhi Tafakari",
+    "saved": "Tafakari imehifadhiwa"
+  },
+  "move": {
+    "title": "Sogeza",
+    "subtitle": "Vitendo vidogo. Mabadiliko makubwa.",
+    "add_custom": "Ongeza yako",
+    "add_to_anchor": "Ongeza kwa Nanga",
+    "choose_anchor": "Chagua nanga",
+    "added": "Imeongezwa kwa nanga zako"
+  },
+  "focus": {
+    "title": "Hali ya Kuzingatia",
+    "message": "Umeendelea kusogea kwa muda. Unataka kurudi kwa wewe?",
+    "yes": "Ndiyo, turekebishe",
+    "no": "Sio sasa"
+  },
+  "settings": {
+    "title": "Mipangilio",
+    "language": "Lugha",
+    "profile": "Wasifu",
+    "name": "Jina Kamili",
+    "export": "Hamisha Jarida Langu la Nanga",
+    "about": "Kuhusu",
+    "about_text": "Anchor ni mfumo wa kuoanisha maisha. Inakusaidia, haikubani.",
+    "logout": "Ondoka"
+  },
+  "auth": {
+    "login": "Ingia",
+    "register": "Tengeneza Akaunti",
+    "email": "Barua pepe",
+    "password": "Nenosiri",
+    "name": "Jina Kamili",
+    "no_account": "Huna akaunti?",
+    "has_account": "Tayari una akaunti?"
+  },
+  "offline": {
+    "banner": "Huna mtandao. Mabadiliko yamehifadhiwa."
+  }
+}

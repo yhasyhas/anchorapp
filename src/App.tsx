@@ -9,6 +9,8 @@ import { CheckInPage } from "@/pages/checkin"
 import { MovePage } from "@/pages/move"
 import { SettingsPage } from "@/pages/settings"
 import { Spinner } from "@/components/ui/spinner"
+import { ForgotPasswordPage } from "@/pages/forgot-password"
+import { ResetPasswordPage } from "@/pages/reset-password"
 
 export default function App() {
   const { session, loading } = useAuth()
@@ -24,12 +26,15 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Routes publiques — TOUJOURS accessibles, même connecté */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+        {/* Routes protégées */}
         {!session ? (
-          <>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </>
+          <Route path="*" element={<Navigate to="/login" replace />} />
         ) : (
           <>
             <Route path="/" element={<AppLayout />}>

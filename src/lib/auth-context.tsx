@@ -65,6 +65,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error?.message ?? null }
   }
 
+  // async function signUp(email: string, password: string, fullName: string) {
+  //   const { data, error } = await supabase.auth.signUp({ email, password })
+  //   if (error) return { error: error.message }
+
+  //   if (data.user) {
+  //     await supabase.from("profiles").insert({
+  //       id: data.user.id,
+  //       full_name: fullName,
+  //       preferred_language: "en",
+  //     })
+  //   }
+
+  //   return { error: null }
+  // }
+
   async function signUp(email: string, password: string, fullName: string) {
     const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) return { error: error.message }
@@ -75,6 +90,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         full_name: fullName,
         preferred_language: "en",
       })
+    }
+
+    // CRITIQUE : quand "Confirm email" est OFF, Supabase retourne data.session immédiatement
+    // Il faut la capturer et la propager au state SANS attendre onAuthStateChange
+    if (data.session) {
+      setSession(data.session)
+      setUser(data.session.user)
+      await fetchProfile(data.session.user.id)
     }
 
     return { error: null }

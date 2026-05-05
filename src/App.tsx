@@ -39,10 +39,9 @@ export default function App() {
           path="/forgot-password"
           element={session ? <Navigate to="/" replace /> : <ForgotPasswordPage />}
         />
-        <Route
-          path="/reset-password"
-          element={session ? <Navigate to="/" replace /> : <ResetPasswordPage />}
-        />
+
+        {/* ✅ RESET PASSWORD : toujours accessible, même connecté */}
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* Routes protégées */}
         <Route

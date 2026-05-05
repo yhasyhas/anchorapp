@@ -21,23 +21,33 @@ export function ResetPasswordPage() {
   const [validating, setValidating] = useState(true)
   const [canReset, setCanReset] = useState(false)
   const [urlError, setUrlError] = useState<string | null>(null)
-  const hasExchanged = useRef(false)
+  const hasProcessed = useRef(false)
 
   useEffect(() => {
     async function handleRecovery() {
-      // 🔴 Étape 0 : Vérifier si Supabase a renvoyé une erreur dans l'URL
-      const errorCode = searchParams.get("error_code")
-      const errorDesc = searchParams.get("error_description")
-      if (errorCode) {
-        setUrlError(errorDesc || errorCode)
+      if (hasProcessed.current) return
+      hasProcessed.current = true
+
+      // ─── Étape 1 : Lire le HASH (#error=... ou #access_token=...) ───
+      // ⚠️ React Router ne lit PAS le hash avec useSearchParams !
+      const hash = window.location.hash.slice(1)
+      const hashParams = new URLSearchParams(hash)
+      const hashError = hashParams.get("error")
+      const hashErrorCode = hashParams.get("error_code")
+      const hashErrorDesc = hashParams.get("error_description")
+      const accessToken = hashParams.get("access_token")
+      const refreshToken = hashParams.get("refresh_token")
+
+      // Si Supabase a renvoyé une erreur dans le hash (lien expiré, bot Gmail, etc.)
+      if (hashError || hashErrorCode) {
+        setUrlError(hashErrorDesc || hashError || hashErrorCode || "Invalid link")
         setValidating(false)
         return
       }
 
-      // 🔒 Étape 1 : PKCE Flow (?code=...)
+      // ─── Étape 2 : PKCE Flow (?code=...) ───
       const code = searchParams.get("code")
-      if (code && !hasExchanged.current) {
-        hasExchanged.current = true
+      if (code) {
         await supabase.auth.signOut()
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
         if (!exchangeError) {
@@ -45,13 +55,30 @@ export function ResetPasswordPage() {
           setValidating(false)
           return
         }
-        console.error("Exchange error:", exchangeError)
         setUrlError(exchangeError.message)
         setValidating(false)
         return
       }
 
-      // 🔓 Étape 2 : Vérifier si une session recovery existe déjà
+      // ─── Étape 3 : Ancien Implicit Flow (#access_token=...) ───
+      if (accessToken && refreshToken) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        })
+        if (!sessionError) {
+          // Nettoyer le hash pour ne pas exposer les tokens dans l'historique
+          window.history.replaceState(null, "", window.location.pathname + window.location.search)
+          setCanReset(true)
+          setValidating(false)
+          return
+        }
+        setUrlError(sessionError.message)
+        setValidating(false)
+        return
+      }
+
+      // ─── Étape 4 : Vérifier si une session recovery existe déjà ───
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
         setCanReset(true)
@@ -59,7 +86,7 @@ export function ResetPasswordPage() {
         return
       }
 
-      // ❌ Rien trouvé
+      // ─── Étape 5 : Rien trouvé ───
       setValidating(false)
     }
 
@@ -121,11 +148,9 @@ export function ResetPasswordPage() {
             <p className="text-sm text-destructive font-medium">
               {t("auth.expired_reset_link")}
             </p>
-            {urlError && (
-              <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
-                {urlError}
-              </p>
-            )}
+            <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
+              {urlError}
+            </p>
             <Link to="/forgot-password">
               <Button variant="outline" className="w-full">
                 {t("auth.request_new_link")}

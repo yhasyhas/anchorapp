@@ -26,27 +26,44 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Routes publiques — TOUJOURS accessibles, même connecté */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        {/* Routes publiques — redirige vers home si déjà connecté */}
+        <Route
+          path="/login"
+          element={session ? <Navigate to="/" replace /> : <LoginPage />}
+        />
+        <Route
+          path="/register"
+          element={session ? <Navigate to="/" replace /> : <RegisterPage />}
+        />
+        <Route
+          path="/forgot-password"
+          element={session ? <Navigate to="/" replace /> : <ForgotPasswordPage />}
+        />
+        <Route
+          path="/reset-password"
+          element={session ? <Navigate to="/" replace /> : <ResetPasswordPage />}
+        />
 
         {/* Routes protégées */}
-        {!session ? (
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        ) : (
-          <>
-            <Route path="/" element={<AppLayout />}>
-              <Route index element={<HomePage />} />
-              <Route path="patterns" element={<PatternsPage />} />
-              <Route path="checkin" element={<CheckInPage />} />
-              <Route path="move" element={<MovePage />} />
-            </Route>
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </>
-        )}
+        <Route
+          path="/"
+          element={session ? <AppLayout /> : <Navigate to="/login" replace />}
+        >
+          <Route index element={<HomePage />} />
+          <Route path="patterns" element={<PatternsPage />} />
+          <Route path="checkin" element={<CheckInPage />} />
+          <Route path="move" element={<MovePage />} />
+        </Route>
+        <Route
+          path="/settings"
+          element={session ? <SettingsPage /> : <Navigate to="/login" replace />}
+        />
+
+        {/* Fallback */}
+        <Route
+          path="*"
+          element={<Navigate to={session ? "/" : "/login"} replace />}
+        />
       </Routes>
     </BrowserRouter>
   )

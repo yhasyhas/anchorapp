@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,7 @@ import { Anchor } from "lucide-react"
 export function LoginPage() {
   const { t } = useTranslation()
   const { signIn } = useAuth()
+  const navigate = useNavigate()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -21,7 +22,12 @@ export function LoginPage() {
     setError("")
     setLoading(true)
     const { error } = await signIn(email, password)
-    if (error) setError(error)
+    if (error) {
+      setError(error)
+    } else {
+      // ✅ REDIRECTION APRÈS LOGIN RÉUSSI
+      navigate("/", { replace: true })
+    }
     setLoading(false)
   }
 
@@ -60,15 +66,9 @@ export function LoginPage() {
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
-              {t("auth.login")}
+              {loading ? "..." : t("auth.login")}
             </Button>
           </form>
-          {/* <p className="mt-4 text-center text-sm text-muted-foreground">
-            {t("auth.no_account")}{" "}
-            <Link to="/register" className="text-primary underline">
-              {t("auth.register")}
-            </Link>
-          </p> */}
           <div className="mt-4 space-y-2 text-center">
             <Link
               to="/forgot-password"

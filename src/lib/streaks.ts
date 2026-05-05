@@ -12,13 +12,13 @@ export function calculateStreaks(moods: MoodLog[], anchors: DailyAnchor[]): Stre
   const sortedMoods = [...moods].sort((a, b) => a.date.localeCompare(b.date))
   const sortedAnchors = [...anchors].sort((a, b) => a.date.localeCompare(b.date))
 
-  // ─── Mood Streaks ───
+  // ─── Mood Streaks (Option A : n'importe quelle humeur compte) ───
   let bestMoodStreak = 0
-  let currentMoodStreak = 0
   let tempMoodStreak = 0
 
   for (const m of sortedMoods) {
-    if (m.mood === "great" || m.mood === "okay") {
+    // ✅ Toute humeur logguée compte : great, okay, meh, low, stressed
+    if (m.mood) {
       tempMoodStreak++
       bestMoodStreak = Math.max(bestMoodStreak, tempMoodStreak)
     } else {
@@ -26,25 +26,26 @@ export function calculateStreaks(moods: MoodLog[], anchors: DailyAnchor[]): Stre
     }
   }
 
-  // Current mood streak = depuis le dernier jour en arrière
+  // Current mood streak = depuis aujourd'hui en arrière
   const today = new Date().toISOString().split("T")[0]
   const reversedMoods = [...sortedMoods].reverse()
-  currentMoodStreak = 0
+  let currentMoodStreak = 0
   for (const m of reversedMoods) {
-    if (m.date > today) continue // future
-    if (m.mood === "great" || m.mood === "okay") {
+    if (m.date > today) continue // ignore le futur
+    if (m.mood) {
+      // ✅ N'importe quelle humeur
       currentMoodStreak++
     } else {
       break
     }
   }
 
-  // ─── Anchor Streaks ───
+  // ─── Anchor Streaks (3/3 cochées) ───
   let bestAnchorStreak = 0
-  let currentAnchorStreak = 0
   let tempAnchorStreak = 0
 
   for (const a of sortedAnchors) {
+    // ✅ Les 3 ancres doivent être complétées
     if (a.future_completed && a.mindbody_completed && a.life_completed) {
       tempAnchorStreak++
       bestAnchorStreak = Math.max(bestAnchorStreak, tempAnchorStreak)
@@ -54,7 +55,7 @@ export function calculateStreaks(moods: MoodLog[], anchors: DailyAnchor[]): Stre
   }
 
   const reversedAnchors = [...sortedAnchors].reverse()
-  currentAnchorStreak = 0
+  let currentAnchorStreak = 0
   for (const a of reversedAnchors) {
     if (a.date > today) continue
     if (a.future_completed && a.mindbody_completed && a.life_completed) {

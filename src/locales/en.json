@@ -129,5 +129,14 @@
     "done": "You are anchored",
     "cycle": "Cycle",
     "skip": "Skip ritual"
+  },
+  "companion": {
+    "title": "Your morning insight",
+    "loading": "Loading your morning insight...",
+    "default_message": "Good morning — set one gentle intention for today."
+  },
+  "streaks": {
+    "mood": "Mood streak",
+    "anchors": "Anchor streak"
   }
 }

@@ -129,5 +129,14 @@
     "done": "Umeimarishwa",
     "cycle": "Mzunguko",
     "skip": "Ruka mafunjo"
+  },
+  "companion": {
+    "title": "Maarifa yako ya asubuhi",
+    "loading": "Inapakia maarifa ya asubuhi...",
+    "default_message": "Habari za asubuhi — weka nia moja ya upole kwa leo."
+  },
+  "streaks": {
+    "mood": "Mfululizo wa hisia",
+    "anchors": "Mfululizo wa nanga"
   }
 }

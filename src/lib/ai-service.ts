@@ -291,6 +291,63 @@ function buildPatternDataDev(moods: MoodLog[], anchors: DailyAnchor[], checkIns?
   }
 }
 
+// ==================== COMPANION : Message du matin ====================
+
+export async function generateCompanionMessage(
+  yesterdayCheckIn: Partial<CheckIn> | null,
+  yesterdayMood: MoodLog | null,
+  todayIntention: string,
+  language: "en" | "sw" = "en"
+): Promise<string> {
+  if (!isOnline()) {
+    return language === "sw"
+      ? "Habari za asubuhi — weka nia moja ya upole kwa leo."
+      : "Good morning — set one gentle intention for today."
+  }
+
+  // 🚀 PROD : appel Edge Function
+  if (!import.meta.env.DEV) {
+    try {
+      const response = await fetch("/api/insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "companion",
+          yesterdayMood: yesterdayMood?.mood || null,
+          yesterdayCheckIn: {
+            what_felt_real: yesterdayCheckIn?.what_felt_real || "",
+            what_matters: yesterdayCheckIn?.what_matters || "",
+          },
+          todayIntention,
+          language,
+        }),
+      })
+
+      if (!response.ok) throw new Error("companion_failed")
+      const json = await response.json()
+      return json.message
+    } catch {
+      // Fallback local si l'IA est down
+      return getLocalCompanionFallback(yesterdayMood?.mood, language)
+    }
+  }
+
+  // 💻 DEV : fallback local
+  return getLocalCompanionFallback(yesterdayMood?.mood, language)
+}
+
+function getLocalCompanionFallback(mood: string | undefined, language: "en" | "sw"): string {
+  if (language === "sw") {
+    if (mood === "low" || mood === "stressed") return "Jana lilikuwa zito — leo, ruhusa ya kusonga polepole."
+    if (mood === "great" || mood === "okay") return "Jana ulifanya vizuri — leo, endelea na mwendo huo wa upole."
+    return "Habari za asubuhi — weka nia moja ya upole kwa leo."
+  }
+
+  if (mood === "low" || mood === "stressed") return "Yesterday was heavy — today, permission to move slowly."
+  if (mood === "great" || mood === "okay") return "Yesterday you did well — today, keep that gentle pace."
+  return "Good morning — set one gentle intention for today."
+}
+
 // ==================== CACHE & PERSISTENCE ====================
 
 const AI_INSIGHTS_CACHE_KEY = "anchor_ai_insights_cache"

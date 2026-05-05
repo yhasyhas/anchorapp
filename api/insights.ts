@@ -21,62 +21,131 @@ export default async function handler(request: Request) {
 
   try {
     const body = await request.json()
-    const { moods, anchors, checkIns } = body
+    const { type = "insights" } = body
 
-    const data = buildPatternData(moods, anchors, checkIns)
-
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama-3.1-8b-instant",
-        messages: [
-          { role: "system", content: buildSystemPrompt() },
-          {
-            role: "user",
-            content: `Analyze these patterns and generate 3 personalized insights:\n\n${JSON.stringify(data, null, 2)}`,
-          },
-        ],
-        temperature: 0.4,
-        max_tokens: 400,
-        response_format: { type: "json_object" },
-      }),
-    })
-
-    if (!response.ok) {
-      const err = await response.text()
-      return new Response(
-        JSON.stringify({ error: `Groq error: ${response.status}`, details: err }),
-        { status: 502, headers: { "Content-Type": "application/json" } }
-      )
+    if (type === "companion") {
+      return await handleCompanion(body, GROQ_API_KEY)
     }
 
-    const json = await response.json()
-    const content = json.choices?.[0]?.message?.content
-
-    if (!content) {
-      return new Response(JSON.stringify({ error: "Empty response from AI" }), {
-        status: 502,
-        headers: { "Content-Type": "application/json" },
-      })
-    }
-
-    const parsed = JSON.parse(content)
-    const insights = Array.isArray(parsed) ? parsed : parsed.insights || []
-
-    return new Response(JSON.stringify({ insights: insights.slice(0, 3) }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    })
+    return await handleInsights(body, GROQ_API_KEY)
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message || "Unknown error" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     })
   }
+}
+
+async function handleInsights(body: any, apiKey: string) {
+  const { moods, anchors, checkIns } = body
+  const data = buildPatternData(moods, anchors, checkIns)
+
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "llama-3.1-8b-instant",
+      messages: [
+        { role: "system", content: buildSystemPrompt() },
+        {
+          role: "user",
+          content: `Analyze these patterns and generate 3 personalized insights:\n\n${JSON.stringify(data, null, 2)}`,
+        },
+      ],
+      temperature: 0.4,
+      max_tokens: 400,
+      response_format: { type: "json_object" },
+    }),
+  })
+
+  if (!response.ok) {
+    const err = await response.text()
+    return new Response(
+      JSON.stringify({ error: `Groq error: ${response.status}`, details: err }),
+      { status: 502, headers: { "Content-Type": "application/json" } }
+    )
+  }
+
+  const json = await response.json()
+  const content = json.choices?.[0]?.message?.content
+  if (!content) {
+    return new Response(JSON.stringify({ error: "Empty response from AI" }), {
+      status: 502,
+      headers: { "Content-Type": "application/json" },
+    })
+  }
+
+  const parsed = JSON.parse(content)
+  const insights = Array.isArray(parsed) ? parsed : parsed.insights || []
+
+  return new Response(JSON.stringify({ insights: insights.slice(0, 3) }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  })
+}
+
+async function handleCompanion(body: any, apiKey: string) {
+  const { yesterdayMood, yesterdayCheckIn, todayIntention, language = "en" } = body
+
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "llama-3.1-8b-instant",
+      messages: [
+        {
+          role: "system",
+          content: `You are Anchor, a gentle morning companion. Write ONE short, warm sentence (max 15 words) to greet the user this morning.
+
+Rules:
+- Warm, spiritual but not religious, like a wise friend
+- If they carried something heavy, be extra gentle
+- If they had a good day, celebrate it subtly
+- Suggest one tiny intention for today
+- Max 15 words
+- Respond in ${language === "sw" ? "Swahili" : "English"}
+
+Examples:
+- "Yesterday you chose Peace — let it carry you gently through today."
+- "You felt heavy last night. Today, permission to move slowly."
+- "Clarity called you three times. Today, listen closer."`,
+        },
+        {
+          role: "user",
+          content: `Yesterday's context:
+- Mood: ${yesterdayMood || "unknown"}
+- What felt real: ${yesterdayCheckIn?.what_felt_real || "none"}
+- What matters: ${yesterdayCheckIn?.what_matters || "none"}
+- Today's intention: ${todayIntention || "none"}
+
+Generate one warm morning sentence.`,
+        },
+      ],
+      temperature: 0.5,
+      max_tokens: 100,
+    }),
+  })
+
+  if (!response.ok) {
+    return new Response(JSON.stringify({ message: "Good morning — set a gentle intention for today." }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })
+  }
+
+  const json = await response.json()
+  const message = json.choices?.[0]?.message?.content?.trim() || "Good morning — set a gentle intention for today."
+
+  return new Response(JSON.stringify({ message }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  })
 }
 
 function buildSystemPrompt(): string {

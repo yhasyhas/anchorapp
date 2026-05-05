@@ -3,13 +3,15 @@ import { useTranslation } from "react-i18next"
 import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
 import { addToSyncQueue, isOnline, setLocalData, getLocalData } from "@/lib/offline-sync"
+import { getDailyQuestions } from "@/lib/checkin-questions"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Heart, Moon, Mic, Square, Play, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { moodConfig } from "@/lib/constants"
-import type { CheckIn } from "@/types"
+import type { CheckIn, MoodType } from "@/types"
 import { EveningReleaseAnimation } from "@/components/anchor/evening-release-animation"
 
 function todayStr(): string {
@@ -17,7 +19,7 @@ function todayStr(): string {
 }
 
 export function CheckInPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { user } = useAuth()
   const [checkIn, setCheckIn] = useState<Partial<CheckIn>>({
     what_matters: "",
@@ -28,6 +30,9 @@ export function CheckInPage() {
   })
   const [saved, setSaved] = useState(false)
   const [released, setReleased] = useState(false)
+
+  // ─── Questions rotatives du jour ───
+  const [dailyQuestions, setDailyQuestions] = useState<[string, string]>(["", ""])
 
   // Voice note states
   const [isRecording, setIsRecording] = useState(false)
@@ -42,8 +47,25 @@ export function CheckInPage() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
-    if (user) loadCheckIn()
+    if (user) {
+      loadDailyQuestions()
+      loadCheckIn()
+    }
   }, [user])
+
+  function loadDailyQuestions() {
+    if (!user) return
+    const key = `anchor_checkin_qs_${user.id}_${todayStr()}`
+    const cached = getLocalData<[string, string]>(key)
+
+    if (cached && cached[0] && cached[1]) {
+      setDailyQuestions(cached)
+    } else {
+      const qs = getDailyQuestions(user.id, todayStr(), i18n.language as "en" | "sw")
+      setLocalData(key, qs)
+      setDailyQuestions(qs)
+    }
+  }
 
   async function loadCheckIn() {
     if (!user) return
@@ -223,6 +245,8 @@ export function CheckInPage() {
     }
   }, [])
 
+  const [q1, q2] = dailyQuestions
+
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <div>
@@ -238,7 +262,7 @@ export function CheckInPage() {
         <CardContent className="p-5">
           <div className="mb-3 flex items-center gap-2">
             <Moon className="h-4 w-4 text-primary" />
-            <p className="text-sm font-medium text-foreground">How are you feeling now?</p>
+            <p className="text-sm font-medium text-foreground">{t("checkin.evening_mood_label")}</p>
           </div>
           <div className="flex justify-between gap-2">
             {moodConfig.map(({ key, emoji, color }) => (
@@ -260,12 +284,17 @@ export function CheckInPage() {
         </CardContent>
       </Card>
 
-      {/* Reflection Cards */}
+      {/* 🌿 Reflection 1 — Question rotative */}
       <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
         <CardContent className="p-5">
-          <div className="mb-2 flex items-center gap-2">
-            <span>&#x1F33F;</span>
-            <p className="text-sm font-medium text-foreground">{t("checkin.what_matters")}</p>
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span>&#x1F33F;</span>
+              <p className="text-sm font-medium text-foreground">{q1}</p>
+            </div>
+            <Badge variant="secondary" className="text-[10px]">
+              {t("checkin.reflection")} 1
+            </Badge>
           </div>
           <Textarea
             value={checkIn.what_matters ?? ""}
@@ -276,11 +305,17 @@ export function CheckInPage() {
         </CardContent>
       </Card>
 
+      {/* 🌙 Reflection 2 — Question rotative */}
       <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
         <CardContent className="p-5">
-          <div className="mb-2 flex items-center gap-2">
-            <span>&#x2601;&#xFE0F;</span>
-            <p className="text-sm font-medium text-foreground">{t("checkin.what_avoiding")}</p>
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span>&#x2601;&#xFE0F;</span>
+              <p className="text-sm font-medium text-foreground">{q2}</p>
+            </div>
+            <Badge variant="secondary" className="text-[10px]">
+              {t("checkin.reflection")} 2
+            </Badge>
           </div>
           <Textarea
             value={checkIn.what_avoiding ?? ""}
@@ -291,11 +326,17 @@ export function CheckInPage() {
         </CardContent>
       </Card>
 
+      {/* ✨ Reflection 3 — Toujours "What felt real" */}
       <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
         <CardContent className="p-5">
-          <div className="mb-2 flex items-center gap-2">
-            <span>&#x1F338;</span>
-            <p className="text-sm font-medium text-foreground">{t("checkin.what_felt_real")}</p>
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span>&#x1F338;</span>
+              <p className="text-sm font-medium text-foreground">{t("checkin.what_felt_real")}</p>
+            </div>
+            <Badge variant="secondary" className="text-[10px]">
+              {t("checkin.reflection")} 3
+            </Badge>
           </div>
           <Textarea
             value={checkIn.what_felt_real ?? ""}

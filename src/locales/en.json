@@ -45,7 +45,9 @@
     "evening_release": "Let go of what is not yours to carry tonight.",
     "release_button": "I release",
     "save": "Save Reflection",
-    "saved": "Reflection saved"
+    "saved": "Reflection saved",
+    "evening_mood_label": "How are you feeling now?",
+    "reflection": "Reflection"
   },
   "move": {
     "title": "Move",

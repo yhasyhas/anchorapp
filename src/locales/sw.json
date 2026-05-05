@@ -45,7 +45,9 @@
     "evening_release": "Acha kila kitu ambacho si chako kubeba usiku huu.",
     "release_button": "Naachilia",
     "save": "Hifadhi Tafakari",
-    "saved": "Tafakari imehifadhiwa"
+    "saved": "Tafakari imehifadhiwa",
+    "evening_mood_label": "Unahisi vipi sasa?",
+    "reflection": "Tafakari"
   },
   "move": {
     "title": "Sogeza",

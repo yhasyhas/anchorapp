@@ -138,5 +138,14 @@
   "streaks": {
     "mood": "Mfululizo wa hisia",
     "anchors": "Mfululizo wa nanga"
+  },
+  "nudge": {
+    "mood_title": "Unahisi vipi?",
+    "mood_message": "Kurekodi hali yako ya asubuhi husaidia Anchor kuelewa safari yako na kutoa maarifa bora. Inachukua sekunde moja tu.",
+    "intention_title": "Weka nia",
+    "intention_message": "Nia huimarisha siku yako. Haihitaji kuwa kubwa — hata 'Amani' au 'Uelewa' inatosha.",
+    "choose_mood": "Chagua hisia yangu",
+    "choose_intention": "Chagua nia",
+    "continue_anyway": "Endelea hivyo hivyo"
   }
 }

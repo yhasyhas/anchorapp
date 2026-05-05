@@ -8,7 +8,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Heart, Moon, Mic, Square, Play, Trash2 } from "lucide-react"
 import { toast } from "sonner"
-import type { CheckIn } from "@/types"
+import { moodConfig } from "@/lib/constants"
+import type { CheckIn, MoodType } from "@/types"
 import { EveningReleaseAnimation } from "@/components/anchor/evening-release-animation"
 
 function todayStr(): string {
@@ -23,6 +24,7 @@ export function CheckInPage() {
     what_avoiding: "",
     what_felt_real: "",
     evening_release: "",
+    evening_mood: "",
   })
   const [saved, setSaved] = useState(false)
   const [released, setReleased] = useState(false)
@@ -105,8 +107,6 @@ export function CheckInPage() {
 
     try {
       let voiceUrl = audioUrl
-
-      // Upload vers Supabase Storage si nouveau blob
       if (audioBlob) {
         const uploaded = await uploadVoiceNote(audioBlob)
         if (uploaded) voiceUrl = uploaded
@@ -119,6 +119,7 @@ export function CheckInPage() {
         what_avoiding: checkIn.what_avoiding ?? "",
         what_felt_real: checkIn.what_felt_real ?? "",
         evening_release: checkIn.evening_release ?? "",
+        evening_mood: checkIn.evening_mood ?? "",
         voice_note_url: voiceUrl ?? "",
       }
 
@@ -132,9 +133,7 @@ export function CheckInPage() {
         addToSyncQueue({ table: "check_ins", action: "upsert", data: record, conflictKey: "user_id,date" })
       }
 
-      // Nettoyer le blob local après sauvegarde réussie
       setAudioBlob(null)
-
       setSaved(true)
       toast.success(t("checkin.saved"))
       setTimeout(() => setSaved(false), 2000)
@@ -167,10 +166,9 @@ export function CheckInPage() {
       }
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" })
-        setAudioBlob(audioBlob)
-        // Créer une URL locale temporaire pour la preview
-        setAudioUrl(URL.createObjectURL(audioBlob))
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" })
+        setAudioBlob(blob)
+        setAudioUrl(URL.createObjectURL(blob))
         stream.getTracks().forEach((track) => track.stop())
       }
 
@@ -234,6 +232,33 @@ export function CheckInPage() {
         </div>
         <p className="mt-1 text-sm text-muted-foreground">{t("checkin.subtitle")}</p>
       </div>
+
+      {/* 🌙 Evening Mood Selector */}
+      <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+        <CardContent className="p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <Moon className="h-4 w-4 text-primary" />
+            <p className="text-sm font-medium text-foreground">How are you feeling now?</p>
+          </div>
+          <div className="flex justify-between gap-2">
+            {moodConfig.map(({ key, emoji, color }) => (
+              <button
+                key={key}
+                onClick={() => updateField("evening_mood", key)}
+                className={`flex flex-1 flex-col items-center gap-1 rounded-xl p-2.5 transition-all duration-300 ${
+                  checkIn.evening_mood === key
+                    ? "ring-2 ring-primary ring-offset-2 scale-110 shadow-md"
+                    : "hover:scale-105 hover:shadow-sm"
+                }`}
+                style={{ backgroundColor: color }}
+              >
+                <span className="text-xl">{emoji}</span>
+                <span className="text-[10px] font-medium text-foreground">{t(`mood.${key}`)}</span>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Reflection Cards */}
       <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">

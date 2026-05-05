@@ -38,6 +38,7 @@ export interface CheckIn {
   what_felt_real: string
   voice_note_url: string | null
   evening_release: string
+  evening_mood: string | null  // ← AJOUTÉ
   created_at: string
 }
 

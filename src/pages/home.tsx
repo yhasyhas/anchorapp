@@ -18,6 +18,7 @@ import type { DailyAnchor, MoodType, CheckIn, MoodLog } from "@/types"
 import { OnboardingModal } from "@/components/onboarding/onboarding-modal"
 import { MorningRitual } from "@/components/anchor/morning-ritual"
 import { ConfettiBurst } from "@/components/anchor/confetti"
+import { GentleNudgeModal } from "@/components/anchor/gentle-nudge-modal"
 
 function getGreetingKey(): string {
   const hour = new Date().getHours()
@@ -58,14 +59,10 @@ export function HomePage() {
     created_at: "",
   })
 
-  // ─── Mode du jour : 'planning' (matin) ou 'tracking' (journée) ───
   const [dayMode, setDayMode] = useState<"planning" | "tracking">("planning")
-
-  // ─── Contexte 30 jours pour recalcul instantané ───
   const [recentMoods, setRecentMoods] = useState<MoodLog[]>([])
   const [recentAnchors, setRecentAnchors] = useState<DailyAnchor[]>([])
 
-  // ─── Phase 4 States ───
   const [streaks, setStreaks] = useState<StreakData>({
     currentMoodStreak: 0,
     currentAnchorStreak: 0,
@@ -76,6 +73,11 @@ export function HomePage() {
   const [loadingCompanion, setLoadingCompanion] = useState(true)
   const [showConfetti, setShowConfetti] = useState(false)
 
+  // ─── Nudge states ───
+  const [nudgeOpen, setNudgeOpen] = useState(false)
+  const [nudgeType, setNudgeType] = useState<"mood" | "intention">("mood")
+  const [pendingLock, setPendingLock] = useState(false)
+
   useEffect(() => {
     if (user) {
       loadTodayData()
@@ -83,7 +85,6 @@ export function HomePage() {
     }
   }, [user])
 
-  // 🎉 Confetti trigger quand les 3 ancres sont cochées (en mode tracking uniquement)
   useEffect(() => {
     if (dayMode === "tracking" && anchor.future_completed && anchor.mindbody_completed && anchor.life_completed) {
       const celebratedKey = `anchor_celebrated_${todayStr()}`
@@ -166,18 +167,8 @@ export function HomePage() {
       setStreaks(calculateStreaks(moods, anchors))
 
       const [{ data: yCheckIn }, { data: yMood }] = await Promise.all([
-        supabase
-          .from("check_ins")
-          .select("what_matters, what_felt_real")
-          .eq("user_id", user.id)
-          .eq("date", yesterdayStr())
-          .maybeSingle(),
-        supabase
-          .from("mood_logs")
-          .select("mood")
-          .eq("user_id", user.id)
-          .eq("date", yesterdayStr())
-          .maybeSingle(),
+        supabase.from("check_ins").select("what_matters, what_felt_real").eq("user_id", user.id).eq("date", yesterdayStr()).maybeSingle(),
+        supabase.from("mood_logs").select("mood").eq("user_id", user.id).eq("date", yesterdayStr()).maybeSingle(),
       ])
 
       const msg = await generateCompanionMessage(
@@ -213,7 +204,6 @@ export function HomePage() {
     if (navigator.vibrate) navigator.vibrate(50)
 
     const record = { user_id: user.id, date: todayStr(), mood }
-
     const updatedMoods = recentMoods.filter((m) => m.date !== todayStr())
     updatedMoods.push(record as MoodLog)
     setRecentMoods(updatedMoods)
@@ -232,32 +222,18 @@ export function HomePage() {
     }
   }
 
-  // 🔥 NOUVEAU : Si on modifie le texte d'une ancre cochée → on la décoche auto
   async function saveAnchor(updates: Partial<DailyAnchor>) {
     if (!user) return
-
-    // Détection : texte modifié en mode planning alors que c'était coché → on décoche
     const finalUpdates = { ...updates }
+
     if (dayMode === "planning") {
-      if (
-        updates.future_task !== undefined &&
-        updates.future_task !== anchor.future_task &&
-        anchor.future_completed
-      ) {
+      if (updates.future_task !== undefined && updates.future_task !== anchor.future_task && anchor.future_completed) {
         finalUpdates.future_completed = false
       }
-      if (
-        updates.mindbody_task !== undefined &&
-        updates.mindbody_task !== anchor.mindbody_task &&
-        anchor.mindbody_completed
-      ) {
+      if (updates.mindbody_task !== undefined && updates.mindbody_task !== anchor.mindbody_task && anchor.mindbody_completed) {
         finalUpdates.mindbody_completed = false
       }
-      if (
-        updates.life_task !== undefined &&
-        updates.life_task !== anchor.life_task &&
-        anchor.life_completed
-      ) {
+      if (updates.life_task !== undefined && updates.life_task !== anchor.life_task && anchor.life_completed) {
         finalUpdates.life_completed = false
       }
     }
@@ -287,15 +263,52 @@ export function HomePage() {
     }
   }
 
-  function lockDay() {
+  // ─── NUDGE LOGIC ───
+  function attemptLockDay() {
     if (!user) return
     if (!anchor.future_task && !anchor.mindbody_task && !anchor.life_task) {
       toast.error("Set at least one anchor before starting your day")
       return
     }
+
+    // Vérifier humeur
+    if (!selectedMood) {
+      setNudgeType("mood")
+      setNudgeOpen(true)
+      setPendingLock(true)
+      return
+    }
+
+    // Vérifier intention
+    if (!anchor.daily_intention) {
+      setNudgeType("intention")
+      setNudgeOpen(true)
+      setPendingLock(true)
+      return
+    }
+
+    // Tout est bon
+    doLockDay()
+  }
+
+  function doLockDay() {
     setDayMode("tracking")
-    setLocalData(getDayModeKey(user.id), "tracking")
+    setLocalData(getDayModeKey(user?.id || ""), "tracking")
     toast.success("Your day is set — go gently!")
+    setPendingLock(false)
+  }
+
+  function handleNudgeChoose() {
+    setNudgeOpen(false)
+    // L'utilisateur reste sur la page pour remplir
+    setPendingLock(false)
+  }
+
+  function handleNudgeContinue() {
+    setNudgeOpen(false)
+    if (pendingLock) {
+      doLockDay()
+    }
   }
 
   function unlockDay() {
@@ -314,6 +327,15 @@ export function HomePage() {
       <OnboardingModal />
       <MorningRitual onComplete={() => {}} />
 
+      {/* Nudge Modal */}
+      <GentleNudgeModal
+        open={nudgeOpen}
+        onClose={() => setNudgeOpen(false)}
+        onChoose={handleNudgeChoose}
+        onContinue={handleNudgeContinue}
+        type={nudgeType}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -329,7 +351,7 @@ export function HomePage() {
         </Link>
       </div>
 
-      {/* 🤖 Companion Card */}
+      {/* 🤖 Companion */}
       <Card className="border-0 bg-gradient-to-br from-sage-light/60 to-lavender/30 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
@@ -348,7 +370,7 @@ export function HomePage() {
         </CardContent>
       </Card>
 
-      {/* 🔥 Streaks Bar */}
+      {/* 🔥 Streaks */}
       <div className="flex gap-3">
         <Card className={`flex-1 border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] ${streaks.currentMoodStreak > 0 ? "bg-peach/30" : "bg-muted/30"}`}>
           <CardContent className="flex items-center gap-2 p-3">
@@ -435,9 +457,8 @@ export function HomePage() {
             </TooltipProvider>
           </div>
 
-          {/* Toggle Mode */}
           {dayMode === "planning" && hasAnyAnchorText && (
-            <Button size="sm" onClick={lockDay} className="gap-1.5 text-xs">
+            <Button size="sm" onClick={attemptLockDay} className="gap-1.5 text-xs">
               <Lock className="h-3.5 w-3.5" />
               Start my day
             </Button>
@@ -450,7 +471,6 @@ export function HomePage() {
           )}
         </div>
 
-        {/* Mode Planning → Inputs éditables */}
         {dayMode === "planning" && (
           <div className="space-y-3">
             <PlanningAnchorCard
@@ -479,7 +499,7 @@ export function HomePage() {
             />
 
             {hasAnyAnchorText && (
-              <Button onClick={lockDay} className="w-full" size="lg">
+              <Button onClick={attemptLockDay} className="w-full" size="lg">
                 <Lock className="mr-2 h-4 w-4" />
                 Lock my anchors & start the day
               </Button>
@@ -487,7 +507,6 @@ export function HomePage() {
           </div>
         )}
 
-        {/* Mode Tracking → Checkboxes seules */}
         {dayMode === "tracking" && (
           <div className="space-y-3">
             <TrackingAnchorCard
@@ -542,7 +561,7 @@ export function HomePage() {
   )
 }
 
-/* ─── Planning Card (matin) : Input éditable, pas de checkbox ─── */
+/* ─── Planning Card ─── */
 interface PlanningAnchorCardProps {
   borderColor: string
   icon: string
@@ -577,7 +596,7 @@ function PlanningAnchorCard({ borderColor, icon, title, subtitle, task, onTaskCh
   )
 }
 
-/* ─── Tracking Card (journée) : Texte en lecture seule + checkbox ─── */
+/* ─── Tracking Card ─── */
 interface TrackingAnchorCardProps {
   borderColor: string
   icon: string

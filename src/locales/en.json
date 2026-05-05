@@ -138,5 +138,14 @@
   "streaks": {
     "mood": "Mood streak",
     "anchors": "Anchor streak"
+  },
+  "nudge": {
+    "mood_title": "How are you feeling?",
+    "mood_message": "Logging your morning mood helps Anchor understand your journey and offer better insights. It only takes a second.",
+    "intention_title": "Set an intention",
+    "intention_message": "An intention anchors your day. It doesn't have to be big — even 'Peace' or 'Clarity' is enough.",
+    "choose_mood": "Choose my mood",
+    "choose_intention": "Choose an intention",
+    "continue_anyway": "Continue anyway"
   }
 }

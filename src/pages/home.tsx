@@ -116,7 +116,6 @@ export function HomePage() {
         if (data) {
           setAnchor(data)
           setLocalData(localKey, data)
-          // Si des données existent déjà et qu'au moins une ancre est cochée → on passe en tracking
           if (savedMode) {
             setDayMode(savedMode)
           } else if (data.future_completed || data.mindbody_completed || data.life_completed) {
@@ -233,9 +232,37 @@ export function HomePage() {
     }
   }
 
+  // 🔥 NOUVEAU : Si on modifie le texte d'une ancre cochée → on la décoche auto
   async function saveAnchor(updates: Partial<DailyAnchor>) {
     if (!user) return
-    const updated = { ...anchor, ...updates, user_id: user.id, date: todayStr() }
+
+    // Détection : texte modifié en mode planning alors que c'était coché → on décoche
+    const finalUpdates = { ...updates }
+    if (dayMode === "planning") {
+      if (
+        updates.future_task !== undefined &&
+        updates.future_task !== anchor.future_task &&
+        anchor.future_completed
+      ) {
+        finalUpdates.future_completed = false
+      }
+      if (
+        updates.mindbody_task !== undefined &&
+        updates.mindbody_task !== anchor.mindbody_task &&
+        anchor.mindbody_completed
+      ) {
+        finalUpdates.mindbody_completed = false
+      }
+      if (
+        updates.life_task !== undefined &&
+        updates.life_task !== anchor.life_task &&
+        anchor.life_completed
+      ) {
+        finalUpdates.life_completed = false
+      }
+    }
+
+    const updated = { ...anchor, ...finalUpdates, user_id: user.id, date: todayStr() }
     setAnchor(updated)
 
     const localKey = `anchor_${user.id}_${todayStr()}`

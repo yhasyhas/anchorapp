@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Settings, Info, Heart, Flame, Anchor as AnchorIcon, Sparkles } from "lucide-react"
+import { Settings, Info, Heart, Flame, Anchor as AnchorIcon, Sparkles, Lock, Pencil } from "lucide-react"
 import { toast } from "sonner"
 import { moodConfig, intentions } from "@/lib/constants"
 import type { DailyAnchor, MoodType, CheckIn, MoodLog } from "@/types"
@@ -36,6 +36,10 @@ function yesterdayStr(): string {
   return d.toISOString().split("T")[0]
 }
 
+function getDayModeKey(userId: string): string {
+  return `anchor_day_mode_${userId}_${todayStr()}`
+}
+
 export function HomePage() {
   const { t, i18n } = useTranslation()
   const { user, profile } = useAuth()
@@ -54,6 +58,9 @@ export function HomePage() {
     created_at: "",
   })
 
+  // ─── Mode du jour : 'planning' (matin) ou 'tracking' (journée) ───
+  const [dayMode, setDayMode] = useState<"planning" | "tracking">("planning")
+
   // ─── Contexte 30 jours pour recalcul instantané ───
   const [recentMoods, setRecentMoods] = useState<MoodLog[]>([])
   const [recentAnchors, setRecentAnchors] = useState<DailyAnchor[]>([])
@@ -70,13 +77,15 @@ export function HomePage() {
   const [showConfetti, setShowConfetti] = useState(false)
 
   useEffect(() => {
-    loadTodayData()
-    loadContextData()
+    if (user) {
+      loadTodayData()
+      loadContextData()
+    }
   }, [user])
 
-  // 🎉 Confetti trigger quand les 3 ancres sont cochées
+  // 🎉 Confetti trigger quand les 3 ancres sont cochées (en mode tracking uniquement)
   useEffect(() => {
-    if (anchor.future_completed && anchor.mindbody_completed && anchor.life_completed) {
+    if (dayMode === "tracking" && anchor.future_completed && anchor.mindbody_completed && anchor.life_completed) {
       const celebratedKey = `anchor_celebrated_${todayStr()}`
       if (!localStorage.getItem(celebratedKey)) {
         setShowConfetti(true)
@@ -84,13 +93,15 @@ export function HomePage() {
         setTimeout(() => setShowConfetti(false), 2000)
       }
     }
-  }, [anchor.future_completed, anchor.mindbody_completed, anchor.life_completed])
+  }, [anchor.future_completed, anchor.mindbody_completed, anchor.life_completed, dayMode])
 
   async function loadTodayData() {
     if (!user) return
     try {
       const localKey = `anchor_${user.id}_${todayStr()}`
       const cached = getLocalData<DailyAnchor>(localKey)
+      const modeKey = getDayModeKey(user.id)
+      const savedMode = getLocalData<"planning" | "tracking">(modeKey)
 
       if (isOnline()) {
         const { data, error } = await supabase
@@ -105,8 +116,15 @@ export function HomePage() {
         if (data) {
           setAnchor(data)
           setLocalData(localKey, data)
+          // Si des données existent déjà et qu'au moins une ancre est cochée → on passe en tracking
+          if (savedMode) {
+            setDayMode(savedMode)
+          } else if (data.future_completed || data.mindbody_completed || data.life_completed) {
+            setDayMode("tracking")
+          }
         } else if (cached) {
           setAnchor(cached)
+          if (savedMode) setDayMode(savedMode)
         }
 
         const { data: moodData, error: moodError } = await supabase
@@ -120,6 +138,8 @@ export function HomePage() {
         if (moodData) setSelectedMood(moodData.mood as MoodType)
       } else if (cached) {
         setAnchor(cached)
+        const savedMode = getLocalData<"planning" | "tracking">(modeKey)
+        if (savedMode) setDayMode(savedMode)
       }
     } catch (err: any) {
       console.error("Failed to load today's data:", err)
@@ -129,7 +149,6 @@ export function HomePage() {
 
   async function loadContextData() {
     if (!user) return
-
     try {
       const thirtyAgo = new Date()
       thirtyAgo.setDate(thirtyAgo.getDate() - 30)
@@ -181,7 +200,6 @@ export function HomePage() {
     }
   }
 
-  // 🔄 Recalcule les streaks à partir du contexte local
   function refreshStreaks(updatedMoods?: MoodLog[], updatedAnchors?: DailyAnchor[]) {
     const m = updatedMoods || recentMoods
     const a = updatedAnchors || recentAnchors
@@ -193,12 +211,10 @@ export function HomePage() {
   async function handleMoodSelect(mood: MoodType) {
     if (!user) return
     setSelectedMood(mood)
-
     if (navigator.vibrate) navigator.vibrate(50)
 
     const record = { user_id: user.id, date: todayStr(), mood }
 
-    // 🔥 Mise à jour optimiste du contexte local
     const updatedMoods = recentMoods.filter((m) => m.date !== todayStr())
     updatedMoods.push(record as MoodLog)
     setRecentMoods(updatedMoods)
@@ -225,7 +241,6 @@ export function HomePage() {
     const localKey = `anchor_${user.id}_${todayStr()}`
     setLocalData(localKey, updated)
 
-    // 🔥 Mise à jour optimiste du contexte local pour streaks instantanés
     const updatedAnchors = recentAnchors.filter((a) => a.date !== todayStr())
     updatedAnchors.push(updated)
     setRecentAnchors(updatedAnchors)
@@ -245,9 +260,26 @@ export function HomePage() {
     }
   }
 
-  const firstName = profile?.full_name?.split(" ")[0] ?? ""
+  function lockDay() {
+    if (!user) return
+    if (!anchor.future_task && !anchor.mindbody_task && !anchor.life_task) {
+      toast.error("Set at least one anchor before starting your day")
+      return
+    }
+    setDayMode("tracking")
+    setLocalData(getDayModeKey(user.id), "tracking")
+    toast.success("Your day is set — go gently!")
+  }
 
+  function unlockDay() {
+    if (!user) return
+    setDayMode("planning")
+    setLocalData(getDayModeKey(user.id), "planning")
+  }
+
+  const firstName = profile?.full_name?.split(" ")[0] ?? ""
   const allAnchorsDone = anchor.future_completed && anchor.mindbody_completed && anchor.life_completed
+  const hasAnyAnchorText = anchor.future_task || anchor.mindbody_task || anchor.life_task
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
@@ -357,56 +389,117 @@ export function HomePage() {
         </CardContent>
       </Card>
 
-      {/* 3 Anchors */}
+      {/* ─── 3 ANCHRES ─── */}
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <h2 className="font-heading text-lg font-semibold">{t("home.anchors_title")} &#x2693;</h2>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="text-muted-foreground hover:text-foreground transition-colors">
-                  <Info className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p className="text-xs">{t("home.why_three")}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="font-heading text-lg font-semibold">{t("home.anchors_title")} &#x2693;</h2>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="text-muted-foreground hover:text-foreground transition-colors">
+                    <Info className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">{t("home.why_three")}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+
+          {/* Toggle Mode */}
+          {dayMode === "planning" && hasAnyAnchorText && (
+            <Button size="sm" onClick={lockDay} className="gap-1.5 text-xs">
+              <Lock className="h-3.5 w-3.5" />
+              Start my day
+            </Button>
+          )}
+          {dayMode === "tracking" && (
+            <Button variant="ghost" size="sm" onClick={unlockDay} className="gap-1.5 text-xs text-muted-foreground">
+              <Pencil className="h-3.5 w-3.5" />
+              Edit
+            </Button>
+          )}
         </div>
 
-        <AnchorCard
-          borderColor="#7A8B6E"
-          icon="&#x1F331;"
-          title={t("anchors.future")}
-          subtitle={t("anchors.future_sub")}
-          task={anchor.future_task}
-          completed={anchor.future_completed}
-          onTaskChange={(v) => saveAnchor({ future_task: v })}
-          onCheckChange={(v) => saveAnchor({ future_completed: v })}
-        />
+        {/* Mode Planning → Inputs éditables */}
+        {dayMode === "planning" && (
+          <div className="space-y-3">
+            <PlanningAnchorCard
+              borderColor="#7A8B6E"
+              icon="&#x1F331;"
+              title={t("anchors.future")}
+              subtitle={t("anchors.future_sub")}
+              task={anchor.future_task}
+              onTaskChange={(v) => saveAnchor({ future_task: v })}
+            />
+            <PlanningAnchorCard
+              borderColor="#E8C4C4"
+              icon="&#x1F9E0;"
+              title={t("anchors.mindbody")}
+              subtitle={t("anchors.mindbody_sub")}
+              task={anchor.mindbody_task}
+              onTaskChange={(v) => saveAnchor({ mindbody_task: v })}
+            />
+            <PlanningAnchorCard
+              borderColor="#D4C5E8"
+              icon="&#x1F30D;"
+              title={t("anchors.life")}
+              subtitle={t("anchors.life_sub")}
+              task={anchor.life_task}
+              onTaskChange={(v) => saveAnchor({ life_task: v })}
+            />
 
-        <AnchorCard
-          borderColor="#E8C4C4"
-          icon="&#x1F9E0;"
-          title={t("anchors.mindbody")}
-          subtitle={t("anchors.mindbody_sub")}
-          task={anchor.mindbody_task}
-          completed={anchor.mindbody_completed}
-          onTaskChange={(v) => saveAnchor({ mindbody_task: v })}
-          onCheckChange={(v) => saveAnchor({ mindbody_completed: v })}
-        />
+            {hasAnyAnchorText && (
+              <Button onClick={lockDay} className="w-full" size="lg">
+                <Lock className="mr-2 h-4 w-4" />
+                Lock my anchors & start the day
+              </Button>
+            )}
+          </div>
+        )}
 
-        <AnchorCard
-          borderColor="#D4C5E8"
-          icon="&#x1F30D;"
-          title={t("anchors.life")}
-          subtitle={t("anchors.life_sub")}
-          task={anchor.life_task}
-          completed={anchor.life_completed}
-          onTaskChange={(v) => saveAnchor({ life_task: v })}
-          onCheckChange={(v) => saveAnchor({ life_completed: v })}
-        />
+        {/* Mode Tracking → Checkboxes seules */}
+        {dayMode === "tracking" && (
+          <div className="space-y-3">
+            <TrackingAnchorCard
+              borderColor="#7A8B6E"
+              icon="&#x1F331;"
+              title={t("anchors.future")}
+              subtitle={t("anchors.future_sub")}
+              task={anchor.future_task}
+              completed={anchor.future_completed}
+              onCheckChange={(v) => saveAnchor({ future_completed: v })}
+            />
+            <TrackingAnchorCard
+              borderColor="#E8C4C4"
+              icon="&#x1F9E0;"
+              title={t("anchors.mindbody")}
+              subtitle={t("anchors.mindbody_sub")}
+              task={anchor.mindbody_task}
+              completed={anchor.mindbody_completed}
+              onCheckChange={(v) => saveAnchor({ mindbody_completed: v })}
+            />
+            <TrackingAnchorCard
+              borderColor="#D4C5E8"
+              icon="&#x1F30D;"
+              title={t("anchors.life")}
+              subtitle={t("anchors.life_sub")}
+              task={anchor.life_task}
+              completed={anchor.life_completed}
+              onCheckChange={(v) => saveAnchor({ life_completed: v })}
+            />
+
+            {allAnchorsDone && (
+              <div className="rounded-xl bg-sage-light/60 p-4 text-center">
+                <p className="text-sm font-medium text-primary">
+                  🎉 All anchors anchored! You showed up for yourself today.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Supportive Message */}
@@ -422,27 +515,61 @@ export function HomePage() {
   )
 }
 
-interface AnchorCardProps {
+/* ─── Planning Card (matin) : Input éditable, pas de checkbox ─── */
+interface PlanningAnchorCardProps {
+  borderColor: string
+  icon: string
+  title: string
+  subtitle: string
+  task: string
+  onTaskChange: (value: string) => void
+}
+
+function PlanningAnchorCard({ borderColor, icon, title, subtitle, task, onTaskChange }: PlanningAnchorCardProps) {
+  return (
+    <Card
+      className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]"
+      style={{ borderLeft: `4px solid ${borderColor}` }}
+    >
+      <CardContent className="p-5">
+        <div className="mb-3 flex items-center gap-2">
+          <span className="text-lg">{icon}</span>
+          <div>
+            <p className="text-sm font-semibold text-foreground">{title}</p>
+            <p className="text-xs text-muted-foreground">{subtitle}</p>
+          </div>
+        </div>
+        <Input
+          value={task}
+          onChange={(e) => onTaskChange(e.target.value)}
+          placeholder="What will you do today?"
+          className="border-0 bg-muted/50 px-3 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
+        />
+      </CardContent>
+    </Card>
+  )
+}
+
+/* ─── Tracking Card (journée) : Texte en lecture seule + checkbox ─── */
+interface TrackingAnchorCardProps {
   borderColor: string
   icon: string
   title: string
   subtitle: string
   task: string
   completed: boolean
-  onTaskChange: (value: string) => void
   onCheckChange: (value: boolean) => void
 }
 
-function AnchorCard({
+function TrackingAnchorCard({
   borderColor,
   icon,
   title,
   subtitle,
   task,
   completed,
-  onTaskChange,
   onCheckChange,
-}: AnchorCardProps) {
+}: TrackingAnchorCardProps) {
   return (
     <Card
       className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]"
@@ -454,12 +581,10 @@ function AnchorCard({
       <CardContent className="p-5">
         <div className="mb-2 flex items-center gap-2">
           <span className="text-lg">{icon}</span>
-          <div>
+          <div className="flex-1">
             <p className="text-sm font-semibold text-foreground">{title}</p>
             <p className="text-xs text-muted-foreground">{subtitle}</p>
           </div>
-        </div>
-        <div className="flex items-center gap-3">
           <Checkbox
             checked={completed}
             onCheckedChange={(v) => {
@@ -468,14 +593,14 @@ function AnchorCard({
             }}
             className="h-5 w-5 transition-all duration-200 data-[state=checked]:scale-110 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
           />
-          <Input
-            value={task}
-            onChange={(e) => onTaskChange(e.target.value)}
-            onBlur={() => onTaskChange(task)}
-            placeholder="..."
-            className="border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0 transition-colors"
-          />
         </div>
+        {task ? (
+          <p className={`text-sm pl-1 ${completed ? "text-muted-foreground line-through" : "text-foreground"}`}>
+            {task}
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground italic pl-1">No task set</p>
+        )}
       </CardContent>
     </Card>
   )

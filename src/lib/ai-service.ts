@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase"
+//import { supabase } from "@/lib/supabase"
 import { isOnline, getLocalData } from "@/lib/offline-sync"
 import type { MoodLog, DailyAnchor, CheckIn } from "@/types"
 

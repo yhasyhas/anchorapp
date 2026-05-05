@@ -112,7 +112,7 @@
   "offline": {
     "banner": "You're offline. Changes saved locally."
   },
-    "onboarding": {
+  "onboarding": {
     "welcome_title": "Welcome to Anchor",
     "welcome_text": "A gentle space to align who you are, how you feel, and what you do — one small step at a time.",
     "how_title": "Your Daily Anchors",
@@ -156,5 +156,14 @@
     "anchors": "Anchors",
     "checkin": "Evening",
     "complete": "Day complete — you showed up for yourself."
+  },
+  "timegate": {
+    "evening_title": "The evening will come gently",
+    "evening_message": "Your check-in is a ritual for the night. Come back around 7 PM to reflect on your day.",
+    "evening_sub": "There is no rush. The day is still unfolding.",
+    "anchor_wait": "Take your time — your anchors will be ready when you are.",
+    "time_left": "{{time}} left",
+    "hours_until": "About {{hours}} hour{{plural}} to go",
+    "soon": "Soon"
   }
 }

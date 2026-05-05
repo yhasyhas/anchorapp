@@ -11,12 +11,9 @@ import { Badge } from "@/components/ui/badge"
 import { Heart, Moon, Mic, Square, Play, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { moodConfig } from "@/lib/constants"
+import { isCheckInTime, todayStr } from "@/lib/utils"
 import type { CheckIn } from "@/types"
 import { EveningReleaseAnimation } from "@/components/anchor/evening-release-animation"
-
-function todayStr(): string {
-  return new Date().toISOString().split("T")[0]
-}
 
 export function CheckInPage() {
   const { t, i18n } = useTranslation()
@@ -31,10 +28,8 @@ export function CheckInPage() {
   const [saved, setSaved] = useState(false)
   const [released, setReleased] = useState(false)
 
-  // ─── Questions rotatives du jour ───
   const [dailyQuestions, setDailyQuestions] = useState<[string, string]>(["", ""])
 
-  // Voice note states
   const [isRecording, setIsRecording] = useState(false)
   const [recordingDuration, setRecordingDuration] = useState(0)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
@@ -175,7 +170,6 @@ export function CheckInPage() {
     setCheckIn((prev) => ({ ...prev, [field]: value }))
   }
 
-  // Voice Recording Logic
   const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -246,6 +240,34 @@ export function CheckInPage() {
   }, [])
 
   const [q1, q2] = dailyQuestions
+  const isEvening = isCheckInTime()
+  const hoursUntilEvening = Math.max(0, 19 - new Date().getHours())
+
+  if (!isEvening) {
+    return (
+      <div className="mx-auto max-w-lg flex min-h-[60vh] flex-col items-center justify-center space-y-6 px-6 text-center">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-lavender/30">
+          <Moon className="h-10 w-10 text-lavender" />
+        </div>
+        <div>
+          <h2 className="font-heading text-xl font-semibold text-foreground">
+            {t("timegate.evening_title")}
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+            {t("timegate.evening_message")}
+          </p>
+        </div>
+        <div className="rounded-full bg-secondary px-4 py-2 text-xs font-medium text-muted-foreground">
+          {hoursUntilEvening > 0
+            ? t("timegate.hours_until", { hours: hoursUntilEvening, plural: hoursUntilEvening > 1 ? 's' : '' })
+            : t("timegate.soon")}
+        </div>
+        <p className="text-xs text-muted-foreground italic">
+          {t("timegate.evening_sub")}
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
@@ -257,7 +279,7 @@ export function CheckInPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t("checkin.subtitle")}</p>
       </div>
 
-      {/* 🌙 Evening Mood Selector */}
+      {/* Evening Mood Selector */}
       <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
         <CardContent className="p-5">
           <div className="mb-3 flex items-center gap-2">
@@ -284,7 +306,7 @@ export function CheckInPage() {
         </CardContent>
       </Card>
 
-      {/* 🌿 Reflection 1 — Question rotative */}
+      {/* Reflection 1 */}
       <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
         <CardContent className="p-5">
           <div className="mb-2 flex items-center justify-between">
@@ -305,7 +327,7 @@ export function CheckInPage() {
         </CardContent>
       </Card>
 
-      {/* 🌙 Reflection 2 — Question rotative */}
+      {/* Reflection 2 */}
       <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
         <CardContent className="p-5">
           <div className="mb-2 flex items-center justify-between">
@@ -326,7 +348,7 @@ export function CheckInPage() {
         </CardContent>
       </Card>
 
-      {/* ✨ Reflection 3 — Toujours "What felt real" */}
+      {/* Reflection 3 */}
       <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
         <CardContent className="p-5">
           <div className="mb-2 flex items-center justify-between">

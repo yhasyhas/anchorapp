@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Settings, Info, Heart, Flame, Anchor as AnchorIcon, Sparkles, Lock, Pencil, Sun, Moon } from "lucide-react"
 import { toast } from "sonner"
 import { moodConfig, intentions } from "@/lib/constants"
+import { todayStr, getAnchorLockKey, canCheckAnchors, getTimeUntilAnchorCheck } from "@/lib/utils"
 import type { DailyAnchor, MoodType, CheckIn, MoodLog } from "@/types"
 import { OnboardingModal } from "@/components/onboarding/onboarding-modal"
 import { MorningRitual } from "@/components/anchor/morning-ritual"
@@ -25,10 +26,6 @@ function getGreetingKey(): string {
   if (hour < 12) return "home.greeting"
   if (hour < 18) return "home.greeting_afternoon"
   return "home.greeting_evening"
-}
-
-function todayStr(): string {
-  return new Date().toISOString().split("T")[0]
 }
 
 function yesterdayStr(): string {
@@ -73,10 +70,8 @@ export function HomePage() {
   const [loadingCompanion, setLoadingCompanion] = useState(true)
   const [showConfetti, setShowConfetti] = useState(false)
 
-  // ─── Daily Cycle ───
   const [checkInDone, setCheckInDone] = useState(false)
 
-  // ─── Nudge states ───
   const [nudgeOpen, setNudgeOpen] = useState(false)
   const [nudgeType, setNudgeType] = useState<"mood" | "intention">("mood")
   const [pendingLock, setPendingLock] = useState(false)
@@ -169,7 +164,6 @@ export function HomePage() {
       setRecentAnchors(anchors)
       setStreaks(calculateStreaks(moods, anchors))
 
-      // ─── Vérifier si le check-in du soir est fait ───
       const { data: todayCheckIn } = await supabase
         .from("check_ins")
         .select("id")
@@ -301,8 +295,10 @@ export function HomePage() {
   }
 
   function doLockDay() {
+    if (!user) return
     setDayMode("tracking")
-    setLocalData(getDayModeKey(user?.id || ""), "tracking")
+    setLocalData(getDayModeKey(user.id), "tracking")
+    localStorage.setItem(getAnchorLockKey(user.id), new Date().toISOString())
     toast.success("Your day is set — go gently!")
     setPendingLock(false)
   }
@@ -329,7 +325,6 @@ export function HomePage() {
   const allAnchorsDone = anchor.future_completed && anchor.mindbody_completed && anchor.life_completed
   const hasAnyAnchorText = anchor.future_task || anchor.mindbody_task || anchor.life_task
 
-  // ─── Daily Cycle states ───
   const moodDone = selectedMood !== null
   const anchorsDone = allAnchorsDone
   const cycleComplete = moodDone && anchorsDone && checkInDone
@@ -363,7 +358,7 @@ export function HomePage() {
         </Link>
       </div>
 
-      {/* 🤖 Companion */}
+      {/* Companion */}
       <Card className="border-0 bg-gradient-to-br from-sage-light/60 to-lavender/30 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
@@ -382,7 +377,7 @@ export function HomePage() {
         </CardContent>
       </Card>
 
-      {/* ─── 🔄 DAILY CYCLE ─── */}
+      {/* Daily Cycle */}
       <Card className={`border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] ${cycleComplete ? "bg-sage-light/40" : "bg-card"}`}>
         <CardContent className="p-4">
           <p className="mb-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -390,7 +385,6 @@ export function HomePage() {
           </p>
 
           <div className="flex items-center justify-between">
-            {/* Step 1 : Mood */}
             <div className="flex flex-col items-center gap-1.5">
               <div className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-500 ${
                 moodDone ? "bg-peach text-white shadow-md scale-110" : "bg-muted text-muted-foreground"
@@ -402,12 +396,10 @@ export function HomePage() {
               </span>
             </div>
 
-            {/* Connector */}
             <div className={`h-0.5 flex-1 mx-2 rounded-full transition-all duration-500 ${
               moodDone ? "bg-peach/60" : "bg-muted"
             }`} />
 
-            {/* Step 2 : Anchors */}
             <div className="flex flex-col items-center gap-1.5">
               <div className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-500 ${
                 anchorsDone ? "bg-primary text-primary-foreground shadow-md scale-110" : "bg-muted text-muted-foreground"
@@ -419,12 +411,10 @@ export function HomePage() {
               </span>
             </div>
 
-            {/* Connector */}
             <div className={`h-0.5 flex-1 mx-2 rounded-full transition-all duration-500 ${
               anchorsDone ? "bg-primary/60" : "bg-muted"
             }`} />
 
-            {/* Step 3 : Check-in */}
             <div className="flex flex-col items-center gap-1.5">
               <div className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-500 ${
                 checkInDone ? "bg-lavender text-white shadow-md scale-110" : "bg-muted text-muted-foreground"
@@ -437,7 +427,6 @@ export function HomePage() {
             </div>
           </div>
 
-          {/* Message quand cycle complet */}
           {cycleComplete && (
             <div className="mt-3 text-center">
               <p className="text-xs font-medium text-primary animate-pulse">
@@ -448,7 +437,7 @@ export function HomePage() {
         </CardContent>
       </Card>
 
-      {/* 🔥 Streaks Bar */}
+      {/* Streaks */}
       <div className="flex gap-3">
         <Card className={`flex-1 border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] ${streaks.currentMoodStreak > 0 ? "bg-peach/30" : "bg-muted/30"}`}>
           <CardContent className="flex items-center gap-2 p-3">
@@ -516,7 +505,7 @@ export function HomePage() {
         </CardContent>
       </Card>
 
-      {/* ─── 3 ANCHRES ─── */}
+      {/* 3 Anchors */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -595,6 +584,7 @@ export function HomePage() {
               task={anchor.future_task}
               completed={anchor.future_completed}
               onCheckChange={(v) => saveAnchor({ future_completed: v })}
+              userId={user?.id ?? ""}
             />
             <TrackingAnchorCard
               borderColor="#E8C4C4"
@@ -604,6 +594,7 @@ export function HomePage() {
               task={anchor.mindbody_task}
               completed={anchor.mindbody_completed}
               onCheckChange={(v) => saveAnchor({ mindbody_completed: v })}
+              userId={user?.id ?? ""}
             />
             <TrackingAnchorCard
               borderColor="#D4C5E8"
@@ -613,6 +604,7 @@ export function HomePage() {
               task={anchor.life_task}
               completed={anchor.life_completed}
               onCheckChange={(v) => saveAnchor({ life_completed: v })}
+              userId={user?.id ?? ""}
             />
 
             {allAnchorsDone && (
@@ -683,6 +675,7 @@ interface TrackingAnchorCardProps {
   task: string
   completed: boolean
   onCheckChange: (value: boolean) => void
+  userId: string
 }
 
 function TrackingAnchorCard({
@@ -693,15 +686,40 @@ function TrackingAnchorCard({
   task,
   completed,
   onCheckChange,
+  userId,
 }: TrackingAnchorCardProps) {
+  const { t } = useTranslation()
+  const canCheck = canCheckAnchors(userId)
+  const timeLeft = getTimeUntilAnchorCheck(userId)
+  const [showNudge, setShowNudge] = useState(false)
+
+  const handleCheck = (v: boolean) => {
+    if (!canCheck) {
+      setShowNudge(true)
+      setTimeout(() => setShowNudge(false), 3000)
+      return
+    }
+    onCheckChange(v)
+    if (navigator.vibrate) navigator.vibrate(30)
+  }
+
   return (
     <Card
-      className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]"
+      className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)] relative overflow-hidden"
       style={{
         borderLeft: `4px solid ${borderColor}`,
         backgroundColor: completed ? "var(--sage-light)" : undefined,
+        opacity: !canCheck && !completed ? 0.85 : 1,
       }}
     >
+      {!canCheck && !completed && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/40 backdrop-blur-[1px] rounded-lg">
+          <div className="rounded-full bg-secondary/90 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm">
+            ⏳ {t("timegate.time_left", { time: timeLeft })}
+          </div>
+        </div>
+      )}
+
       <CardContent className="p-5">
         <div className="mb-2 flex items-center gap-2">
           <span className="text-lg">{icon}</span>
@@ -711,10 +729,7 @@ function TrackingAnchorCard({
           </div>
           <Checkbox
             checked={completed}
-            onCheckedChange={(v) => {
-              onCheckChange(v === true)
-              if (navigator.vibrate) navigator.vibrate(30)
-            }}
+            onCheckedChange={(v) => handleCheck(v === true)}
             className="h-5 w-5 transition-all duration-200 data-[state=checked]:scale-110 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
           />
         </div>
@@ -726,6 +741,12 @@ function TrackingAnchorCard({
           <p className="text-sm text-muted-foreground italic pl-1">No task set</p>
         )}
       </CardContent>
+
+      {showNudge && (
+        <div className="absolute bottom-2 left-2 right-2 z-20 rounded-lg bg-peach/90 px-3 py-2 text-center text-xs font-medium text-foreground shadow-md animate-in fade-in slide-in-from-bottom-2">
+          {t("timegate.anchor_wait")}
+        </div>
+      )}
     </Card>
   )
 }

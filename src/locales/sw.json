@@ -112,7 +112,7 @@
   "offline": {
     "banner": "Huna mtandao. Mabadiliko yamehifadhiwa."
   },
-    "onboarding": {
+  "onboarding": {
     "welcome_title": "Karibu kwenye Anchor",
     "welcome_text": "Nafasi ya upole ili kuoanisha nani ulivyo, unavyohisi, na unachofanya — hatua moja ndogo kwa wakati.",
     "how_title": "Nanga Zako za Kila Siku",
@@ -156,5 +156,14 @@
     "anchors": "Nanga",
     "checkin": "Jioni",
     "complete": "Siku imekamilika — ulijitokeza."
+  },
+  "timegate": {
+    "evening_title": "Jioni litakuja polepole",
+    "evening_message": "Kujiangalia kwako ni mafunjo ya usiku. Rudi mnamo saa 1 usiku kutafakari siku yako.",
+    "evening_sub": "Hakuna haraka. Siku bado inaendelea.",
+    "anchor_wait": "Chukua muda wako — nanga zako zitakuwa tayari unapokuwa tayari.",
+    "time_left": "Bado {{time}}",
+    "hours_until": "Takriban saa {{hours}} zinazoenda",
+    "soon": "Hivi karibuni"
   }
 }

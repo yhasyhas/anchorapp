@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Heart, Moon, Mic, Square, Play, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { moodConfig } from "@/lib/constants"
-import type { CheckIn, MoodType } from "@/types"
+import type { CheckIn } from "@/types"
 import { EveningReleaseAnimation } from "@/components/anchor/evening-release-animation"
 
 function todayStr(): string {

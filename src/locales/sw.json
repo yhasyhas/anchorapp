@@ -149,5 +149,12 @@
     "choose_mood": "Chagua hisia yangu",
     "choose_intention": "Chagua nia",
     "continue_anyway": "Endelea hivyo hivyo"
+  },
+  "daily_cycle": {
+    "title": "Mzunguko wako wa kila siku",
+    "mood": "Asubuhi",
+    "anchors": "Nanga",
+    "checkin": "Jioni",
+    "complete": "Siku imekamilika — ulijitokeza."
   }
 }

@@ -149,5 +149,12 @@
     "choose_mood": "Choose my mood",
     "choose_intention": "Choose an intention",
     "continue_anyway": "Continue anyway"
+  },
+  "daily_cycle": {
+    "title": "Your daily cycle",
+    "mood": "Morning",
+    "anchors": "Anchors",
+    "checkin": "Evening",
+    "complete": "Day complete — you showed up for yourself."
   }
 }

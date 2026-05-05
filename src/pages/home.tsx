@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Settings, Info, Heart, Flame, Anchor as AnchorIcon, Sparkles, Lock, Pencil } from "lucide-react"
+import { Settings, Info, Heart, Flame, Anchor as AnchorIcon, Sparkles, Lock, Pencil, Sun, Moon } from "lucide-react"
 import { toast } from "sonner"
 import { moodConfig, intentions } from "@/lib/constants"
 import type { DailyAnchor, MoodType, CheckIn, MoodLog } from "@/types"
@@ -72,6 +72,9 @@ export function HomePage() {
   const [companionMsg, setCompanionMsg] = useState<string>("")
   const [loadingCompanion, setLoadingCompanion] = useState(true)
   const [showConfetti, setShowConfetti] = useState(false)
+
+  // ─── Daily Cycle ───
+  const [checkInDone, setCheckInDone] = useState(false)
 
   // ─── Nudge states ───
   const [nudgeOpen, setNudgeOpen] = useState(false)
@@ -165,6 +168,16 @@ export function HomePage() {
       setRecentMoods(moods)
       setRecentAnchors(anchors)
       setStreaks(calculateStreaks(moods, anchors))
+
+      // ─── Vérifier si le check-in du soir est fait ───
+      const { data: todayCheckIn } = await supabase
+        .from("check_ins")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("date", todayStr())
+        .maybeSingle()
+
+      setCheckInDone(!!todayCheckIn)
 
       const [{ data: yCheckIn }, { data: yMood }] = await Promise.all([
         supabase.from("check_ins").select("what_matters, what_felt_real").eq("user_id", user.id).eq("date", yesterdayStr()).maybeSingle(),
@@ -263,7 +276,6 @@ export function HomePage() {
     }
   }
 
-  // ─── NUDGE LOGIC ───
   function attemptLockDay() {
     if (!user) return
     if (!anchor.future_task && !anchor.mindbody_task && !anchor.life_task) {
@@ -271,7 +283,6 @@ export function HomePage() {
       return
     }
 
-    // Vérifier humeur
     if (!selectedMood) {
       setNudgeType("mood")
       setNudgeOpen(true)
@@ -279,7 +290,6 @@ export function HomePage() {
       return
     }
 
-    // Vérifier intention
     if (!anchor.daily_intention) {
       setNudgeType("intention")
       setNudgeOpen(true)
@@ -287,7 +297,6 @@ export function HomePage() {
       return
     }
 
-    // Tout est bon
     doLockDay()
   }
 
@@ -300,7 +309,6 @@ export function HomePage() {
 
   function handleNudgeChoose() {
     setNudgeOpen(false)
-    // L'utilisateur reste sur la page pour remplir
     setPendingLock(false)
   }
 
@@ -321,13 +329,17 @@ export function HomePage() {
   const allAnchorsDone = anchor.future_completed && anchor.mindbody_completed && anchor.life_completed
   const hasAnyAnchorText = anchor.future_task || anchor.mindbody_task || anchor.life_task
 
+  // ─── Daily Cycle states ───
+  const moodDone = selectedMood !== null
+  const anchorsDone = allAnchorsDone
+  const cycleComplete = moodDone && anchorsDone && checkInDone
+
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <ConfettiBurst active={showConfetti} />
       <OnboardingModal />
       <MorningRitual onComplete={() => {}} />
 
-      {/* Nudge Modal */}
       <GentleNudgeModal
         open={nudgeOpen}
         onClose={() => setNudgeOpen(false)}
@@ -370,7 +382,73 @@ export function HomePage() {
         </CardContent>
       </Card>
 
-      {/* 🔥 Streaks */}
+      {/* ─── 🔄 DAILY CYCLE ─── */}
+      <Card className={`border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] ${cycleComplete ? "bg-sage-light/40" : "bg-card"}`}>
+        <CardContent className="p-4">
+          <p className="mb-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            {t("daily_cycle.title")}
+          </p>
+
+          <div className="flex items-center justify-between">
+            {/* Step 1 : Mood */}
+            <div className="flex flex-col items-center gap-1.5">
+              <div className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-500 ${
+                moodDone ? "bg-peach text-white shadow-md scale-110" : "bg-muted text-muted-foreground"
+              }`}>
+                <Sun className="h-4 w-4" />
+              </div>
+              <span className={`text-[10px] font-medium ${moodDone ? "text-peach" : "text-muted-foreground"}`}>
+                {t("daily_cycle.mood")}
+              </span>
+            </div>
+
+            {/* Connector */}
+            <div className={`h-0.5 flex-1 mx-2 rounded-full transition-all duration-500 ${
+              moodDone ? "bg-peach/60" : "bg-muted"
+            }`} />
+
+            {/* Step 2 : Anchors */}
+            <div className="flex flex-col items-center gap-1.5">
+              <div className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-500 ${
+                anchorsDone ? "bg-primary text-primary-foreground shadow-md scale-110" : "bg-muted text-muted-foreground"
+              }`}>
+                <AnchorIcon className="h-4 w-4" />
+              </div>
+              <span className={`text-[10px] font-medium ${anchorsDone ? "text-primary" : "text-muted-foreground"}`}>
+                {t("daily_cycle.anchors")}
+              </span>
+            </div>
+
+            {/* Connector */}
+            <div className={`h-0.5 flex-1 mx-2 rounded-full transition-all duration-500 ${
+              anchorsDone ? "bg-primary/60" : "bg-muted"
+            }`} />
+
+            {/* Step 3 : Check-in */}
+            <div className="flex flex-col items-center gap-1.5">
+              <div className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-500 ${
+                checkInDone ? "bg-lavender text-white shadow-md scale-110" : "bg-muted text-muted-foreground"
+              }`}>
+                <Moon className="h-4 w-4" />
+              </div>
+              <span className={`text-[10px] font-medium ${checkInDone ? "text-lavender" : "text-muted-foreground"}`}>
+                {t("daily_cycle.checkin")}
+              </span>
+            </div>
+          </div>
+
+          {/* Message quand cycle complet */}
+          {cycleComplete && (
+            <div className="mt-3 text-center">
+              <p className="text-xs font-medium text-primary animate-pulse">
+                ✨ {t("daily_cycle.complete")}
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 🔥 Streaks Bar */}
       <div className="flex gap-3">
         <Card className={`flex-1 border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] ${streaks.currentMoodStreak > 0 ? "bg-peach/30" : "bg-muted/30"}`}>
           <CardContent className="flex items-center gap-2 p-3">

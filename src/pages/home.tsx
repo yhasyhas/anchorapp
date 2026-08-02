@@ -149,7 +149,7 @@ export function HomePage() {
       }
     } catch (err: any) {
       console.error("Failed to load today's data:", err)
-      toast.error("Could not load your daily data")
+      toast.error(t("home.error_load_daily"))
     }
     return resolvedAnchor
   }
@@ -188,7 +188,7 @@ export function HomePage() {
       ])
 
       const msg = await generateCompanionMessage(
-        user.id,
+        profile?.ai_enabled ?? false,
         yCheckIn as CheckIn | null,
         yMood as MoodLog | null,
         todayAnchor?.daily_intention ?? "",
@@ -197,11 +197,7 @@ export function HomePage() {
       setCompanionMsg(msg)
     } catch (err: any) {
       console.error("Failed to load context:", err)
-      setCompanionMsg(
-        i18n.language === "sw"
-          ? "Habari za asubuhi — weka nia moja ya upole kwa leo."
-          : "Good morning — set one gentle intention for today."
-      )
+      setCompanionMsg(t("companion.default_message"))
     } finally {
       setLoadingCompanion(false)
     }
@@ -235,7 +231,7 @@ export function HomePage() {
       }
     } catch (err: any) {
       console.error("Failed to save mood:", err)
-      toast.error("Could not save your mood")
+      toast.error(t("home.error_save_mood"))
     }
   }
 
@@ -283,7 +279,7 @@ export function HomePage() {
   function attemptLockDay() {
     if (!user) return
     if (!anchor.future_task && !anchor.mindbody_task && !anchor.life_task) {
-      toast.error("Set at least one anchor before starting your day")
+      toast.error(t("home.error_min_anchor"))
       return
     }
 
@@ -311,7 +307,7 @@ export function HomePage() {
     // Le verrou vit en base (daily_anchors.anchors_locked_at) via saveAnchor, avec le
     // même fallback offline (sync queue) que le reste des champs de l'ancre.
     saveAnchor({ anchors_locked_at: new Date().toISOString() })
-    toast.success("Your day is set — go gently!")
+    toast.success(t("home.day_locked_toast"))
     setPendingLock(false)
   }
 
@@ -510,7 +506,7 @@ export function HomePage() {
                     : "bg-muted text-foreground hover:bg-accent hover:scale-105"
                 }`}
               >
-                {intention}
+                {t(`intentions.${intention.toLowerCase()}`)}
               </button>
             ))}
           </div>
@@ -539,13 +535,13 @@ export function HomePage() {
           {dayMode === "planning" && hasAnyAnchorText && (
             <Button size="sm" onClick={attemptLockDay} className="gap-1.5 text-xs">
               <Lock className="h-3.5 w-3.5" />
-              Start my day
+              {t("home.start_my_day")}
             </Button>
           )}
           {dayMode === "tracking" && (
             <Button variant="ghost" size="sm" onClick={unlockDay} className="gap-1.5 text-xs text-muted-foreground">
               <Pencil className="h-3.5 w-3.5" />
-              Edit
+              {t("home.edit")}
             </Button>
           )}
         </div>
@@ -580,7 +576,7 @@ export function HomePage() {
             {hasAnyAnchorText && (
               <Button onClick={attemptLockDay} className="w-full" size="lg">
                 <Lock className="mr-2 h-4 w-4" />
-                Lock my anchors & start the day
+                {t("home.lock_anchors_cta")}
               </Button>
             )}
           </div>
@@ -622,7 +618,7 @@ export function HomePage() {
             {allAnchorsDone && (
               <div className="rounded-xl bg-sage-light/60 p-4 text-center">
                 <p className="text-sm font-medium text-primary">
-                  🎉 All anchors anchored! You showed up for yourself today.
+                  🎉 {t("home.all_anchors_done")}
                 </p>
               </div>
             )}
@@ -654,6 +650,7 @@ interface PlanningAnchorCardProps {
 }
 
 function PlanningAnchorCard({ borderColor, icon, title, subtitle, task, onTaskChange }: PlanningAnchorCardProps) {
+  const { t } = useTranslation()
   return (
     <Card
       className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]"
@@ -670,7 +667,7 @@ function PlanningAnchorCard({ borderColor, icon, title, subtitle, task, onTaskCh
         <Input
           value={task}
           onChange={(e) => onTaskChange(e.target.value)}
-          placeholder="What will you do today?"
+          placeholder={t("home.anchor_placeholder")}
           className="border-0 bg-muted/50 px-3 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
         />
       </CardContent>
@@ -750,7 +747,7 @@ function TrackingAnchorCard({
             {task}
           </p>
         ) : (
-          <p className="text-sm text-muted-foreground italic pl-1">No task set</p>
+          <p className="text-sm text-muted-foreground italic pl-1">{t("home.no_task_set")}</p>
         )}
       </CardContent>
 

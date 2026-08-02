@@ -2,9 +2,66 @@ import { isOnline } from "@/lib/offline-sync"
 import { calculateBestStreakFromDates } from "@/lib/streaks"
 import { supabase } from "@/lib/supabase"
 import { getUserLocalData, setUserLocalData } from "@/lib/user-storage"
-import { isAiEnabled, isAiCheckInsEnabled } from "@/lib/ai-preferences"
+import i18n from "@/lib/i18n"
 import { getISOWeek } from "date-fns"
 import type { MoodLog, DailyAnchor, CheckIn } from "@/types"
+
+type Language = "en" | "sw"
+
+// Ce module n'est pas un composant React — pas de useTranslation() ici. On lit
+// directement l'instance i18next partagée (même singleton que celui initialisé dans
+// src/lib/i18n.ts et utilisé par les composants), pour que les insights locaux et le
+// message du companion suivent la langue active de l'app.
+function currentLanguage(): Language {
+  return i18n.language === "sw" ? "sw" : "en"
+}
+
+const INTENTION_TRANSLATIONS: Record<string, { en: string; sw: string }> = {
+  clarity: { en: "Clarity", sw: "Uwazi" },
+  courage: { en: "Courage", sw: "Ujasiri" },
+  love: { en: "Love", sw: "Upendo" },
+  abundance: { en: "Abundance", sw: "Wingi" },
+  peace: { en: "Peace", sw: "Amani" },
+}
+
+// La valeur technique stockée en base (daily_intention) reste en anglais — seul
+// l'affichage est traduit, ici pour l'interpoler dans une phrase d'insight.
+function translateIntention(intention: string, language: Language): string {
+  return INTENTION_TRANSLATIONS[intention.toLowerCase()]?.[language] ?? intention
+}
+
+// Variantes EN/SW des insights locaux générés en dur (Tier 2) — même principe que
+// getLocalCompanionFallback() plus bas dans ce fichier.
+const LOCAL_INSIGHT_TEXT = {
+  lifeAnchorMood: (language: Language) =>
+    language === "sw"
+      ? "Unahisi vizuri zaidi siku unapokamilisha nanga yako ya Maisha."
+      : "You feel better on days you complete your Life anchor.",
+  mindbodyEmotionalAnchor: (language: Language) =>
+    language === "sw"
+      ? "Nanga yako ya Akili/Mwili inaonekana kuwa nanga yako ya kihisia — inajitokeza siku zako nzuri zaidi."
+      : "Your Mind/Body anchor seems to be your emotional anchor — it shows up in your best days.",
+  mindbodySkipStreak: (language: Language, days: number) =>
+    language === "sw"
+      ? `Hisia zako huwa nyepesi baada ya kuruka Akili/Mwili kwa siku ${days}. Unyoosho mdogo unaweza kusaidia.`
+      : `Your mood tends to soften after skipping Mind/Body for ${days} days. A small stretch might help.`,
+  topIntention: (language: Language, intention: string) =>
+    language === "sw"
+      ? `Umekuwa ukialika ${translateIntention(intention, "sw")} mara nyingi. Roho yako inaita kwa ajili yake — sikiliza kwa makini zaidi.`
+      : `You've been inviting ${intention} often. Your spirit is calling for it — listen closer.`,
+  gentleMovement: (language: Language) =>
+    language === "sw"
+      ? "Mwili wako huenda unahitaji mwendo wa upole. Hata dakika 5 za kutembea zinaweza kubadilisha nishati yako."
+      : "Your body might be asking for gentle movement. Even 5 minutes of walking can shift the energy.",
+  heavierEnergy: (language: Language) =>
+    language === "sw"
+      ? "Umekuwa ukibeba nishati nzito hivi karibuni. Kuwa mpole zaidi na wewe mwenyewe — hii nayo itapita."
+      : "You've been carrying a heavier energy lately. Be extra gentle with yourself — this too shall pass.",
+  consistentShowUp: (language: Language) =>
+    language === "sw"
+      ? "Umekuwa ukijitokeza kwa ajili yako mwenyewe kwa uthabiti. Aina hiyo ya kujitoa hupanda mizizi mirefu."
+      : "You're showing up for yourself consistently. That kind of devotion plants deep roots.",
+}
 
 interface AiInsightResult {
   text: string
@@ -26,6 +83,7 @@ async function getAuthHeader(): Promise<Record<string, string>> {
 
 export function generateLocalInsights(moods: MoodLog[], anchors: DailyAnchor[]): AiInsightResult[] {
   const insights: AiInsightResult[] = []
+  const language = currentLanguage()
 
   if (moods.length < 3) return insights
 
@@ -37,7 +95,7 @@ export function generateLocalInsights(moods: MoodLog[], anchors: DailyAnchor[]):
 
   if (lifeCompletedOnGoodDays > goodDays.length * 0.5 && goodDays.length >= 2) {
     insights.push({
-      text: "You feel better on days you complete your Life anchor.",
+      text: LOCAL_INSIGHT_TEXT.lifeAnchorMood(language),
       category: "mood_action_correlation",
       source: "local",
       generatedAt: new Date().toISOString(),
@@ -48,7 +106,7 @@ export function generateLocalInsights(moods: MoodLog[], anchors: DailyAnchor[]):
   const mindbodyCompletedOnGoodDays = anchorsOnGoodDays.filter((a) => a.mindbody_completed).length
   if (mindbodyCompletedOnGoodDays > goodDays.length * 0.6) {
     insights.push({
-      text: "Your Mind/Body anchor seems to be your emotional anchor — it shows up in your best days.",
+      text: LOCAL_INSIGHT_TEXT.mindbodyEmotionalAnchor(language),
       category: "mood_action_correlation",
       source: "local",
       generatedAt: new Date().toISOString(),
@@ -64,7 +122,7 @@ export function generateLocalInsights(moods: MoodLog[], anchors: DailyAnchor[]):
   }
   if (mindbodySkipStreak >= 2) {
     insights.push({
-      text: `Your mood tends to soften after skipping Mind/Body for ${mindbodySkipStreak} days. A small stretch might help.`,
+      text: LOCAL_INSIGHT_TEXT.mindbodySkipStreak(language, mindbodySkipStreak),
       category: "pattern",
       source: "local",
       generatedAt: new Date().toISOString(),
@@ -80,7 +138,7 @@ export function generateLocalInsights(moods: MoodLog[], anchors: DailyAnchor[]):
   const topIntention = Object.entries(intentionFreq).sort((a, b) => b[1] - a[1])[0]
   if (topIntention && topIntention[1] >= 3) {
     insights.push({
-      text: `You've been inviting ${topIntention[0]} often. Your spirit is calling for it — listen closer.`,
+      text: LOCAL_INSIGHT_TEXT.topIntention(language, topIntention[0]),
       category: "pattern",
       source: "local",
       generatedAt: new Date().toISOString(),
@@ -96,7 +154,7 @@ export function generateLocalInsights(moods: MoodLog[], anchors: DailyAnchor[]):
   )
   if (!hasMovement && moods.some((m) => m.mood === "low" || m.mood === "stressed")) {
     insights.push({
-      text: "Your body might be asking for gentle movement. Even 5 minutes of walking can shift the energy.",
+      text: LOCAL_INSIGHT_TEXT.gentleMovement(language),
       category: "suggestion",
       source: "local",
       generatedAt: new Date().toISOString(),
@@ -109,7 +167,7 @@ export function generateLocalInsights(moods: MoodLog[], anchors: DailyAnchor[]):
   const declining = moodValues.every((v, i) => i === 0 || v <= moodValues[i - 1] + 0.5)
   if (declining && moodValues.length >= 3 && moodValues[moodValues.length - 1] <= 2) {
     insights.push({
-      text: "You've been carrying a heavier energy lately. Be extra gentle with yourself — this too shall pass.",
+      text: LOCAL_INSIGHT_TEXT.heavierEnergy(language),
       category: "pattern",
       source: "local",
       generatedAt: new Date().toISOString(),
@@ -126,7 +184,7 @@ export function generateLocalInsights(moods: MoodLog[], anchors: DailyAnchor[]):
       : 0
   if (completionRate > 0.7 && anchors.length >= 5) {
     insights.push({
-      text: "You're showing up for yourself consistently. That kind of devotion plants deep roots.",
+      text: LOCAL_INSIGHT_TEXT.consistentShowUp(language),
       category: "pattern",
       source: "local",
       generatedAt: new Date().toISOString(),
@@ -289,7 +347,7 @@ function buildPatternDataDev(moods: MoodLog[], anchors: DailyAnchor[], checkIns?
 // ==================== COMPANION : Message du matin ====================
 
 export async function generateCompanionMessage(
-  userId: string,
+  aiEnabled: boolean,
   yesterdayCheckIn: Partial<CheckIn> | null,
   yesterdayMood: MoodLog | null,
   todayIntention: string,
@@ -302,7 +360,7 @@ export async function generateCompanionMessage(
   }
 
   // Respect du consentement : IA désactivée = message local uniquement, aucun appel réseau
-  if (!isAiEnabled(userId)) {
+  if (!aiEnabled) {
     return getLocalCompanionFallback(yesterdayMood?.mood, language)
   }
 
@@ -382,6 +440,8 @@ export function cacheAiInsights(userId: string, insights: AiInsightResult[]) {
 
 export async function fetchInsightsWithFallback(
   userId: string,
+  aiEnabled: boolean,
+  aiCheckInsEnabled: boolean,
   moods: MoodLog[],
   anchors: DailyAnchor[],
   checkIns?: CheckIn[],
@@ -392,7 +452,7 @@ export async function fetchInsightsWithFallback(
 
   // 2. Respect du consentement : IA désactivée = insights locaux uniquement, aucun appel
   // réseau et aucune lecture/écriture du cache IA
-  if (!isAiEnabled(userId)) {
+  if (!aiEnabled) {
     return { insights: localInsights, source: "local" }
   }
 
@@ -411,7 +471,7 @@ export async function fetchInsightsWithFallback(
 
   // 5. Essayer IA (Edge Function en prod, direct en dev). Le toggle "ai_checkins" contrôle
   // si les extraits de check-ins quittent l'appareil — undefined = jamais inclus dans le payload
-  const checkInsForAi = isAiCheckInsEnabled(userId) ? checkIns : undefined
+  const checkInsForAi = aiCheckInsEnabled ? checkIns : undefined
   try {
     const aiInsights = await generateAiInsights(moods, anchors, checkInsForAi)
     cacheAiInsights(userId, aiInsights)

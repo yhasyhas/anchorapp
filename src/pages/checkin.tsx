@@ -92,7 +92,7 @@ export function CheckInPage() {
       }
     } catch (err: any) {
       console.error("Failed to load check-in:", err)
-      toast.error("Could not load your reflection")
+      toast.error(t("checkin.error_load"))
     }
   }
 
@@ -114,7 +114,7 @@ export function CheckInPage() {
       return data.publicUrl
     } catch (err: any) {
       console.error("Voice upload failed:", err)
-      toast.error("Failed to upload voice note")
+      toast.error(t("checkin.error_upload_voice"))
       return null
     }
   }
@@ -156,7 +156,7 @@ export function CheckInPage() {
       setTimeout(() => setSaved(false), 2000)
     } catch (err: any) {
       console.error("Failed to save check-in:", err)
-      toast.error("Could not save your reflection")
+      toast.error(t("checkin.error_save"))
     }
   }
 
@@ -203,9 +203,9 @@ export function CheckInPage() {
       }, 1000)
     } catch (err) {
       console.error("Microphone access denied or error:", err)
-      toast.error("Please allow microphone access to record voice notes.")
+      toast.error(t("checkin.mic_permission_denied"))
     }
-  }, [])
+  }, [t])
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
@@ -374,7 +374,7 @@ export function CheckInPage() {
         <CardContent className="p-5">
           <div className="mb-3 flex items-center gap-2">
             <Mic className="h-4 w-4 text-primary" />
-            <p className="text-sm font-medium text-foreground">Voice Note</p>
+            <p className="text-sm font-medium text-foreground">{t("checkin.voice_note")}</p>
           </div>
 
           {!audioUrl ? (
@@ -392,7 +392,7 @@ export function CheckInPage() {
               <div className="flex-1">
                 {isRecording ? (
                   <div className="space-y-1">
-                    <p className="text-xs text-destructive font-medium">Recording... {recordingDuration}s / 60s</p>
+                    <p className="text-xs text-destructive font-medium">{t("checkin.recording", { seconds: recordingDuration })}</p>
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                       <div
                         className="h-full bg-destructive transition-all"
@@ -401,7 +401,7 @@ export function CheckInPage() {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground">Tap to record a 60-second voice reflection</p>
+                  <p className="text-xs text-muted-foreground">{t("checkin.tap_to_record")}</p>
                 )}
               </div>
             </div>
@@ -414,8 +414,8 @@ export function CheckInPage() {
                 {isPlaying ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4 ml-0.5" />}
               </button>
               <div className="flex-1">
-                <p className="text-xs font-medium text-foreground">Voice note recorded</p>
-                <p className="text-xs text-muted-foreground">{isPlaying ? "Playing..." : "Ready to play"}</p>
+                <p className="text-xs font-medium text-foreground">{t("checkin.voice_recorded")}</p>
+                <p className="text-xs text-muted-foreground">{isPlaying ? t("checkin.playing") : t("checkin.ready_to_play")}</p>
               </div>
               <button
                 onClick={deleteVoiceNote}

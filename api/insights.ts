@@ -91,6 +91,18 @@ async function checkAndRecordRateLimit(
       body: JSON.stringify({ user_id: userId }),
     })
 
+    // Auto-nettoyage : supprime les entrées de cet utilisateur devenues inutiles pour le
+    // calcul du quota (plus vieilles que la fenêtre d'1h). Fait à chaque appel plutôt que
+    // via un cron — la table reste bornée sans job planifié ni clé service-role, chaque
+    // utilisateur ne nettoyant que ses propres lignes (RLS).
+    fetch(
+      `${supabaseUrl}/rest/v1/ai_request_log?user_id=eq.${userId}&created_at=lt.${encodeURIComponent(since)}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}`, apikey: anonKey },
+      }
+    ).catch(() => {})
+
     return true
   } catch {
     return true

@@ -8,7 +8,17 @@
     "anchors_title": "Your 3 Anchors",
     "why_three": "Why 3? Three anchors keep you grounded without overwhelm.",
     "supportive": "You don't need to do everything today. Small steps still count.",
-    "title": "Home"
+    "title": "Home",
+    "start_my_day": "Start my day",
+    "edit": "Edit",
+    "lock_anchors_cta": "Lock my anchors & start the day",
+    "all_anchors_done": "All anchors anchored! You showed up for yourself today.",
+    "anchor_placeholder": "What will you do today?",
+    "no_task_set": "No task set",
+    "error_load_daily": "Could not load your daily data",
+    "error_save_mood": "Could not save your mood",
+    "error_min_anchor": "Set at least one anchor before starting your day",
+    "day_locked_toast": "Your day is set — go gently!"
   },
   "anchors": {
     "future": "Future",
@@ -25,6 +35,13 @@
     "low": "Low",
     "stressed": "Stressed"
   },
+  "intentions": {
+    "clarity": "Clarity",
+    "courage": "Courage",
+    "love": "Love",
+    "abundance": "Abundance",
+    "peace": "Peace"
+  },
   "patterns": {
     "title": "Patterns",
     "this_week": "Your mood this week",
@@ -35,7 +52,19 @@
     "analyzing": "Analyzing...",
     "loading": "Loading your patterns...",
     "ai_badge": "AI Powered",
-    "ai_disabled": "AI insights are off. Enable them in Settings to unlock deeper reflections."
+    "ai_disabled": "AI insights are off. Enable them in Settings to unlock deeper reflections.",
+    "error_load": "Could not load your patterns",
+    "error_ai": "Could not generate AI insights",
+    "mood_label": "Mood",
+    "days": {
+      "sun": "Sun",
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat"
+    }
   },
   "checkin": {
     "title": "Check-In",
@@ -48,7 +77,17 @@
     "save": "Save Reflection",
     "saved": "Reflection saved",
     "evening_mood_label": "How are you feeling now?",
-    "reflection": "Reflection"
+    "reflection": "Reflection",
+    "voice_note": "Voice Note",
+    "recording": "Recording... {{seconds}}s / 60s",
+    "tap_to_record": "Tap to record a 60-second voice reflection",
+    "voice_recorded": "Voice note recorded",
+    "ready_to_play": "Ready to play",
+    "playing": "Playing...",
+    "error_load": "Could not load your reflection",
+    "error_save": "Could not save your reflection",
+    "error_upload_voice": "Failed to upload voice note",
+    "mic_permission_denied": "Please allow microphone access to record voice notes."
   },
   "move": {
     "title": "Move",
@@ -56,7 +95,20 @@
     "add_custom": "Add your own",
     "add_to_anchor": "Add to Anchor",
     "choose_anchor": "Choose an anchor",
-    "added": "Added to your anchors"
+    "added": "Added to your anchors",
+    "default": {
+      "walk": "Take a 15 min walk",
+      "new_spot": "Sit somewhere new",
+      "text_someone": "Text someone you trust",
+      "playlist": "Listen to your favorite playlist",
+      "stretch": "Do a 10 min stretch"
+    },
+    "category": {
+      "physical": "Physical",
+      "social": "Social",
+      "mindful": "Mindful",
+      "novelty": "Novelty"
+    }
   },
   "focus": {
     "title": "Focus Mode",
@@ -78,7 +130,8 @@
     "ai_enable_desc": "Get deeper weekly reflections powered by AI",
     "ai_checkins": "Include check-in notes",
     "ai_checkins_desc": "Allow AI to read your reflections for richer insights",
-    "ai_no_key": "Add a GROQ API key in your environment to enable AI features."
+    "ai_no_key": "Add a GROQ API key in your environment to enable AI features.",
+    "save": "Save"
   },
   "auth": {
     "login": "Log in",

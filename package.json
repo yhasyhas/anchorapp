@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "typecheck": "tsc --noEmit",
+    "check-i18n": "node check-i18n-keys.cjs",
     "preview": "vite preview"
   },
   "dependencies": {

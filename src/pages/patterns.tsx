@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next"
 import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
 import { fetchInsightsWithFallback } from "@/lib/ai-service"
-import { isAiEnabled } from "@/lib/ai-preferences"
 import { moodToValue } from "@/lib/constants"
 import { localDateStr } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
@@ -14,7 +13,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { toast } from "sonner"
 import type { MoodLog, DailyAnchor, CheckIn } from "@/types"
 
-const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+const dayKeys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
 
 const moodColors: Record<string, string> = {
   great: "#F5D5C5",
@@ -32,13 +31,13 @@ interface InsightItem {
 
 export function PatternsPage() {
   const { t } = useTranslation()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [chartData, setChartData] = useState<{ day: string; value: number; mood: string | null }[]>([])
   const [insights, setInsights] = useState<InsightItem[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingAi, setLoadingAi] = useState(false)
   const [source, setSource] = useState<"local" | "ai" | "cached_ai">("local")
-  const aiEnabled = user ? isAiEnabled(user.id) : false
+  const aiEnabled = profile?.ai_enabled ?? false
 
   useEffect(() => {
     if (user) loadData()
@@ -91,6 +90,8 @@ export function PatternsPage() {
       if (monthMoods && anchors) {
         const result = await fetchInsightsWithFallback(
           user.id,
+          aiEnabled,
+          profile?.ai_checkins_enabled ?? false,
           monthMoods as MoodLog[],
           anchors as DailyAnchor[],
           (checkIns as CheckIn[]) || undefined,
@@ -101,7 +102,7 @@ export function PatternsPage() {
       }
     } catch (err: any) {
       console.error("Failed to load patterns:", err)
-      toast.error("Could not load your patterns")
+      toast.error(t("patterns.error_load"))
     } finally {
       setLoading(false)
     }
@@ -113,7 +114,7 @@ export function PatternsPage() {
       await loadData(true)
     } catch (err: any) {
       console.error("Deep insights failed:", err)
-      toast.error("Could not generate AI insights")
+      toast.error(t("patterns.error_ai"))
     } finally {
       setLoadingAi(false)
     }
@@ -128,7 +129,7 @@ export function PatternsPage() {
       const dateStr = localDateStr(d)
       const mood = moods.find((m) => m.date === dateStr)
       points.push({
-        day: dayLabels[d.getDay()],
+        day: t(`patterns.days.${dayKeys[d.getDay()]}`),
         value: mood ? moodToValue[mood.mood] ?? 3 : 0,
         mood: mood ? mood.mood : null,
       })
@@ -152,7 +153,7 @@ export function PatternsPage() {
           <h1 className="font-heading text-2xl font-bold">{t("patterns.title")}</h1>
         </div>
         {source === "ai" && (
-          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">AI</span>
+          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">{t("patterns.ai_badge")}</span>
         )}
       </div>
 
@@ -166,11 +167,10 @@ export function PatternsPage() {
                 <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#8A8A8A" }} />
                 <YAxis domain={[0, 5]} hide />
                 <Tooltip
-                  formatter={(value, _name, props: any) => {
-                    const labels = ["", "Stressed", "Low", "Meh", "Okay", "Great"]
+                  formatter={(_value, _name, props: any) => {
                     const moodKey = props?.payload?.mood
-                    const label = moodKey ? moodKey.charAt(0).toUpperCase() + moodKey.slice(1) : labels[value as number]
-                    return [label, "Mood"]
+                    const label = moodKey ? t(`mood.${moodKey}`) : ""
+                    return [label, t("patterns.mood_label")]
                   }}
                   contentStyle={{
                     backgroundColor: "#FDFBF7",
@@ -247,7 +247,7 @@ export function PatternsPage() {
                   <p className="text-sm text-foreground/85 leading-relaxed">{insight.text}</p>
                   {insight.source === "ai" && (
                     <span className="mt-1 inline-block rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                      AI
+                      {t("patterns.ai_badge")}
                     </span>
                   )}
                 </div>

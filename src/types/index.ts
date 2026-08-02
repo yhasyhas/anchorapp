@@ -2,6 +2,8 @@ export interface Profile {
   id: string
   full_name: string
   preferred_language: "en" | "sw"
+  ai_enabled: boolean
+  ai_checkins_enabled: boolean
   created_at: string
 }
 

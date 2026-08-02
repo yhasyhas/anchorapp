@@ -15,12 +15,12 @@ import { Footprints, Plus } from "lucide-react"
 import { todayStr } from "@/lib/utils"
 import type { MoveSuggestion } from "@/types"
 
-const defaultSuggestions: Omit<MoveSuggestion, "id" | "user_id" | "created_at">[] = [
-  { title: "Take a 15 min walk", category: "physical", is_custom: false },
-  { title: "Sit somewhere new", category: "novelty", is_custom: false },
-  { title: "Text someone you trust", category: "social", is_custom: false },
-  { title: "Listen to your favorite playlist", category: "mindful", is_custom: false },
-  { title: "Do a 10 min stretch", category: "physical", is_custom: false },
+const defaultSuggestions: { titleKey: string; category: MoveSuggestion["category"]; is_custom: false }[] = [
+  { titleKey: "move.default.walk", category: "physical", is_custom: false },
+  { titleKey: "move.default.new_spot", category: "novelty", is_custom: false },
+  { titleKey: "move.default.text_someone", category: "social", is_custom: false },
+  { titleKey: "move.default.playlist", category: "mindful", is_custom: false },
+  { titleKey: "move.default.stretch", category: "physical", is_custom: false },
 ]
 
 const categoryIcons: Record<string, string> = {
@@ -97,8 +97,8 @@ export function MovePage() {
   const allSuggestions = [
     ...suggestions,
     ...defaultSuggestions
-      .filter((d) => !suggestions.some((s) => s.title === d.title))
-      .map((d, i) => ({ ...d, id: `default-${i}`, user_id: "", created_at: "" })),
+      .map((d, i) => ({ ...d, title: t(d.titleKey), id: `default-${i}`, user_id: "", created_at: "" }))
+      .filter((d) => !suggestions.some((s) => s.title === d.title)),
   ] as MoveSuggestion[]
 
   return (
@@ -165,7 +165,7 @@ export function MovePage() {
                     newCategory === cat ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
                   }`}
                 >
-                  {icon} {cat}
+                  {icon} {t(`move.category.${cat}`)}
                 </button>
               ))}
             </div>

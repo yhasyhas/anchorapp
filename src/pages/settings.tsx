@@ -11,7 +11,6 @@ import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { ArrowLeft, Brain } from "lucide-react"
 import { localDateStr } from "@/lib/utils"
-import { isAiEnabled, isAiCheckInsEnabled, setAiEnabled as persistAiEnabled, setAiCheckInsEnabled as persistAiCheckInsEnabled } from "@/lib/ai-preferences"
 
 export function SettingsPage() {
   const { t, i18n } = useTranslation()
@@ -19,10 +18,11 @@ export function SettingsPage() {
   const navigate = useNavigate()
   const [name, setName] = useState(profile?.full_name ?? "")
 
-  // AI Settings states — scopées par compte, un second compte sur le même appareil ne
-  // doit pas hériter du consentement IA du premier
-  const [aiEnabled, setAiEnabled] = useState(() => (user ? isAiEnabled(user.id) : false))
-  const [aiCheckIns, setAiCheckIns] = useState(() => (user ? isAiCheckInsEnabled(user.id) : false))
+  // Préférences IA stockées en base (profiles.ai_enabled / ai_checkins_enabled) plutôt
+  // qu'en localStorage : elles suivent le compte d'un appareil à l'autre, comme le reste
+  // du profil.
+  const aiEnabled = profile?.ai_enabled ?? false
+  const aiCheckIns = profile?.ai_checkins_enabled ?? false
 
   async function handleLanguageChange(lang: "en" | "sw") {
     i18n.changeLanguage(lang)
@@ -33,20 +33,13 @@ export function SettingsPage() {
     await updateProfile({ full_name: name })
   }
 
-  function handleAiToggle(enabled: boolean) {
-    if (!user) return
-    persistAiEnabled(user.id, enabled)
-    setAiEnabled(enabled)
-    if (!enabled) {
-      persistAiCheckInsEnabled(user.id, false)
-      setAiCheckIns(false)
-    }
+  async function handleAiToggle(enabled: boolean) {
+    // Désactiver l'IA désactive aussi le partage des check-ins avec elle
+    await updateProfile(enabled ? { ai_enabled: true } : { ai_enabled: false, ai_checkins_enabled: false })
   }
 
-  function handleAiCheckInsToggle(enabled: boolean) {
-    if (!user) return
-    persistAiCheckInsEnabled(user.id, enabled)
-    setAiCheckIns(enabled)
+  async function handleAiCheckInsToggle(enabled: boolean) {
+    await updateProfile({ ai_checkins_enabled: enabled })
   }
 
   async function handleExport() {
@@ -131,7 +124,7 @@ export function SettingsPage() {
                 onChange={(e) => setName(e.target.value)}
               />
               <Button onClick={handleNameSave} size="sm">
-                Save
+                {t("settings.save")}
               </Button>
             </div>
           </CardContent>

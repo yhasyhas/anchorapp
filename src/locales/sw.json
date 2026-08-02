@@ -8,7 +8,17 @@
     "anchors_title": "Nanga Zako 3",
     "why_three": "Kwa nini 3? Nanga tatu zinakuweka imara bila kukuzidi.",
     "supportive": "Huhitaji kufanya kila kitu leo. Hatua ndogo bado zinahesabu.",
-    "title": "Nyumbani"
+    "title": "Nyumbani",
+    "start_my_day": "Anza siku yangu",
+    "edit": "Hariri",
+    "lock_anchors_cta": "Funga nanga zangu na anza siku",
+    "all_anchors_done": "Nanga zote zimeimarishwa! Umejitokeza kwa ajili yako leo.",
+    "anchor_placeholder": "Utafanya nini leo?",
+    "no_task_set": "Hakuna kazi iliyowekwa",
+    "error_load_daily": "Imeshindikana kupakia data yako ya leo",
+    "error_save_mood": "Imeshindikana kuhifadhi hisia zako",
+    "error_min_anchor": "Weka angalau nanga moja kabla ya kuanza siku yako",
+    "day_locked_toast": "Siku yako iko tayari — enenda kwa upole!"
   },
   "anchors": {
     "future": "Mustakabali",
@@ -25,6 +35,13 @@
     "low": "Chini",
     "stressed": "Msongo"
   },
+  "intentions": {
+    "clarity": "Uwazi",
+    "courage": "Ujasiri",
+    "love": "Upendo",
+    "abundance": "Wingi",
+    "peace": "Amani"
+  },
   "patterns": {
     "title": "Mifumo",
     "this_week": "Hali yako ya hisia wiki hii",
@@ -35,7 +52,19 @@
     "analyzing": "Inachambua...",
     "loading": "Inapakia mifumo yako...",
     "ai_badge": "Inaendeshwa na AI",
-    "ai_disabled": "Maarifa ya AI yamezimwa. Yawashe kwenye Mipangilio ili kupata tafakari za kina zaidi."
+    "ai_disabled": "Maarifa ya AI yamezimwa. Yawashe kwenye Mipangilio ili kupata tafakari za kina zaidi.",
+    "error_load": "Imeshindikana kupakia mifumo yako",
+    "error_ai": "Imeshindikana kutengeneza maarifa ya AI",
+    "mood_label": "Hisia",
+    "days": {
+      "sun": "Jpi",
+      "mon": "Jtt",
+      "tue": "Jnn",
+      "wed": "Jtn",
+      "thu": "Alh",
+      "fri": "Ijm",
+      "sat": "Jmo"
+    }
   },
   "checkin": {
     "title": "Kujiangalia",
@@ -48,7 +77,17 @@
     "save": "Hifadhi Tafakari",
     "saved": "Tafakari imehifadhiwa",
     "evening_mood_label": "Unahisi vipi sasa?",
-    "reflection": "Tafakari"
+    "reflection": "Tafakari",
+    "voice_note": "Ujumbe wa Sauti",
+    "recording": "Inarekodi... sekunde {{seconds}} / 60",
+    "tap_to_record": "Gusa ili kurekodi tafakari ya sekunde 60",
+    "voice_recorded": "Ujumbe wa sauti umerekodiwa",
+    "ready_to_play": "Tayari kuchezwa",
+    "playing": "Inacheza...",
+    "error_load": "Imeshindikana kupakia tafakari yako",
+    "error_save": "Imeshindikana kuhifadhi tafakari yako",
+    "error_upload_voice": "Imeshindwa kupakia ujumbe wa sauti",
+    "mic_permission_denied": "Tafadhali ruhusu ufikiaji wa maikrofoni ili kurekodi ujumbe wa sauti."
   },
   "move": {
     "title": "Sogeza",
@@ -56,7 +95,20 @@
     "add_custom": "Ongeza yako",
     "add_to_anchor": "Ongeza kwa Nanga",
     "choose_anchor": "Chagua nanga",
-    "added": "Imeongezwa kwa nanga zako"
+    "added": "Imeongezwa kwa nanga zako",
+    "default": {
+      "walk": "Tembea kwa dakika 15",
+      "new_spot": "Kaa mahali papya",
+      "text_someone": "Tuma ujumbe kwa mtu unayemwamini",
+      "playlist": "Sikiliza orodha yako ya nyimbo unazozipenda",
+      "stretch": "Fanya unyoosho wa dakika 10"
+    },
+    "category": {
+      "physical": "Kimwili",
+      "social": "Kijamii",
+      "mindful": "Kutafakari",
+      "novelty": "Upya"
+    }
   },
   "focus": {
     "title": "Hali ya Kuzingatia",
@@ -78,7 +130,8 @@
     "ai_enable_desc": "Pata tafakari za kina za kila wiki zinazoendeshwa na AI",
     "ai_checkins": "Jumuisha maandiko ya kujiangalia",
     "ai_checkins_desc": "Ruhusu AI kusoma tafakari zako kwa maarifa tajiri zaidi",
-    "ai_no_key": "Ongeza ufunguo wa GROQ API katika mazingira yako kuwezesha vipengele vya AI."
+    "ai_no_key": "Ongeza ufunguo wa GROQ API katika mazingira yako kuwezesha vipengele vya AI.",
+    "save": "Hifadhi"
   },
   "auth": {
     "login": "Ingia",

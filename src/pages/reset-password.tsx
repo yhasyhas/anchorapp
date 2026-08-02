@@ -40,7 +40,7 @@ export function ResetPasswordPage() {
 
       // Si Supabase a renvoyé une erreur dans le hash (lien expiré, bot Gmail, etc.)
       if (hashError || hashErrorCode) {
-        setUrlError(hashErrorDesc || hashError || hashErrorCode || "Invalid link")
+        setUrlError(hashErrorDesc || hashError || hashErrorCode || t("auth.invalid_reset_link"))
         setValidating(false)
         return
       }

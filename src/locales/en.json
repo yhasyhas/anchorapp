@@ -218,7 +218,17 @@
   },
   "streaks": {
     "mood": "Mood streak",
-    "anchors": "Anchor streak"
+    "anchors": "Anchor streak",
+    "showing_up_with_intention": "{{count}} days of showing up with {{intention}}",
+    "showing_up_for_yourself": "{{count}} days of showing up for yourself",
+    "rest_is_alignment": "Rest is also alignment"
+  },
+  "streak_milestone": {
+    "title": "You did it ✨",
+    "sentence_with_intention": "{{count}} days of showing up with {{intention}}.",
+    "sentence_fallback": "{{count}} days of showing up for yourself.",
+    "encouragement": "Proud of you. Keep going, beautiful.",
+    "dismiss": "Continue"
   },
   "nudge": {
     "mood_title": "How are you feeling?",

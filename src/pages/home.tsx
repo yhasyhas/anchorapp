@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
 import { addToSyncQueue, isOnline, setLocalData, getLocalData } from "@/lib/offline-sync"
 import { generateCompanionMessage } from "@/lib/ai-service"
-import { calculateStreaks, type StreakData } from "@/lib/streaks"
+import { calculateStreaks, reachedAnchorMilestone, MIN_STREAK_FOR_INTENTION, type StreakData } from "@/lib/streaks"
+import { getUserLocalData, setUserLocalData } from "@/lib/user-storage"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -22,6 +23,14 @@ import { ConfettiBurst } from "@/components/anchor/confetti"
 import { GentleNudgeModal } from "@/components/anchor/gentle-nudge-modal"
 import { PushNudge } from "@/components/anchor/push-nudge"
 import { JournalCard } from "@/components/anchor/journal-card"
+import { StreakMilestoneModal } from "@/components/anchor/streak-milestone-modal"
+
+const ANCHOR_MILESTONES_CELEBRATED_KEY = "anchor_streak_milestones_celebrated"
+
+function intentionLabel(t: (key: string) => string, rawIntention: string | null): string | null {
+  if (!rawIntention) return null
+  return t(`intentions.${rawIntention.toLowerCase()}`).toLowerCase()
+}
 
 function getGreetingKey(): string {
   const hour = new Date().getHours()
@@ -68,10 +77,13 @@ export function HomePage() {
     currentAnchorStreak: 0,
     bestMoodStreak: 0,
     bestAnchorStreak: 0,
+    moodStreakIntention: null,
+    anchorStreakIntention: null,
   })
   const [companionMsg, setCompanionMsg] = useState<string>("")
   const [loadingCompanion, setLoadingCompanion] = useState(true)
   const [showConfetti, setShowConfetti] = useState(false)
+  const [streakMilestone, setStreakMilestone] = useState<number | null>(null)
 
   const [checkInDone, setCheckInDone] = useState(false)
 
@@ -99,6 +111,20 @@ export function HomePage() {
       }
     }
   }, [anchor.future_completed, anchor.mindbody_completed, anchor.life_completed, dayMode])
+
+  // Célébration de palier (7/14/21/30 jours d'anchor streak) — une seule fois par palier
+  // et par utilisatrice, mémorisé en localStorage (même pattern que le cache IA).
+  useEffect(() => {
+    if (!user) return
+    const milestone = reachedAnchorMilestone(streaks.currentAnchorStreak)
+    if (!milestone) return
+
+    const celebrated = getUserLocalData<number[]>(ANCHOR_MILESTONES_CELEBRATED_KEY, user.id) || []
+    if (celebrated.includes(milestone)) return
+
+    setStreakMilestone(milestone)
+    setUserLocalData(ANCHOR_MILESTONES_CELEBRATED_KEY, user.id, [...celebrated, milestone])
+  }, [streaks.currentAnchorStreak, user])
 
   async function loadTodayData(): Promise<DailyAnchor | undefined> {
     if (!user) return undefined
@@ -366,6 +392,12 @@ export function HomePage() {
         type={nudgeType}
       />
 
+      <StreakMilestoneModal
+        milestone={streakMilestone}
+        intentionLabel={intentionLabel(t, streaks.anchorStreakIntention)}
+        onClose={() => setStreakMilestone(null)}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -463,31 +495,33 @@ export function HomePage() {
       {/* One-Sentence Journal — a bonus, not part of the daily cycle */}
       <JournalCard />
 
-      {/* Streaks */}
-      <div className="flex gap-3">
-        <Card className={`flex-1 border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] ${streaks.currentMoodStreak > 0 ? "bg-peach/30" : "bg-muted/30"}`}>
-          <CardContent className="flex items-center gap-2 p-3">
-            <Flame className={`h-4 w-4 ${streaks.currentMoodStreak > 0 ? "text-peach" : "text-muted-foreground"}`} />
-            <div>
-              <p className="text-xs text-muted-foreground">{t("streaks.mood")}</p>
-              <p className="text-sm font-semibold text-foreground">
-                {streaks.currentMoodStreak > 0 ? `${streaks.currentMoodStreak} 🔥` : "—"}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className={`flex-1 border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] ${allAnchorsDone ? "bg-sage-light/60" : "bg-muted/30"}`}>
-          <CardContent className="flex items-center gap-2 p-3">
-            <AnchorIcon className={`h-4 w-4 ${allAnchorsDone ? "text-primary" : "text-muted-foreground"}`} />
-            <div>
-              <p className="text-xs text-muted-foreground">{t("streaks.anchors")}</p>
-              <p className="text-sm font-semibold text-foreground">
-                {streaks.currentAnchorStreak > 0 ? `${streaks.currentAnchorStreak} ⚓` : "—"}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Streaks — mechanical count below MIN_STREAK_FOR_INTENTION, meaningful sentence
+          above it (celebrated state: warmer card, dominant intention of the streak
+          period). Stacked full-width instead of side-by-side once either card celebrates,
+          so the sentence has room to breathe. */}
+      <div className={(streaks.currentMoodStreak >= MIN_STREAK_FOR_INTENTION || streaks.currentAnchorStreak >= MIN_STREAK_FOR_INTENTION) ? "space-y-3" : "flex gap-3"}>
+        <StreakCard
+          icon={<Flame className="h-4 w-4" />}
+          label={t("streaks.mood")}
+          emoji="🔥"
+          current={streaks.currentMoodStreak}
+          best={streaks.bestMoodStreak}
+          intention={streaks.moodStreakIntention}
+          activeBg="bg-peach/30"
+          activeText="text-peach"
+          celebratedBg="bg-gradient-to-br from-peach/40 to-rose-accent/20"
+        />
+        <StreakCard
+          icon={<AnchorIcon className="h-4 w-4" />}
+          label={t("streaks.anchors")}
+          emoji="⚓"
+          current={streaks.currentAnchorStreak}
+          best={streaks.bestAnchorStreak}
+          intention={streaks.anchorStreakIntention}
+          activeBg="bg-sage-light/60"
+          activeText="text-primary"
+          celebratedBg="bg-gradient-to-br from-sage-light/70 to-lavender/25"
+        />
       </div>
 
       {/* Mood Selector */}
@@ -656,6 +690,67 @@ export function HomePage() {
 
       <PushNudge active={cycleComplete} />
     </div>
+  )
+}
+
+/* ─── Streak Card ─── */
+interface StreakCardProps {
+  icon: ReactNode
+  label: string
+  emoji: string
+  current: number
+  best: number
+  intention: string | null
+  activeBg: string
+  activeText: string
+  celebratedBg: string
+}
+
+function StreakCard({ icon, label, emoji, current, best, intention, activeBg, activeText, celebratedBg }: StreakCardProps) {
+  const { t } = useTranslation()
+  const celebrated = current >= MIN_STREAK_FOR_INTENTION
+  // Un streak vient de se terminer : jamais culpabilisant, juste une phrase discrète en
+  // option — visible uniquement si un streak a réellement existé avant (best > 0).
+  const justEnded = current === 0 && best > 0
+
+  const translatedIntention = intentionLabel(t, intention)
+  const sentence = translatedIntention
+    ? t("streaks.showing_up_with_intention", { count: current, intention: translatedIntention })
+    : t("streaks.showing_up_for_yourself", { count: current })
+
+  return (
+    <Card
+      className={`flex-1 border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all duration-500 ${
+        celebrated ? celebratedBg : current > 0 ? activeBg : "bg-muted/30"
+      }`}
+    >
+      <CardContent className={celebrated ? "p-4" : "flex items-center gap-2 p-3"}>
+        {celebrated ? (
+          <div>
+            <div className="mb-1.5 flex items-center gap-2">
+              <span className={activeText}>{icon}</span>
+              <span className="text-xs font-medium text-muted-foreground">{label}</span>
+            </div>
+            <p className="text-sm font-semibold leading-snug text-foreground">
+              {sentence} {emoji}
+            </p>
+          </div>
+        ) : (
+          <>
+            <span className={current > 0 ? activeText : "text-muted-foreground"}>{icon}</span>
+            <div>
+              <p className="text-xs text-muted-foreground">{label}</p>
+              <p className="text-sm font-semibold text-foreground">
+                {current > 0 ? `${current} ${emoji}` : "—"}
+              </p>
+              {justEnded && (
+                <p className="mt-0.5 text-[10px] italic text-muted-foreground">{t("streaks.rest_is_alignment")}</p>
+              )}
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 

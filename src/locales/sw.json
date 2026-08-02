@@ -218,7 +218,17 @@
   },
   "streaks": {
     "mood": "Mfululizo wa hisia",
-    "anchors": "Mfululizo wa nanga"
+    "anchors": "Mfululizo wa nanga",
+    "showing_up_with_intention": "Siku {{count}} za kujitokeza kwa {{intention}}",
+    "showing_up_for_yourself": "Siku {{count}} za kujitokeza kwa ajili yako mwenyewe",
+    "rest_is_alignment": "Kupumzika nako ni uwiano"
+  },
+  "streak_milestone": {
+    "title": "Umefanikiwa ✨",
+    "sentence_with_intention": "Siku {{count}} za kujitokeza kwa {{intention}}.",
+    "sentence_fallback": "Siku {{count}} za kujitokeza kwa ajili yako mwenyewe.",
+    "encouragement": "Tunakujivunia. Endelea hivi, rafiki.",
+    "dismiss": "Endelea"
   },
   "nudge": {
     "mood_title": "Unahisi vipi?",

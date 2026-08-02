@@ -1,5 +1,5 @@
 import { isOnline } from "@/lib/offline-sync"
-import { calculateBestStreakFromDates } from "@/lib/streaks"
+import { calculateBestStreakFromDates, calculateBestAnchorStreakWithGrace } from "@/lib/streaks"
 import { supabase } from "@/lib/supabase"
 import { getUserLocalData, setUserLocalData } from "@/lib/user-storage"
 import i18n from "@/lib/i18n"
@@ -312,12 +312,15 @@ function buildPatternDataDev(moods: MoodLog[], anchors: DailyAnchor[], checkIns?
     .slice(0, 3)
     .map(([name]) => name)
 
-  // Streaks calendaires (un jour sans ligne = cassure) — même logique que src/lib/streaks.ts
-  // et que buildPatternData dans api/insights.ts, pour ne jamais annoncer un streak inexistant à l'IA
+  // Streaks calendaires — même logique que src/lib/streaks.ts et buildPatternData dans
+  // api/insights.ts, pour ne jamais annoncer un streak inexistant à l'IA. Mood strict (un
+  // jour sans ligne casse) ; anchor avec le grace day produit (un seul jour manqué toléré
+  // par streak, voir calculateBestAnchorStreakWithGrace) pour ne pas contredire le chiffre
+  // affiché sur Home.
   const bestMoodStreak = calculateBestStreakFromDates(
     moods.filter((m) => m.mood === "great" || m.mood === "okay").map((m) => m.date)
   )
-  const bestAnchorStreak = calculateBestStreakFromDates(
+  const bestAnchorStreak = calculateBestAnchorStreakWithGrace(
     anchors.filter((a) => a.future_completed && a.mindbody_completed && a.life_completed).map((a) => a.date)
   )
 

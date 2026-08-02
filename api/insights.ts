@@ -377,6 +377,42 @@ function calculateBestStreakFromDates(dates: string[]): number {
   return best
 }
 
+// Grace day (ancres uniquement, règle produit) : un seul jour manqué toléré par streak.
+// Consommer la grâce au premier trou rencontré n'est pas toujours optimal (un trou plus
+// tardif peut ouvrir une chaîne plus longue) — on garde donc deux états par jour : la
+// meilleure série sans grâce utilisée (noGrace) et la meilleure série avec grâce déjà
+// consommée (withGrace), et on prend le meilleur des deux. Même logique que
+// calculateBestAnchorStreakWithGrace dans src/lib/streaks.ts, dupliquée ici (comme
+// calculateBestStreakFromDates ci-dessus) car cette Edge Function est bundlée séparément
+// du reste de l'app — pour ne pas annoncer à l'IA un anchor streak plus court que celui
+// affiché sur Home.
+function calculateBestAnchorStreakWithGrace(dates: string[]): number {
+  if (dates.length === 0) return 0
+  const sorted = [...new Set(dates)].sort()
+  let noGrace = 1
+  let withGrace = 1
+  let best = 1
+  for (let i = 1; i < sorted.length; i++) {
+    const gap = dayIndex(sorted[i]) - dayIndex(sorted[i - 1])
+    let nextNoGrace: number
+    let nextWithGrace: number
+    if (gap === 1) {
+      nextNoGrace = noGrace + 1
+      nextWithGrace = withGrace + 1
+    } else if (gap === 2) {
+      nextNoGrace = 1
+      nextWithGrace = noGrace + 1
+    } else {
+      nextNoGrace = 1
+      nextWithGrace = 1
+    }
+    noGrace = nextNoGrace
+    withGrace = nextWithGrace
+    best = Math.max(best, noGrace, withGrace)
+  }
+  return best
+}
+
 function buildPatternData(moods: any[], anchors: any[], checkIns?: any[]) {
   const moodDist: Record<string, number> = {}
   moods.forEach((m: any) => {
@@ -403,7 +439,7 @@ function buildPatternData(moods: any[], anchors: any[], checkIns?: any[]) {
   const bestMoodStreak = calculateBestStreakFromDates(
     moods.filter((m: any) => m.mood === "great" || m.mood === "okay").map((m: any) => m.date)
   )
-  const bestAnchorStreak = calculateBestStreakFromDates(
+  const bestAnchorStreak = calculateBestAnchorStreakWithGrace(
     anchors.filter((a: any) => a.future_completed && a.mindbody_completed && a.life_completed).map((a: any) => a.date)
   )
 

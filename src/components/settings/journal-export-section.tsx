@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { fetchMonthlyJournalData } from "@/lib/pdf/data"
-import { downloadMonthlyJournalPdf } from "@/lib/pdf/generate-monthly-journal"
 import { localDateStr } from "@/lib/utils"
 
 function currentMonthIso(): string {
@@ -28,6 +27,9 @@ export function JournalExportSection() {
       const firstName = profile?.full_name?.split(" ")[0] ?? ""
       const lang = i18n.language === "sw" ? "sw" : "en"
       const data = await fetchMonthlyJournalData(user.id, month, firstName, lang)
+      // Dynamic import: jsPDF and the canvas card renderers are only needed here, not on
+      // every app load — keeps them out of the main bundle for the daily home screen.
+      const { downloadMonthlyJournalPdf } = await import("@/lib/pdf/generate-monthly-journal")
       await downloadMonthlyJournalPdf(data, t, month)
       toast.success(t("settings.export_success"))
     } catch (err) {

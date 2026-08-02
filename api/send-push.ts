@@ -120,7 +120,14 @@ export async function sendPushToUser({ userId, title, body: message, url }: Send
   return { sent, expired: expiredEndpoints.length }
 }
 
-export default async function handler(request: Request): Promise<Response> {
+// Vercel's Node.js runtime (unlike Edge) doesn't hand a real Fetch API
+// Request/Response to a plain `export default` — it falls back to the
+// legacy (req, res) signature, silently drops any Response we return
+// (hang), and `req.headers` isn't a Headers instance (no .get()). A named
+// export matching the HTTP method is what actually gets treated as a
+// Fetch-style handler on this runtime. Learned the hard way: verified via
+// Vercel's own function logs after the first deploy hung indefinitely.
+export async function POST(request: Request): Promise<Response> {
   if (request.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405)
   }

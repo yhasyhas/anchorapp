@@ -381,7 +381,13 @@ ${slotInstruction(slot)}`,
   return text.replace(/^["']|["']$/g, "")
 }
 
-export default async function handler(request: Request): Promise<Response> {
+// Vercel invokes Cron Jobs via GET, and — on the Node.js runtime specifically
+// (unlike Edge) — only a named export matching the HTTP method is treated as
+// a real Fetch-style handler; `export default` here silently drops the
+// Response and the request object isn't a real Request either (no
+// `.headers.get()`). Confirmed via Vercel's function logs after the first
+// deploy hung on every invocation. See the same note in api/send-push.ts.
+export async function GET(request: Request): Promise<Response> {
   const CRON_SECRET = process.env.CRON_SECRET
   const SUPABASE_URL = process.env.VITE_SUPABASE_URL
   const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY

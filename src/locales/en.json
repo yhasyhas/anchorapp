@@ -144,6 +144,8 @@
     "ai_checkins": "Include check-in notes",
     "ai_checkins_desc": "Allow AI to read your reflections for richer insights",
     "ai_no_key": "Add a GROQ API key in your environment to enable AI features.",
+    "tone_title": "Message tone",
+    "tone_desc": "How Anchor sounds in your companion greeting, weekly letter, progress story, and reminders.",
     "save": "Save",
     "reminders_title": "Reminders",
     "reminders_enable": "Gentle reminders",
@@ -203,14 +205,40 @@
   "onboarding": {
     "welcome_title": "Welcome to Anchor",
     "welcome_text": "A gentle space to align who you are, how you feel, and what you do — one small step at a time.",
-    "how_title": "Your Daily Anchors",
-    "how_text": "Set 3 simple intentions each morning: one for your growth, one for your wellbeing, and one for your connection to life.",
-    "ritual_title": "Breathe, Reflect, Release",
-    "ritual_text": "Log your mood, check in with yourself, and let go of what is not yours to carry. Small steps still count.",
+    "tone_title": "How should Anchor sound to you?",
+    "tone_subtitle": "Pick what feels like you. You can always change this later in Settings.",
+    "reminders_title": "Gentle reminders",
+    "reminders_subtitle": "A soft nudge for your morning mood, your anchors, and your evening check-in — never pushy, always optional.",
+    "reminders_permission_note": "We'll ask your permission next. Nothing is sent until you say yes.",
+    "life_title": "What brings you here?",
+    "life_subtitle": "Totally optional — pick whatever feels true right now.",
+    "life_intentions": {
+      "clarity": "Clarity",
+      "peace": "Peace",
+      "discipline": "Discipline",
+      "healing": "Healing"
+    },
     "next": "Next",
     "back": "Back",
     "start": "Begin",
     "skip": "Skip for now"
+  },
+  "tones": {
+    "gentle": {
+      "label": "Gentle & spiritual",
+      "description": "Warm, soft, like a wise friend.",
+      "example": "Yesterday you chose Peace — let it carry you today."
+    },
+    "direct": {
+      "label": "Direct & motivating",
+      "description": "Crisp and energizing, still kind.",
+      "example": "New day, one anchor. Let's go gently but surely."
+    },
+    "poetic": {
+      "label": "Poetic",
+      "description": "Unhurried, full of natural imagery.",
+      "example": "Dawn again — carry only what still serves you."
+    }
   },
   "ritual": {
     "inhale": "Breathe in...",

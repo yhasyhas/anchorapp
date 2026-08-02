@@ -16,6 +16,22 @@ export const config = {
 }
 
 type Language = "en" | "sw"
+type Tone = "gentle" | "direct" | "poetic"
+
+// Style only — the safety rules in each system prompt below (never invent details, never
+// guilt-trip, honor quiet weeks with grace) stay identical across all three tones. "gentle"
+// matches the app's original wording verbatim, so the default tone changes nothing for
+// existing behavior. Duplicated from api/insights.ts (not imported — same reasoning as
+// INTENTION_LABELS above: this function is bundled separately).
+const TONE_INSTRUCTIONS: Record<Tone, string> = {
+  gentle: "warm, reflective, spiritual but not religious — the tone of a wise, loving friend writing by hand, never a coach or a progress report",
+  direct: "direct and motivating — crisp, energizing sentences and active verbs, like a coach who believes in her. Still warm underneath, never harsh or like a performance review",
+  poetic: "poetic and lyrical — natural imagery (light, seasons, water), unhurried rhythm, more metaphor. Still clear enough that the real facts land, not just the imagery",
+}
+
+function normalizeTone(tone: unknown): Tone {
+  return tone === "direct" || tone === "poetic" ? tone : "gentle"
+}
 
 // Target: Sunday, 20:00 local time — see api/cron/reminders.ts for the full
 // explanation of why this is a fixed-UTC-time approximation rather than a
@@ -152,6 +168,7 @@ interface ProfileRow {
   preferred_language: Language
   timezone: string
   ai_checkins_enabled: boolean
+  tone: Tone
 }
 
 interface MoodLogRow {
@@ -302,9 +319,10 @@ async function generateLetterWithGroq(params: {
   // already gated by profile.ai_checkins_enabled at the call site; null here
   // just means either nothing to quote or the user opted out.
   checkInSnippet: string | null
+  tone: Tone
   groqApiKey: string
 }): Promise<string> {
-  const { firstName, highlights, checkInSnippet, groqApiKey } = params
+  const { firstName, highlights, checkInSnippet, tone, groqApiKey } = params
 
   const intentionLabel = translateIntention(highlights.dominantIntention, "en")
   const moodSummary = Object.entries(highlights.moodCounts)
@@ -333,8 +351,7 @@ async function generateLetterWithGroq(params: {
 
 Rules:
 - Address her directly, second person. Start with "Hi ${firstName || "love"},".
-- 120-180 words. Warm, reflective, spiritual but not religious — the tone of a
-  wise, loving friend writing by hand, never a coach or a progress report.
+- 120-180 words. Tone: ${TONE_INSTRUCTIONS[tone]}.
 - Weave in AT LEAST TWO of the real details given below, naturally — not as
   a bullet list, not mechanically restated.
 - If the data shows quiet, low-mood, or lighter days, honor that too: rest is
@@ -411,18 +428,21 @@ async function buildLetterText(params: {
   firstName: string
   highlights: Highlights
   checkInSnippet: string | null
+  tone: Tone
   groqApiKey: string | undefined
 }): Promise<string> {
-  const { language, firstName, highlights, checkInSnippet, groqApiKey } = params
+  const { language, firstName, highlights, checkInSnippet, tone, groqApiKey } = params
 
   if (language === "sw" || !groqApiKey) {
     // Static fallback never references check-in text — it doesn't need the
-    // toggle-gated snippet at all, only the AI path does.
+    // toggle-gated snippet at all, only the AI path does. Swahili's static
+    // template also doesn't vary by tone (same fluency reasoning above) —
+    // tone only reaches the letter for English users, who go through Groq below.
     return buildStaticLetter(language, firstName, highlights)
   }
 
   try {
-    return await generateLetterWithGroq({ firstName, highlights, checkInSnippet, groqApiKey })
+    return await generateLetterWithGroq({ firstName, highlights, checkInSnippet, tone, groqApiKey })
   } catch {
     return buildStaticLetter(language, firstName, highlights)
   }
@@ -520,9 +540,10 @@ async function generateStoryWithGroq(params: {
   // ai_checkins_enabled gating as the letter's own snippet, not broken down
   // per week (keeps the story prompt from growing too complex for one quote).
   checkInSnippet: string | null
+  tone: Tone
   groqApiKey: string
 }): Promise<string> {
-  const { firstName, stats, checkInSnippet, groqApiKey } = params
+  const { firstName, stats, checkInSnippet, tone, groqApiKey } = params
 
   const weekLines = stats.weeks.map((w, i) => {
     const label = WEEK_LABELS_EN[i]
@@ -563,7 +584,7 @@ async function generateStoryWithGroq(params: {
           content: `You are Anchor, writing a short "progress story" for a woman — a reflective narrative of how her inner state has shifted over the past three weeks. This is not a summary, it's the shape of her becoming.
 
 Rules:
-- Second person, warm, spiritual but not religious — the tone of a wise friend who has quietly watched her these three weeks.
+- Second person. Tone: ${TONE_INSTRUCTIONS[tone]}.
 - Exactly 3 short paragraphs, one per week, in chronological order: the first about three weeks ago, the second about two weeks ago, the third about this week. Open each paragraph with a natural variation of "Three weeks ago", "Two weeks ago", "This week".
 - Use ONLY the real facts given below for each week. If a week is marked EMPTY, say so with grace (e.g. "that week, you rested") — never apologize for it or frame it as a gap or failure.
 - The point of this story is the SHIFT between weeks — what changed in her energy, focus, or what she was choosing. Make the arc felt; don't just list the same kind of fact three times in a row.
@@ -622,16 +643,17 @@ async function buildStoryText(params: {
   firstName: string
   stats: StoryStats
   checkInSnippet: string | null
+  tone: Tone
   groqApiKey: string | undefined
 }): Promise<string> {
-  const { language, firstName, stats, checkInSnippet, groqApiKey } = params
+  const { language, firstName, stats, checkInSnippet, tone, groqApiKey } = params
 
   if (language === "sw" || !groqApiKey) {
     return buildStaticStory(language, firstName, stats)
   }
 
   try {
-    return await generateStoryWithGroq({ firstName, stats, checkInSnippet, groqApiKey })
+    return await generateStoryWithGroq({ firstName, stats, checkInSnippet, tone, groqApiKey })
   } catch {
     return buildStaticStory(language, firstName, stats)
   }
@@ -658,7 +680,7 @@ export async function GET(request: Request): Promise<Response> {
   const rest: RestConfig = { url: SUPABASE_URL, serviceRoleKey: SERVICE_ROLE_KEY }
   const now = new Date()
 
-  const profiles = await restGet<ProfileRow>(rest, "profiles?select=id,full_name,preferred_language,timezone,ai_checkins_enabled")
+  const profiles = await restGet<ProfileRow>(rest, "profiles?select=id,full_name,preferred_language,timezone,ai_checkins_enabled,tone")
   if (profiles.length === 0) {
     return jsonResponse({ processed: 0, lettersGenerated: 0, storiesGenerated: 0 }, 200)
   }
@@ -743,7 +765,14 @@ export async function GET(request: Request): Promise<Response> {
         // response here, not a "you didn't do enough" notification.
         if (highlights.totalDaysLogged >= MIN_ACTIVE_DAYS_LETTER) {
           const checkInSnippet = profile.ai_checkins_enabled ? pickBestCheckInSnippet(wCheckIns) : null
-          const letterText = await buildLetterText({ language, firstName, highlights, checkInSnippet, groqApiKey: GROQ_API_KEY })
+          const letterText = await buildLetterText({
+            language,
+            firstName,
+            highlights,
+            checkInSnippet,
+            tone: normalizeTone(profile.tone),
+            groqApiKey: GROQ_API_KEY,
+          })
           try {
             await restInsert(rest, "weekly_letters", {
               user_id: userId,
@@ -776,7 +805,14 @@ export async function GET(request: Request): Promise<Response> {
 
         if (stats.totalActiveDays >= MIN_ACTIVE_DAYS_STORY) {
           const checkInSnippet = profile.ai_checkins_enabled ? pickBestCheckInSnippet(allCheckIns) : null
-          const storyText = await buildStoryText({ language, firstName, stats, checkInSnippet, groqApiKey: GROQ_API_KEY })
+          const storyText = await buildStoryText({
+            language,
+            firstName,
+            stats,
+            checkInSnippet,
+            tone: normalizeTone(profile.tone),
+            groqApiKey: GROQ_API_KEY,
+          })
           try {
             await restInsert(rest, "progress_stories", {
               user_id: userId,

@@ -1,3 +1,5 @@
+export type Tone = "gentle" | "direct" | "poetic"
+
 export interface Profile {
   id: string
   full_name: string
@@ -5,6 +7,8 @@ export interface Profile {
   ai_enabled: boolean
   ai_checkins_enabled: boolean
   timezone: string
+  tone: Tone
+  onboarded_at: string | null
   created_at: string
 }
 

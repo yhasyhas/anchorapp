@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase"
 import { addToSyncQueue, isOnline, setLocalData, getLocalData } from "@/lib/offline-sync"
 import { generateCompanionMessage } from "@/lib/ai-service"
 import { calculateStreaks, reachedAnchorMilestone, MIN_STREAK_FOR_INTENTION, type StreakData } from "@/lib/streaks"
-import { getUserLocalData, setUserLocalData } from "@/lib/user-storage"
+import { getUserLocalData, setUserLocalData, removeUserLocalData } from "@/lib/user-storage"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Settings, Info, Heart, Flame, Anchor as AnchorIcon, Sparkles, Lock, Pencil, Sun, Moon, Mail } from "lucide-react"
 import { toast } from "sonner"
-import { moodConfig, intentions } from "@/lib/constants"
+import { moodConfig, intentions, FIRST_INTENTION_KEY_BASE } from "@/lib/constants"
 import { todayStr, localDateStr, canCheckAnchors, getTimeUntilAnchorCheck } from "@/lib/utils"
 import type { DailyAnchor, MoodType, CheckIn, MoodLog } from "@/types"
 import { OnboardingModal } from "@/components/onboarding/onboarding-modal"
@@ -254,12 +254,19 @@ export function HomePage() {
         supabase.from("mood_logs").select("mood").eq("user_id", user.id).eq("date", yesterdayStr()).maybeSingle(),
       ])
 
+      // Consumed once: only the very first companion message after onboarding's optional
+      // "what brings you here" screen gets enriched by it (see onboarding-modal.tsx).
+      const firstIntention = getUserLocalData<string>(FIRST_INTENTION_KEY_BASE, user.id)
+      if (firstIntention) removeUserLocalData(FIRST_INTENTION_KEY_BASE, user.id)
+
       const msg = await generateCompanionMessage(
         profile?.ai_enabled ?? false,
         yCheckIn as CheckIn | null,
         yMood as MoodLog | null,
         todayAnchor?.daily_intention ?? "",
-        i18n.language as "en" | "sw"
+        i18n.language as "en" | "sw",
+        profile?.tone ?? "gentle",
+        firstIntention
       )
       setCompanionMsg(msg)
     } catch (err: any) {

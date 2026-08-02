@@ -10,6 +10,21 @@ export const config = {
 
 type Slot = "morning" | "midday" | "evening"
 type Language = "en" | "sw"
+type Tone = "gentle" | "direct" | "poetic"
+
+// Style only — the safety rules below (never guilt-trip, never invent specifics) stay
+// identical across all three tones. "gentle" matches the app's original wording verbatim,
+// so the default tone changes nothing for existing behavior. Duplicated from
+// api/insights.ts / api/cron/weekly-letter.ts — each Vercel function is bundled separately.
+const TONE_INSTRUCTIONS: Record<Tone, string> = {
+  gentle: "warm, spiritual but not religious, like a caring friend — never a taskmaster",
+  direct: "direct and motivating — short, energizing, active verbs, like a coach who believes in her — still warm, never a taskmaster",
+  poetic: "poetic and lyrical — a touch of natural imagery, unhurried — still warm, never a taskmaster",
+}
+
+function normalizeTone(tone: unknown): Tone {
+  return tone === "direct" || tone === "poetic" ? tone : "gentle"
+}
 
 interface SlotDef {
   key: Slot
@@ -210,6 +225,7 @@ interface ProfileRow {
   full_name: string
   preferred_language: Language
   timezone: string
+  tone: Tone
 }
 
 interface PrefsRow {
@@ -277,18 +293,21 @@ function streakBucket(streak: number): string {
 async function buildMessage(params: {
   slot: Slot
   language: Language
+  tone: Tone
   firstName: string
   moodStreak: number
   yesterdayMood: string | null
   hasIntention: boolean
   groqApiKey: string | undefined
 }): Promise<{ title: string; body: string }> {
-  const { slot, language, firstName, moodStreak, yesterdayMood, hasIntention, groqApiKey } = params
+  const { slot, language, tone, firstName, moodStreak, yesterdayMood, hasIntention, groqApiKey } = params
   const title = TITLES[slot][language]
 
   // Poor context (brand-new or long-dormant user, nothing to personalize
   // with) — a generic AI call isn't worth the cost, go straight to a static
-  // line picked at random so repeat visits don't feel copy-pasted.
+  // line picked at random so repeat visits don't feel copy-pasted. Static
+  // fallbacks don't vary by tone (same fluency-risk reasoning as Swahili below
+  // — not worth a shaky generation just to color one push-notification line).
   const poorContext = moodStreak === 0 && !yesterdayMood && !hasIntention
 
   // llama-3.1-8b-instant's Swahili is noticeably less fluent than its
@@ -301,12 +320,12 @@ async function buildMessage(params: {
     return { title, body: pick(STATIC_FALLBACKS[slot][language]) }
   }
 
-  const cacheKey = `${slot}:${language}:${streakBucket(moodStreak)}:${hasIntention ? 1 : 0}:${yesterdayMood || "none"}`
+  const cacheKey = `${slot}:${language}:${tone}:${streakBucket(moodStreak)}:${hasIntention ? 1 : 0}:${yesterdayMood || "none"}`
   const cached = messageCache.get(cacheKey)
   if (cached) return { title, body: cached.body }
 
   try {
-    const raw = await generateWithGroq({ slot, language, firstName, moodStreak, yesterdayMood, hasIntention, groqApiKey })
+    const raw = await generateWithGroq({ slot, language, tone, firstName, moodStreak, yesterdayMood, hasIntention, groqApiKey })
     const result = { title, body: capWords(raw) }
     messageCache.set(cacheKey, result)
     return result
@@ -328,13 +347,14 @@ function slotInstruction(slot: Slot): string {
 async function generateWithGroq(params: {
   slot: Slot
   language: Language
+  tone: Tone
   firstName: string
   moodStreak: number
   yesterdayMood: string | null
   hasIntention: boolean
   groqApiKey: string
 }): Promise<string> {
-  const { slot, language, firstName, moodStreak, yesterdayMood, hasIntention, groqApiKey } = params
+  const { slot, language, tone, firstName, moodStreak, yesterdayMood, hasIntention, groqApiKey } = params
 
   const contextLines = [
     `Name: ${firstName || "friend"}`,
@@ -355,7 +375,7 @@ async function generateWithGroq(params: {
 
 Rules:
 - ONE sentence, max 15 words.
-- Warm, spiritual but not religious, like a caring friend — never a taskmaster.
+- Tone: ${TONE_INSTRUCTIONS[tone]}.
 - Never guilt-trip, never say "you should" or "you haven't". Supportive, not demanding.
 - Weave in the given context ONLY if it fits naturally in one short sentence — otherwise keep it simple and warm.
 - NEVER invent specific details (task names, activities, plans) that aren't in
@@ -421,7 +441,7 @@ export async function GET(request: Request): Promise<Response> {
 
   const profiles = await restGet<ProfileRow>(
     rest,
-    `profiles?id=in.(${idList})&select=id,full_name,preferred_language,timezone`
+    `profiles?id=in.(${idList})&select=id,full_name,preferred_language,timezone,tone`
   )
   const profileById = new Map(profiles.map((p) => [p.id, p]))
   const prefsByUser = new Map(prefsRows.map((p) => [p.user_id, p]))
@@ -551,6 +571,7 @@ export async function GET(request: Request): Promise<Response> {
       const { title, body } = await buildMessage({
         slot: slot.key,
         language: profile.preferred_language === "sw" ? "sw" : "en",
+        tone: normalizeTone(profile.tone),
         firstName,
         moodStreak,
         yesterdayMood,

@@ -2,6 +2,22 @@ export const config = {
   runtime: "edge",
 }
 
+type Tone = "gentle" | "direct" | "poetic"
+
+// Style only — never the safety rules (no diagnosis, no guilt-tripping) baked into each
+// prompt's "Rules" list, which stay identical across all three tones. "gentle" is worded to
+// match the app's original, un-tone-able style verbatim, so existing users (default tone)
+// see zero behavior change.
+const TONE_INSTRUCTIONS: Record<Tone, string> = {
+  gentle: "Warm, spiritual but not religious, like a wise friend",
+  direct: "Direct and motivating — short, energizing sentences and active verbs, like a coach who believes in her. Still warm, never harsh or pushy",
+  poetic: "Poetic and lyrical — natural imagery (light, seasons, water), unhurried rhythm, more metaphor. Still clear enough to be understood in one read",
+}
+
+function normalizeTone(tone: unknown): Tone {
+  return tone === "direct" || tone === "poetic" ? tone : "gentle"
+}
+
 const RATE_LIMIT_MAX = 30
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000 // 1 heure
 const MAX_BODY_BYTES = 100_000 // garde-fou anti-abus, largement au-dessus d'un payload légitime
@@ -138,6 +154,9 @@ function validateCompanionBody(body: any): string | null {
   if (body.language !== undefined && body.language !== "en" && body.language !== "sw") {
     return "invalid language"
   }
+  if (body.tone !== undefined && body.tone !== "gentle" && body.tone !== "direct" && body.tone !== "poetic") {
+    return "invalid tone"
+  }
   if (body.yesterdayMood !== undefined && body.yesterdayMood !== null && typeof body.yesterdayMood !== "string") {
     return "invalid yesterdayMood"
   }
@@ -147,6 +166,9 @@ function validateCompanionBody(body: any): string | null {
     typeof body.yesterdayCheckIn !== "object"
   ) {
     return "invalid yesterdayCheckIn"
+  }
+  if (body.firstIntention !== undefined && body.firstIntention !== null && typeof body.firstIntention !== "string") {
+    return "invalid firstIntention"
   }
   return null
 }
@@ -270,7 +292,23 @@ async function handleInsights(body: any, apiKey: string) {
 }
 
 async function handleCompanion(body: any, apiKey: string) {
-  const { yesterdayMood, yesterdayCheckIn, todayIntention, language = "en" } = body
+  const { yesterdayMood, yesterdayCheckIn, todayIntention, language = "en", firstIntention } = body
+  const tone = normalizeTone(body.tone)
+
+  const userLines = [
+    `Yesterday's context:`,
+    `- Mood: ${yesterdayMood || "unknown"}`,
+    `- What felt real: ${yesterdayCheckIn?.what_felt_real || "none"}`,
+    `- What matters: ${yesterdayCheckIn?.what_matters || "none"}`,
+    `- Today's intention: ${todayIntention || "none"}`,
+    // Only ever present on the very first message after onboarding (see
+    // src/components/onboarding/onboarding-modal.tsx's optional "what brings you here"
+    // screen) — the client consumes its local cache after one use, so this line won't
+    // recur on later mornings.
+    firstIntention ? `- What brought her to Anchor in the first place: ${firstIntention}` : null,
+    ``,
+    `Generate one warm morning sentence.`,
+  ].filter((line) => line !== null)
 
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
@@ -286,7 +324,7 @@ async function handleCompanion(body: any, apiKey: string) {
           content: `You are Anchor, a gentle morning companion. Write ONE short, warm sentence (max 15 words) to greet the user this morning.
 
 Rules:
-- Warm, spiritual but not religious, like a wise friend
+- ${TONE_INSTRUCTIONS[tone]}
 - If they carried something heavy, be extra gentle
 - If they had a good day, celebrate it subtly
 - Suggest one tiny intention for today
@@ -300,13 +338,7 @@ Examples:
         },
         {
           role: "user",
-          content: `Yesterday's context:
-- Mood: ${yesterdayMood || "unknown"}
-- What felt real: ${yesterdayCheckIn?.what_felt_real || "none"}
-- What matters: ${yesterdayCheckIn?.what_matters || "none"}
-- Today's intention: ${todayIntention || "none"}
-
-Generate one warm morning sentence.`,
+          content: userLines.join("\n"),
         },
       ],
       temperature: 0.5,

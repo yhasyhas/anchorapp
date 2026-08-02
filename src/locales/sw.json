@@ -144,6 +144,8 @@
     "ai_checkins": "Jumuisha maandiko ya kujiangalia",
     "ai_checkins_desc": "Ruhusu AI kusoma tafakari zako kwa maarifa tajiri zaidi",
     "ai_no_key": "Ongeza ufunguo wa GROQ API katika mazingira yako kuwezesha vipengele vya AI.",
+    "tone_title": "Mtindo wa ujumbe",
+    "tone_desc": "Jinsi Anchor inavyosikika katika salamu yako ya asubuhi, barua ya wiki, hadithi ya maendeleo, na vikumbusho.",
     "save": "Hifadhi",
     "reminders_title": "Vikumbusho",
     "reminders_enable": "Vikumbusho vyororo",
@@ -203,14 +205,40 @@
   "onboarding": {
     "welcome_title": "Karibu kwenye Anchor",
     "welcome_text": "Nafasi ya upole ili kuoanisha nani ulivyo, unavyohisi, na unachofanya — hatua moja ndogo kwa wakati.",
-    "how_title": "Nanga Zako za Kila Siku",
-    "how_text": "Weka nia 3 rahisi kila asubuhi: moja kwa ustawi wako, moja kwa afya yako, na moja kwa uhusiano wako na maisha.",
-    "ritual_title": "Pumua, Tafakari, Acha",
-    "ritual_text": "Andika hisia zako, jiangalie, na acha kila kitu ambacho si chako kubeba. Hatua ndogo bado zinahesabu.",
+    "tone_title": "Anchor inapaswa kusikika vipi kwako?",
+    "tone_subtitle": "Chagua kile kinachokufanana. Unaweza kubadilisha hili wakati wowote kwenye Mipangilio.",
+    "reminders_title": "Vikumbusho vyororo",
+    "reminders_subtitle": "Ukumbusho mwororo kwa hisia zako za asubuhi, nanga zako, na kujiangalia jioni — bila kubana, kila mara ni hiari.",
+    "reminders_permission_note": "Tutaomba ruhusa yako baadaye. Hakuna kitakachotumwa mpaka ukubali.",
+    "life_title": "Ni nini kilichokuleta hapa?",
+    "life_subtitle": "Ni hiari kabisa — chagua kile kinachohisi kweli sasa hivi.",
+    "life_intentions": {
+      "clarity": "Uwazi",
+      "peace": "Amani",
+      "discipline": "Nidhamu",
+      "healing": "Uponyaji"
+    },
     "next": "Inayofuata",
     "back": "Rudi",
     "start": "Anza",
     "skip": "Ruka kwa sasa"
+  },
+  "tones": {
+    "gentle": {
+      "label": "Mpole na wa kiroho",
+      "description": "Wa joto, mpole, kama rafiki mwenye hekima.",
+      "example": "Jana ulichagua Amani — iache ikubebe leo."
+    },
+    "direct": {
+      "label": "Wazi na wa kuhamasisha",
+      "description": "Mkali na wenye nguvu, bado mwenye upole.",
+      "example": "Siku mpya, nanga moja. Twende kwa upole lakini kwa uhakika."
+    },
+    "poetic": {
+      "label": "Wa kishairi",
+      "description": "Wa polepole, uliojaa taswira za asili.",
+      "example": "Alfajiri tena — beba tu kile kinachokufaa bado."
+    }
   },
   "ritual": {
     "inhale": "Pumua ndani...",

@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch"
 import { ModeToggle } from "@/components/mode-toggle"
 import { RemindersSection } from "@/components/settings/reminders-section"
 import { JournalExportSection } from "@/components/settings/journal-export-section"
+import { ToneSection } from "@/components/settings/tone-section"
 import { ArrowLeft, Brain } from "lucide-react"
 import { localDateStr } from "@/lib/utils"
 
@@ -183,6 +184,9 @@ export function SettingsPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Tone */}
+        <ToneSection />
 
         {/* Reminders */}
         <RemindersSection />

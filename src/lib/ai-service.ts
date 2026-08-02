@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase"
 import { getUserLocalData, setUserLocalData } from "@/lib/user-storage"
 import i18n from "@/lib/i18n"
 import { getISOWeek } from "date-fns"
-import type { MoodLog, DailyAnchor, CheckIn } from "@/types"
+import type { MoodLog, DailyAnchor, CheckIn, Tone } from "@/types"
 
 type Language = "en" | "sw"
 
@@ -354,7 +354,12 @@ export async function generateCompanionMessage(
   yesterdayCheckIn: Partial<CheckIn> | null,
   yesterdayMood: MoodLog | null,
   todayIntention: string,
-  language: "en" | "sw" = "en"
+  language: "en" | "sw" = "en",
+  tone: Tone = "gentle",
+  // Set only once, right after onboarding's optional "what brings you here" screen — see
+  // src/components/onboarding/onboarding-modal.tsx and src/pages/home.tsx, which consumes
+  // (reads + clears) the local cache so this only ever enriches the very first message.
+  firstIntention?: string | null
 ): Promise<string> {
   if (!isOnline()) {
     return language === "sw"
@@ -364,7 +369,7 @@ export async function generateCompanionMessage(
 
   // Respect du consentement : IA désactivée = message local uniquement, aucun appel réseau
   if (!aiEnabled) {
-    return getLocalCompanionFallback(yesterdayMood?.mood, language)
+    return getLocalCompanionFallback(yesterdayMood?.mood, language, tone)
   }
 
   // 🚀 PROD : appel Edge Function
@@ -382,6 +387,8 @@ export async function generateCompanionMessage(
           },
           todayIntention,
           language,
+          tone,
+          firstIntention: firstIntention || null,
         }),
       })
 
@@ -390,24 +397,61 @@ export async function generateCompanionMessage(
       return json.message
     } catch {
       // Fallback local si l'IA est down
-      return getLocalCompanionFallback(yesterdayMood?.mood, language)
+      return getLocalCompanionFallback(yesterdayMood?.mood, language, tone)
     }
   }
 
   // 💻 DEV : fallback local
-  return getLocalCompanionFallback(yesterdayMood?.mood, language)
+  return getLocalCompanionFallback(yesterdayMood?.mood, language, tone)
 }
 
-function getLocalCompanionFallback(mood: string | undefined, language: "en" | "sw"): string {
-  if (language === "sw") {
-    if (mood === "low" || mood === "stressed") return "Jana lilikuwa zito — leo, ruhusa ya kusonga polepole."
-    if (mood === "great" || mood === "okay") return "Jana ulifanya vizuri — leo, endelea na mwendo huo wa upole."
-    return "Habari za asubuhi — weka nia moja ya upole kwa leo."
-  }
+// Style only, same 3 tones as the AI path (see TONE_INSTRUCTIONS in api/insights.ts) — kept
+// hand-written per language/mood-bucket rather than templated, same reasoning as the rest of
+// this file's local fallbacks: a handful of warm, correct lines beats a generic mad-lib.
+const LOCAL_COMPANION_FALLBACK: Record<Tone, Record<"en" | "sw", { heavy: string; good: string; neutral: string }>> = {
+  gentle: {
+    en: {
+      heavy: "Yesterday was heavy — today, permission to move slowly.",
+      good: "Yesterday you did well — today, keep that gentle pace.",
+      neutral: "Good morning — set one gentle intention for today.",
+    },
+    sw: {
+      heavy: "Jana lilikuwa zito — leo, ruhusa ya kusonga polepole.",
+      good: "Jana ulifanya vizuri — leo, endelea na mwendo huo wa upole.",
+      neutral: "Habari za asubuhi — weka nia moja ya upole kwa leo.",
+    },
+  },
+  direct: {
+    en: {
+      heavy: "Yesterday was heavy. Today: one small anchor, nothing more.",
+      good: "Yesterday you showed up. Today, let's keep that going.",
+      neutral: "New day, one anchor. Let's go gently but surely.",
+    },
+    sw: {
+      heavy: "Jana ilikuwa nzito. Leo: nanga moja ndogo, hakuna zaidi.",
+      good: "Jana ulijitokeza. Leo, tuendeleze mwendo huo.",
+      neutral: "Siku mpya, nanga moja. Twende kwa upole lakini kwa uhakika.",
+    },
+  },
+  poetic: {
+    en: {
+      heavy: "The night was heavy — let today be a slow unfolding.",
+      good: "Yesterday's light is still on you. Let it lead today.",
+      neutral: "Dawn again — carry only what still serves you.",
+    },
+    sw: {
+      heavy: "Usiku ulikuwa mzito — leo iwe ufunguzi wa polepole.",
+      good: "Mwanga wa jana bado uko juu yako. Uuache uongoze leo.",
+      neutral: "Alfajiri tena — beba tu kile kinachokufaa bado.",
+    },
+  },
+}
 
-  if (mood === "low" || mood === "stressed") return "Yesterday was heavy — today, permission to move slowly."
-  if (mood === "great" || mood === "okay") return "Yesterday you did well — today, keep that gentle pace."
-  return "Good morning — set one gentle intention for today."
+function getLocalCompanionFallback(mood: string | undefined, language: "en" | "sw", tone: Tone): string {
+  const lines = LOCAL_COMPANION_FALLBACK[tone][language]
+  if (mood === "low" || mood === "stressed") return lines.heavy
+  if (mood === "great" || mood === "okay") return lines.good
+  return lines.neutral
 }
 
 // ==================== CACHE & PERSISTENCE ====================

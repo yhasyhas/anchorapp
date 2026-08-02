@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { ArrowLeft, Brain } from "lucide-react"
+import { localDateStr } from "@/lib/utils"
 
 export function SettingsPage() {
   const { t, i18n } = useTranslation()
@@ -48,7 +49,7 @@ export function SettingsPage() {
     if (!user) return
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-    const since = thirtyDaysAgo.toISOString().split("T")[0]
+    const since = localDateStr(thirtyDaysAgo)
 
     const [anchors, moods, checkIns] = await Promise.all([
       supabase.from("daily_anchors").select("*").eq("user_id", user.id).gte("date", since),

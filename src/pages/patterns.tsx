@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
 import { fetchInsightsWithFallback } from "@/lib/ai-service"
 import { moodToValue } from "@/lib/constants"
+import { localDateStr } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Sparkles, Brain, Loader2 } from "lucide-react"
@@ -48,11 +49,11 @@ export function PatternsPage() {
     try {
       const weekAgo = new Date()
       weekAgo.setDate(weekAgo.getDate() - 6)
-      const weekStr = weekAgo.toISOString().split("T")[0]
+      const weekStr = localDateStr(weekAgo)
 
       const thirtyAgo = new Date()
       thirtyAgo.setDate(thirtyAgo.getDate() - 30)
-      const thirtyStr = thirtyAgo.toISOString().split("T")[0]
+      const thirtyStr = localDateStr(thirtyAgo)
 
       const [{ data: weekMoods }, { data: monthMoods }, { data: anchors }, { data: checkIns }] = await Promise.all([
         supabase
@@ -121,7 +122,7 @@ export function PatternsPage() {
     for (let i = 6; i >= 0; i--) {
       const d = new Date(today)
       d.setDate(d.getDate() - i)
-      const dateStr = d.toISOString().split("T")[0]
+      const dateStr = localDateStr(d)
       const mood = moods.find((m) => m.date === dateStr)
       points.push({
         day: dayLabels[d.getDay()],

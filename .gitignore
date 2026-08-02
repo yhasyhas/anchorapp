@@ -37,3 +37,6 @@ supabase/.branches
 !.env.example
 !.env.sample
 !.env.*.example
+
+.vercel
+.env*

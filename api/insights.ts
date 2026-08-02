@@ -2,37 +2,207 @@ export const config = {
   runtime: "edge",
 }
 
+const RATE_LIMIT_MAX = 30
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000 // 1 heure
+const MAX_BODY_BYTES = 100_000 // garde-fou anti-abus, largement au-dessus d'un payload légitime
+const MAX_ARRAY_LEN = 90 // ~3 mois de données quotidiennes, marge au-delà des 30 jours utilisés côté client
+
+function jsonResponse(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  })
+}
+
+function extractBearerToken(request: Request): string | null {
+  const header = request.headers.get("Authorization")
+  if (!header?.startsWith("Bearer ")) return null
+  const token = header.slice(7).trim()
+  return token || null
+}
+
+// Vérifie le JWT Supabase via l'API auth (endpoint /auth/v1/user) — pas besoin d'une
+// clé service-role, l'anon key + le token de l'utilisateur suffisent à le valider.
+async function getAuthenticatedUser(
+  token: string,
+  supabaseUrl: string,
+  anonKey: string
+): Promise<{ id: string } | null> {
+  try {
+    const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        apikey: anonKey,
+      },
+    })
+    if (!res.ok) return null
+    const user = await res.json()
+    return typeof user?.id === "string" ? { id: user.id } : null
+  } catch {
+    return null
+  }
+}
+
+// Rate limit 30 req/h par utilisateur, via une table Supabase (ai_request_log) plutôt
+// qu'un service externe — pas de nouvelle dépendance, et RLS protège déjà chaque ligne
+// par user_id comme le reste du schéma. On appelle PostgREST avec le JWT de l'utilisateur
+// (déjà vérifié ci-dessus), donc aucune clé service-role n'est nécessaire ici non plus.
+// Si la vérification elle-même échoue (table absente, réseau...), on "fail open" : on ne
+// bloque pas un utilisateur légitime pour une panne d'infra — le vrai filet de sécurité
+// contre l'abus reste l'auth JWT + la validation du body.
+async function checkAndRecordRateLimit(
+  userId: string,
+  token: string,
+  supabaseUrl: string,
+  anonKey: string
+): Promise<boolean> {
+  const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString()
+
+  try {
+    const countRes = await fetch(
+      `${supabaseUrl}/rest/v1/ai_request_log?user_id=eq.${userId}&created_at=gte.${encodeURIComponent(since)}&select=id`,
+      {
+        method: "HEAD",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          apikey: anonKey,
+          Prefer: "count=exact",
+        },
+      }
+    )
+
+    if (countRes.ok) {
+      const contentRange = countRes.headers.get("content-range") // format "0-9/42"
+      const total = contentRange ? Number(contentRange.split("/")[1]) : NaN
+      if (Number.isFinite(total) && total >= RATE_LIMIT_MAX) {
+        return false
+      }
+    }
+
+    // Enregistre cette requête (best-effort — un échec d'écriture ne doit pas bloquer l'appel)
+    await fetch(`${supabaseUrl}/rest/v1/ai_request_log`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        apikey: anonKey,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({ user_id: userId }),
+    })
+
+    return true
+  } catch {
+    return true
+  }
+}
+
+function validateInsightsBody(body: any): string | null {
+  if (!Array.isArray(body.moods)) return "moods must be an array"
+  if (!Array.isArray(body.anchors)) return "anchors must be an array"
+  if (body.moods.length > MAX_ARRAY_LEN) return `moods array too large (max ${MAX_ARRAY_LEN})`
+  if (body.anchors.length > MAX_ARRAY_LEN) return `anchors array too large (max ${MAX_ARRAY_LEN})`
+  if (body.checkIns !== undefined) {
+    if (!Array.isArray(body.checkIns)) return "checkIns must be an array"
+    if (body.checkIns.length > MAX_ARRAY_LEN) return `checkIns array too large (max ${MAX_ARRAY_LEN})`
+  }
+  for (const m of body.moods) {
+    if (typeof m !== "object" || m === null || typeof m.date !== "string" || typeof m.mood !== "string") {
+      return "invalid mood entry"
+    }
+  }
+  for (const a of body.anchors) {
+    if (typeof a !== "object" || a === null || typeof a.date !== "string") {
+      return "invalid anchor entry"
+    }
+  }
+  return null
+}
+
+function validateCompanionBody(body: any): string | null {
+  if (body.todayIntention !== undefined && typeof body.todayIntention !== "string") {
+    return "todayIntention must be a string"
+  }
+  if (body.language !== undefined && body.language !== "en" && body.language !== "sw") {
+    return "invalid language"
+  }
+  if (body.yesterdayMood !== undefined && body.yesterdayMood !== null && typeof body.yesterdayMood !== "string") {
+    return "invalid yesterdayMood"
+  }
+  if (
+    body.yesterdayCheckIn !== undefined &&
+    body.yesterdayCheckIn !== null &&
+    typeof body.yesterdayCheckIn !== "object"
+  ) {
+    return "invalid yesterdayCheckIn"
+  }
+  return null
+}
+
 export default async function handler(request: Request) {
   if (request.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { "Content-Type": "application/json" },
-    })
+    return jsonResponse({ error: "Method not allowed" }, 405)
   }
 
   const GROQ_API_KEY = process.env.GROQ_API_KEY
+  // Réutilise les mêmes URL/anon key que le client (VITE_*) — ce sont des valeurs
+  // publiques par conception (le client les embarque déjà), donc pas de nouveau secret
+  // à provisionner pour cette Edge Function.
+  const SUPABASE_URL = process.env.VITE_SUPABASE_URL
+  const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY
 
   if (!GROQ_API_KEY) {
-    return new Response(JSON.stringify({ error: "API key not configured" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    })
+    return jsonResponse({ error: "API key not configured" }, 500)
+  }
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return jsonResponse({ error: "Server misconfigured" }, 500)
   }
 
-  try {
-    const body = await request.json()
-    const { type = "insights" } = body
+  const token = extractBearerToken(request)
+  if (!token) {
+    return jsonResponse({ error: "Unauthorized" }, 401)
+  }
 
+  const user = await getAuthenticatedUser(token, SUPABASE_URL, SUPABASE_ANON_KEY)
+  if (!user) {
+    return jsonResponse({ error: "Unauthorized" }, 401)
+  }
+
+  const allowed = await checkAndRecordRateLimit(user.id, token, SUPABASE_URL, SUPABASE_ANON_KEY)
+  if (!allowed) {
+    return jsonResponse({ error: "Rate limit exceeded. Try again later." }, 429)
+  }
+
+  const rawBody = await request.text()
+  if (rawBody.length > MAX_BODY_BYTES) {
+    return jsonResponse({ error: "Payload too large" }, 400)
+  }
+
+  let body: any
+  try {
+    body = JSON.parse(rawBody)
+  } catch {
+    return jsonResponse({ error: "Invalid JSON" }, 400)
+  }
+
+  if (typeof body !== "object" || body === null) {
+    return jsonResponse({ error: "Invalid body" }, 400)
+  }
+
+  const { type = "insights" } = body
+
+  try {
     if (type === "companion") {
+      const validationError = validateCompanionBody(body)
+      if (validationError) return jsonResponse({ error: validationError }, 400)
       return await handleCompanion(body, GROQ_API_KEY)
     }
 
+    const validationError = validateInsightsBody(body)
+    if (validationError) return jsonResponse({ error: validationError }, 400)
     return await handleInsights(body, GROQ_API_KEY)
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message || "Unknown error" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    })
+    return jsonResponse({ error: err.message || "Unknown error" }, 500)
   }
 }
 
@@ -174,6 +344,27 @@ EXAMPLES OF BAD INSIGHTS (NEVER DO):
 - "Your mood data indicates depression."`
 }
 
+// Convertit "YYYY-MM-DD" en index de jour (jours depuis l'epoch) pour comparer deux
+// dates calendaires sans se soucier du fuseau horaire ou des changements d'heure DST
+function dayIndex(dateStr: string): number {
+  const [year, month, day] = dateStr.split("-").map(Number)
+  return Math.floor(Date.UTC(year, month - 1, day) / 86400000)
+}
+
+// Meilleur streak : reconstruit une timeline calendaire continue en comparant les dates
+// consécutives triées — un jour sans ligne (trou dans le calendrier) casse le streak
+function calculateBestStreakFromDates(dates: string[]): number {
+  if (dates.length === 0) return 0
+  const sorted = [...new Set(dates)].sort()
+  let best = 1
+  let current = 1
+  for (let i = 1; i < sorted.length; i++) {
+    current = dayIndex(sorted[i]) - dayIndex(sorted[i - 1]) === 1 ? current + 1 : 1
+    best = Math.max(best, current)
+  }
+  return best
+}
+
 function buildPatternData(moods: any[], anchors: any[], checkIns?: any[]) {
   const moodDist: Record<string, number> = {}
   moods.forEach((m: any) => {
@@ -194,29 +385,15 @@ function buildPatternData(moods: any[], anchors: any[], checkIns?: any[]) {
     .slice(0, 3)
     .map(([name]) => name)
 
-  let bestMoodStreak = 0
-  let currentMoodStreak = 0
-  const sortedMoods = [...moods].sort((a: any, b: any) => a.date.localeCompare(b.date))
-  for (const m of sortedMoods) {
-    if (m.mood === "great" || m.mood === "okay") {
-      currentMoodStreak++
-      bestMoodStreak = Math.max(bestMoodStreak, currentMoodStreak)
-    } else {
-      currentMoodStreak = 0
-    }
-  }
-
-  let bestAnchorStreak = 0
-  let currentAnchorStreak = 0
-  const sortedAnchors = [...anchors].sort((a: any, b: any) => a.date.localeCompare(b.date))
-  for (const a of sortedAnchors) {
-    if (a.future_completed && a.mindbody_completed && a.life_completed) {
-      currentAnchorStreak++
-      bestAnchorStreak = Math.max(bestAnchorStreak, currentAnchorStreak)
-    } else {
-      currentAnchorStreak = 0
-    }
-  }
+  // Streaks calendaires (un jour sans ligne = cassure) — même logique que src/lib/streaks.ts
+  // et buildPatternDataDev dans src/lib/ai-service.ts, pour ne jamais annoncer un streak inexistant à l'IA.
+  // Dupliqué ici (plutôt qu'importé) car cette Edge Function est bundlée séparément du reste de l'app.
+  const bestMoodStreak = calculateBestStreakFromDates(
+    moods.filter((m: any) => m.mood === "great" || m.mood === "okay").map((m: any) => m.date)
+  )
+  const bestAnchorStreak = calculateBestStreakFromDates(
+    anchors.filter((a: any) => a.future_completed && a.mindbody_completed && a.life_completed).map((a: any) => a.date)
+  )
 
   const snippets = checkIns
     ?.filter((c: any) => c.what_matters || c.what_felt_real)

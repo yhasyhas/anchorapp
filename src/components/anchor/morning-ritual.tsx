@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
+import { todayStr } from "@/lib/utils"
 
 const RITUAL_KEY = "anchor_morning_ritual_done"
 
@@ -15,7 +16,7 @@ export function MorningRitual({ onComplete }: MorningRitualProps) {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
-    const today = new Date().toISOString().split("T")[0]
+    const today = todayStr()
     const done = localStorage.getItem(RITUAL_KEY)
     if (done !== today) setVisible(true)
   }, [])
@@ -30,7 +31,7 @@ export function MorningRitual({ onComplete }: MorningRitualProps) {
     const runPhase = () => {
       if (currentCycle >= 3) {
         setPhase("done")
-        const today = new Date().toISOString().split("T")[0]
+        const today = todayStr()
         localStorage.setItem(RITUAL_KEY, today)
         setTimeout(() => {
           setVisible(false)
@@ -91,7 +92,7 @@ export function MorningRitual({ onComplete }: MorningRitualProps) {
         variant="ghost"
         className="mt-12 text-muted-foreground hover:text-foreground"
         onClick={() => {
-          const today = new Date().toISOString().split("T")[0]
+          const today = todayStr()
           localStorage.setItem(RITUAL_KEY, today)
           setVisible(false)
           onComplete()

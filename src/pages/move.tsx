@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Footprints, Plus } from "lucide-react"
+import { todayStr } from "@/lib/utils"
 import type { MoveSuggestion } from "@/types"
 
 const defaultSuggestions: Omit<MoveSuggestion, "id" | "user_id" | "created_at">[] = [
@@ -76,7 +77,7 @@ export function MovePage() {
 
   async function addToAnchor(type: AnchorType) {
     if (!user || !selectedSuggestion) return
-    const today = new Date().toISOString().split("T")[0]
+    const today = todayStr()
 
     const field = type === "future" ? "future_task"
       : type === "mindbody" ? "mindbody_task"

@@ -1,4 +1,6 @@
 import { isOnline, getLocalData } from "@/lib/offline-sync"
+import { calculateBestStreakFromDates } from "@/lib/streaks"
+import { supabase } from "@/lib/supabase"
 import { getISOWeek } from "date-fns"
 import type { MoodLog, DailyAnchor, CheckIn } from "@/types"
 
@@ -11,6 +13,12 @@ interface AiInsightResult {
 
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
 const GROQ_MODEL = "llama-3.1-8b-instant"
+
+// L'Edge Function /api/insights exige un JWT Supabase valide (rate limiting par user_id)
+async function getAuthHeader(): Promise<Record<string, string>> {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+}
 
 // ==================== TIER 2 : LOCAL AVANCÉ ====================
 
@@ -141,7 +149,7 @@ export async function generateAiInsights(
   if (!import.meta.env.DEV) {
     const response = await fetch("/api/insights", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await getAuthHeader()) },
       body: JSON.stringify({ moods, anchors, checkIns }),
     })
 
@@ -244,29 +252,14 @@ function buildPatternDataDev(moods: MoodLog[], anchors: DailyAnchor[], checkIns?
     .slice(0, 3)
     .map(([name]) => name)
 
-  let bestMoodStreak = 0
-  let currentMoodStreak = 0
-  const sortedMoods = [...moods].sort((a, b) => a.date.localeCompare(b.date))
-  for (const m of sortedMoods) {
-    if (m.mood === "great" || m.mood === "okay") {
-      currentMoodStreak++
-      bestMoodStreak = Math.max(bestMoodStreak, currentMoodStreak)
-    } else {
-      currentMoodStreak = 0
-    }
-  }
-
-  let bestAnchorStreak = 0
-  let currentAnchorStreak = 0
-  const sortedAnchors = [...anchors].sort((a, b) => a.date.localeCompare(b.date))
-  for (const a of sortedAnchors) {
-    if (a.future_completed && a.mindbody_completed && a.life_completed) {
-      currentAnchorStreak++
-      bestAnchorStreak = Math.max(bestAnchorStreak, currentAnchorStreak)
-    } else {
-      currentAnchorStreak = 0
-    }
-  }
+  // Streaks calendaires (un jour sans ligne = cassure) — même logique que src/lib/streaks.ts
+  // et que buildPatternData dans api/insights.ts, pour ne jamais annoncer un streak inexistant à l'IA
+  const bestMoodStreak = calculateBestStreakFromDates(
+    moods.filter((m) => m.mood === "great" || m.mood === "okay").map((m) => m.date)
+  )
+  const bestAnchorStreak = calculateBestStreakFromDates(
+    anchors.filter((a) => a.future_completed && a.mindbody_completed && a.life_completed).map((a) => a.date)
+  )
 
   const snippets = checkIns
     ?.filter((c) => c.what_matters || c.what_felt_real)
@@ -310,7 +303,7 @@ export async function generateCompanionMessage(
     try {
       const response = await fetch("/api/insights", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await getAuthHeader()) },
         body: JSON.stringify({
           type: "companion",
           yesterdayMood: yesterdayMood?.mood || null,

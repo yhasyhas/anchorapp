@@ -16,6 +16,7 @@ export interface DailyAnchor {
   life_task: string
   life_completed: boolean
   daily_intention: string
+  anchors_locked_at: string | null
   created_at: string
 }
 

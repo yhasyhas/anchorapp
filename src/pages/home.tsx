@@ -14,7 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Settings, Info, Heart, Flame, Anchor as AnchorIcon, Sparkles, Lock, Pencil, Sun, Moon } from "lucide-react"
 import { toast } from "sonner"
 import { moodConfig, intentions } from "@/lib/constants"
-import { todayStr, getAnchorLockKey, canCheckAnchors, getTimeUntilAnchorCheck } from "@/lib/utils"
+import { todayStr, localDateStr, canCheckAnchors, getTimeUntilAnchorCheck } from "@/lib/utils"
 import type { DailyAnchor, MoodType, CheckIn, MoodLog } from "@/types"
 import { OnboardingModal } from "@/components/onboarding/onboarding-modal"
 import { MorningRitual } from "@/components/anchor/morning-ritual"
@@ -31,7 +31,7 @@ function getGreetingKey(): string {
 function yesterdayStr(): string {
   const d = new Date()
   d.setDate(d.getDate() - 1)
-  return d.toISOString().split("T")[0]
+  return localDateStr(d) // ← date locale, pas UTC (setDate() local + toISOString() UTC créaient un décalage)
 }
 
 function getDayModeKey(userId: string): string {
@@ -53,6 +53,7 @@ export function HomePage() {
     life_task: "",
     life_completed: false,
     daily_intention: "",
+    anchors_locked_at: null,
     created_at: "",
   })
 
@@ -150,7 +151,7 @@ export function HomePage() {
     try {
       const thirtyAgo = new Date()
       thirtyAgo.setDate(thirtyAgo.getDate() - 30)
-      const since = thirtyAgo.toISOString().split("T")[0]
+      const since = localDateStr(thirtyAgo)
 
       const [{ data: monthMoods }, { data: monthAnchors }] = await Promise.all([
         supabase.from("mood_logs").select("*").eq("user_id", user.id).gte("date", since),
@@ -298,7 +299,9 @@ export function HomePage() {
     if (!user) return
     setDayMode("tracking")
     setLocalData(getDayModeKey(user.id), "tracking")
-    localStorage.setItem(getAnchorLockKey(user.id), new Date().toISOString())
+    // Le verrou vit en base (daily_anchors.anchors_locked_at) via saveAnchor, avec le
+    // même fallback offline (sync queue) que le reste des champs de l'ancre.
+    saveAnchor({ anchors_locked_at: new Date().toISOString() })
     toast.success("Your day is set — go gently!")
     setPendingLock(false)
   }
@@ -584,7 +587,7 @@ export function HomePage() {
               task={anchor.future_task}
               completed={anchor.future_completed}
               onCheckChange={(v) => saveAnchor({ future_completed: v })}
-              userId={user?.id ?? ""}
+              lockedAt={anchor.anchors_locked_at}
             />
             <TrackingAnchorCard
               borderColor="#E8C4C4"
@@ -594,7 +597,7 @@ export function HomePage() {
               task={anchor.mindbody_task}
               completed={anchor.mindbody_completed}
               onCheckChange={(v) => saveAnchor({ mindbody_completed: v })}
-              userId={user?.id ?? ""}
+              lockedAt={anchor.anchors_locked_at}
             />
             <TrackingAnchorCard
               borderColor="#D4C5E8"
@@ -604,7 +607,7 @@ export function HomePage() {
               task={anchor.life_task}
               completed={anchor.life_completed}
               onCheckChange={(v) => saveAnchor({ life_completed: v })}
-              userId={user?.id ?? ""}
+              lockedAt={anchor.anchors_locked_at}
             />
 
             {allAnchorsDone && (
@@ -675,7 +678,7 @@ interface TrackingAnchorCardProps {
   task: string
   completed: boolean
   onCheckChange: (value: boolean) => void
-  userId: string
+  lockedAt: string | null
 }
 
 function TrackingAnchorCard({
@@ -686,11 +689,11 @@ function TrackingAnchorCard({
   task,
   completed,
   onCheckChange,
-  userId,
+  lockedAt,
 }: TrackingAnchorCardProps) {
   const { t } = useTranslation()
-  const canCheck = canCheckAnchors(userId)
-  const timeLeft = getTimeUntilAnchorCheck(userId)
+  const canCheck = canCheckAnchors(lockedAt)
+  const timeLeft = getTimeUntilAnchorCheck(lockedAt)
   const [showNudge, setShowNudge] = useState(false)
 
   const handleCheck = (v: boolean) => {

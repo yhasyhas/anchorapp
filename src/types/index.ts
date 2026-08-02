@@ -4,6 +4,7 @@ export interface Profile {
   preferred_language: "en" | "sw"
   ai_enabled: boolean
   ai_checkins_enabled: boolean
+  timezone: string
   created_at: string
 }
 

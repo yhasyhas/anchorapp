@@ -18,6 +18,27 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
+// Silent, best-effort: keeps profiles.timezone in sync with wherever the
+// user is actually opening the app from, instead of leaving everyone on the
+// column default ('Africa/Nairobi'). No UI, no user action — the reminders
+// cron (api/cron/reminders.ts) reads this to compute each user's local
+// time. Fire-and-forget on purpose: this must never block or fail loading
+// the rest of the app, and a stale value just self-corrects next session.
+function syncBrowserTimezone(userId: string, storedTimezone: string) {
+  let browserTimezone: string
+  try {
+    browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  } catch {
+    return
+  }
+  if (!browserTimezone || browserTimezone === storedTimezone) return
+
+  supabase.from("profiles").update({ timezone: browserTimezone }).eq("id", userId).then(
+    () => {},
+    () => {}
+  )
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [user, setUser] = useState<User | null>(null)
@@ -67,6 +88,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setProfile(data)
     setLoading(false)
+
+    if (data) syncBrowserTimezone(userId, data.timezone)
   }
 
   async function signIn(email: string, password: string) {

@@ -123,13 +123,22 @@ export function HomePage() {
           setLocalData(localKey, data)
           if (savedMode) {
             setDayMode(savedMode)
-          } else if (data.future_completed || data.mindbody_completed || data.life_completed) {
+          } else if (data.anchors_locked_at || data.future_completed || data.mindbody_completed || data.life_completed) {
+            // anchors_locked_at is the server-side source of truth for "day
+            // started" — checked first so a second device picks up a lock
+            // made elsewhere even before any task has been checked off
+            // there (savedMode only exists on the device that did the
+            // locking; this is what makes a fresh device catch up).
             setDayMode("tracking")
           }
           resolvedAnchor = data
         } else if (cached) {
           setAnchor(cached)
-          if (savedMode) setDayMode(savedMode)
+          if (savedMode) {
+            setDayMode(savedMode)
+          } else if (cached.anchors_locked_at) {
+            setDayMode("tracking")
+          }
           resolvedAnchor = cached
         }
 
@@ -145,7 +154,11 @@ export function HomePage() {
       } else if (cached) {
         setAnchor(cached)
         const savedMode = getLocalData<"planning" | "tracking">(modeKey)
-        if (savedMode) setDayMode(savedMode)
+        if (savedMode) {
+          setDayMode(savedMode)
+        } else if (cached.anchors_locked_at) {
+          setDayMode("tracking")
+        }
         resolvedAnchor = cached
       }
     } catch (err: any) {

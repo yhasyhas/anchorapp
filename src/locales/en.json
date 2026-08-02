@@ -144,7 +144,9 @@
     "reminders_evening": "Evening — check-in",
     "reminders_denied": "Notifications are turned off for Anchor in your browser. You can turn them back on from your browser or phone settings whenever you're ready.",
     "reminders_ios_install": "Add Anchor to your home screen first — iPhone only allows reminders for installed apps.",
-    "reminders_unsupported": "Reminders aren't available in this browser yet."
+    "reminders_unsupported": "Reminders aren't available in this browser yet.",
+    "reminders_device_inactive": "Reminders are on for your account, but not yet active on this device.",
+    "reminders_activate_device": "Turn on for this device"
   },
   "auth": {
     "login": "Log in",

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Bell } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { useAuth } from "@/lib/auth-context"
@@ -63,6 +64,13 @@ export function RemindersSection() {
       .upsert({ user_id: user.id, ...next, updated_at: new Date().toISOString() }, { onConflict: "user_id" })
   }
 
+  // The master switch is an account-level preference ("I want reminders"),
+  // stored in notification_preferences — independent of whether *this*
+  // device happens to have an active push subscription right now. A push
+  // subscription is inherently per-device (an Android phone and a laptop
+  // each have their own), so conflating the two used to make settings made
+  // on one device look reset on another. See handleActivateDevice for the
+  // separate, per-device action.
   async function handleMasterToggle(enabled: boolean) {
     if (!user) return
     setBusy(true)
@@ -81,13 +89,28 @@ export function RemindersSection() {
     }
   }
 
+  // Preference is already on (possibly enabled from another device) but
+  // this device was never subscribed — just activate this device, no need
+  // to touch the account-level preference which is already correct.
+  async function handleActivateDevice() {
+    if (!user) return
+    setBusy(true)
+    try {
+      const state = await requestPushPermission(user.id)
+      setPushState(state)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   function handleSubToggle(key: keyof Omit<Prefs, "reminders_enabled">, value: boolean) {
     persistPrefs({ ...prefs, [key]: value })
   }
 
   if (loading) return null
 
-  const remindersOn = prefs.reminders_enabled && pushState === "subscribed"
+  const remindersEnabled = prefs.reminders_enabled
+  const needsDeviceActivation = remindersEnabled && pushState === "not-subscribed"
   const switchDisabled = busy || pushState === "unsupported" || pushState === "ios-not-installed"
 
   return (
@@ -103,7 +126,7 @@ export function RemindersSection() {
             <p className="text-sm text-foreground">{t("settings.reminders_enable")}</p>
             <p className="text-xs text-muted-foreground">{t("settings.reminders_enable_desc")}</p>
           </div>
-          <Switch checked={remindersOn} onCheckedChange={handleMasterToggle} disabled={switchDisabled} />
+          <Switch checked={remindersEnabled} onCheckedChange={handleMasterToggle} disabled={switchDisabled} />
         </div>
 
         {pushState === "denied" && (
@@ -124,7 +147,16 @@ export function RemindersSection() {
           </div>
         )}
 
-        {remindersOn && (
+        {needsDeviceActivation && (
+          <div className="rounded-lg bg-sage-light/60 p-3 space-y-2">
+            <p className="text-xs leading-relaxed text-foreground">{t("settings.reminders_device_inactive")}</p>
+            <Button size="sm" onClick={handleActivateDevice} disabled={busy}>
+              {t("settings.reminders_activate_device")}
+            </Button>
+          </div>
+        )}
+
+        {remindersEnabled && (
           <>
             <Separator />
             <div className="flex items-center justify-between">

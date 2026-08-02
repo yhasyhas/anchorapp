@@ -144,7 +144,9 @@
     "reminders_evening": "Jioni — kujiangalia",
     "reminders_denied": "Arifa zimezimwa kwa Anchor kwenye kivinjari chako. Unaweza kuziwasha tena kutoka mipangilio ya kivinjari au simu yako wakati wowote uko tayari.",
     "reminders_ios_install": "Ongeza Anchor kwenye skrini yako ya nyumbani kwanza — iPhone huruhusu vikumbusho kwa programu zilizosakinishwa tu.",
-    "reminders_unsupported": "Vikumbusho havipatikani bado kwenye kivinjari hiki."
+    "reminders_unsupported": "Vikumbusho havipatikani bado kwenye kivinjari hiki.",
+    "reminders_device_inactive": "Vikumbusho vimewashwa kwa akaunti yako, lakini bado havijawashwa kwenye kifaa hiki.",
+    "reminders_activate_device": "Washa kwa kifaa hiki"
   },
   "auth": {
     "login": "Ingia",

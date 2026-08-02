@@ -36,7 +36,9 @@ export function EveningReleaseAnimation({ active }: { active: boolean }) {
             left: `${p.x}%`,
             width: `${p.size}px`,
             height: `${p.size}px`,
-            backgroundColor: ["#D4C5E8", "#E8C4C4", "#F5D5C5", "#E8EDE5"][Math.floor(Math.random() * 4)],
+            backgroundColor: ["var(--lavender)", "var(--rose-accent)", "var(--peach)", "var(--sage-light)"][
+              Math.floor(Math.random() * 4)
+            ],
             animationDelay: `${p.delay}s`,
           }}
         />

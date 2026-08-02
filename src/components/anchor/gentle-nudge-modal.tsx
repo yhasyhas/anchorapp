@@ -41,7 +41,7 @@ export function GentleNudgeModal({ open, onClose, onChoose, onContinue, type }: 
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-sm border-0 bg-secondary shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
         <DialogHeader className="text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-popover shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
             {current.icon}
           </div>
           <DialogTitle className="font-heading text-lg font-semibold">

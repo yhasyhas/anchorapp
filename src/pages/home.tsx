@@ -395,7 +395,7 @@ export function HomePage() {
           <div className="flex items-center justify-between">
             <div className="flex flex-col items-center gap-1.5">
               <div className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-500 ${
-                moodDone ? "bg-peach text-white shadow-md scale-110" : "bg-muted text-muted-foreground"
+                moodDone ? "bg-peach text-white dark:text-background shadow-md scale-110" : "bg-muted text-muted-foreground"
               }`}>
                 <Sun className="h-4 w-4" />
               </div>
@@ -425,7 +425,7 @@ export function HomePage() {
 
             <div className="flex flex-col items-center gap-1.5">
               <div className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-500 ${
-                checkInDone ? "bg-lavender text-white shadow-md scale-110" : "bg-muted text-muted-foreground"
+                checkInDone ? "bg-lavender text-white dark:text-background shadow-md scale-110" : "bg-muted text-muted-foreground"
               }`}>
                 <Moon className="h-4 w-4" />
               </div>
@@ -549,7 +549,7 @@ export function HomePage() {
         {dayMode === "planning" && (
           <div className="space-y-3">
             <PlanningAnchorCard
-              borderColor="#7A8B6E"
+              borderColor="var(--sage)"
               icon="&#x1F331;"
               title={t("anchors.future")}
               subtitle={t("anchors.future_sub")}
@@ -557,7 +557,7 @@ export function HomePage() {
               onTaskChange={(v) => saveAnchor({ future_task: v })}
             />
             <PlanningAnchorCard
-              borderColor="#E8C4C4"
+              borderColor="var(--rose-accent)"
               icon="&#x1F9E0;"
               title={t("anchors.mindbody")}
               subtitle={t("anchors.mindbody_sub")}
@@ -565,7 +565,7 @@ export function HomePage() {
               onTaskChange={(v) => saveAnchor({ mindbody_task: v })}
             />
             <PlanningAnchorCard
-              borderColor="#D4C5E8"
+              borderColor="var(--lavender)"
               icon="&#x1F30D;"
               title={t("anchors.life")}
               subtitle={t("anchors.life_sub")}
@@ -585,7 +585,7 @@ export function HomePage() {
         {dayMode === "tracking" && (
           <div className="space-y-3">
             <TrackingAnchorCard
-              borderColor="#7A8B6E"
+              borderColor="var(--sage)"
               icon="&#x1F331;"
               title={t("anchors.future")}
               subtitle={t("anchors.future_sub")}
@@ -595,7 +595,7 @@ export function HomePage() {
               lockedAt={anchor.anchors_locked_at}
             />
             <TrackingAnchorCard
-              borderColor="#E8C4C4"
+              borderColor="var(--rose-accent)"
               icon="&#x1F9E0;"
               title={t("anchors.mindbody")}
               subtitle={t("anchors.mindbody_sub")}
@@ -605,7 +605,7 @@ export function HomePage() {
               lockedAt={anchor.anchors_locked_at}
             />
             <TrackingAnchorCard
-              borderColor="#D4C5E8"
+              borderColor="var(--lavender)"
               icon="&#x1F30D;"
               title={t("anchors.life")}
               subtitle={t("anchors.life_sub")}
@@ -752,7 +752,7 @@ function TrackingAnchorCard({
       </CardContent>
 
       {showNudge && (
-        <div className="absolute bottom-2 left-2 right-2 z-20 rounded-lg bg-peach/90 px-3 py-2 text-center text-xs font-medium text-foreground shadow-md animate-in fade-in slide-in-from-bottom-2">
+        <div className="absolute bottom-2 left-2 right-2 z-20 rounded-lg bg-peach/90 px-3 py-2 text-center text-xs font-medium text-foreground dark:text-background shadow-md animate-in fade-in slide-in-from-bottom-2">
           {t("timegate.anchor_wait")}
         </div>
       )}

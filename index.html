@@ -13,7 +13,7 @@
     <link rel="manifest" href="/manifest.json" />
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#7A8B6E" />
+    <meta name="theme-color" content="#7A8B6E" id="theme-color-meta" />
     <meta name="description" content="A gentle life alignment system. Supportive, not demanding." />
     <title>Anchor — Life Alignment</title>
 
@@ -26,6 +26,22 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+
+    <!-- Anti-FOUC: apply the resolved theme class and status-bar color before first paint -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("theme");
+          var theme = stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+          var resolved = theme === "system"
+            ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+            : theme;
+          document.documentElement.classList.add(resolved);
+          var meta = document.getElementById("theme-color-meta");
+          if (meta) meta.setAttribute("content", resolved === "dark" ? "#1C1B1A" : "#7A8B6E");
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

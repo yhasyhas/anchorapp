@@ -383,7 +383,7 @@ export function CheckInPage() {
                 onClick={isRecording ? stopRecording : startRecording}
                 className={`flex h-12 w-12 items-center justify-center rounded-full transition-all ${
                   isRecording
-                    ? "bg-destructive text-white animate-pulse"
+                    ? "bg-destructive text-white dark:text-background animate-pulse"
                     : "bg-primary text-primary-foreground hover:scale-105"
                 }`}
               >

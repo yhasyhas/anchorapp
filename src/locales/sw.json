@@ -119,6 +119,10 @@
   "settings": {
     "title": "Mipangilio",
     "language": "Lugha",
+    "theme": "Mwonekano",
+    "theme_light": "Mwanga",
+    "theme_dark": "Giza",
+    "theme_system": "Mfumo",
     "profile": "Wasifu",
     "name": "Jina Kamili",
     "export": "Hamisha Jarida Langu la Nanga",

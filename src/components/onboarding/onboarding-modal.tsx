@@ -53,7 +53,7 @@ export function OnboardingModal() {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-sm p-6">
       <div className={`w-full max-w-sm rounded-3xl p-8 text-center transition-all duration-500 ${current.bg}`}>
         <div className="mb-6 flex justify-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-popover shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
             {current.icon}
           </div>
         </div>

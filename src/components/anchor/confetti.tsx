@@ -12,7 +12,14 @@ export function ConfettiBurst({ active }: { active: boolean }) {
     container.style.overflow = "hidden"
     document.body.appendChild(container)
 
-    const colors = ["#7A8B6E", "#E8C4C4", "#D4C5E8", "#F5D5C5", "#F9F7F2", "#3D3D3D"]
+    const colors = [
+      "var(--sage)",
+      "var(--rose-accent)",
+      "var(--lavender)",
+      "var(--peach)",
+      "var(--background)",
+      "var(--foreground)",
+    ]
     const particles: HTMLDivElement[] = []
 
     for (let i = 0; i < 50; i++) {

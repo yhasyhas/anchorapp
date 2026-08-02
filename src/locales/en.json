@@ -119,6 +119,10 @@
   "settings": {
     "title": "Settings",
     "language": "Language",
+    "theme": "Appearance",
+    "theme_light": "Light",
+    "theme_dark": "Dark",
+    "theme_system": "System",
     "profile": "Profile",
     "name": "Full Name",
     "export": "Export my Anchor Journal",

@@ -16,11 +16,11 @@ import type { MoodLog, DailyAnchor, CheckIn } from "@/types"
 const dayKeys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
 
 const moodColors: Record<string, string> = {
-  great: "#F5D5C5",
-  okay: "#E8EDE5",
-  meh: "#D4C5E8",
-  low: "#E8C4C4",
-  stressed: "#F5D5D5",
+  great: "var(--peach)",
+  okay: "var(--sage-light)",
+  meh: "var(--lavender)",
+  low: "var(--rose-accent)",
+  stressed: "var(--mood-stressed)",
 }
 
 interface InsightItem {
@@ -164,7 +164,7 @@ export function PatternsPage() {
           {hasData ? (
             <ResponsiveContainer width="100%" height={180}>
               <LineChart data={chartData}>
-                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#8A8A8A" }} />
+                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} />
                 <YAxis domain={[0, 5]} hide />
                 <Tooltip
                   formatter={(_value, _name, props: any) => {
@@ -173,23 +173,25 @@ export function PatternsPage() {
                     return [label, t("patterns.mood_label")]
                   }}
                   contentStyle={{
-                    backgroundColor: "#FDFBF7",
+                    backgroundColor: "var(--card)",
                     border: "none",
                     borderRadius: "12px",
                     boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
                   }}
+                  labelStyle={{ color: "var(--card-foreground)" }}
+                  itemStyle={{ color: "var(--card-foreground)" }}
                 />
                 <Line
                   type="monotone"
                   dataKey="value"
-                  stroke="#7A8B6E"
+                  stroke="var(--chart-1)"
                   strokeWidth={2.5}
                   dot={(props: any) => {
                     const { cx, cy, payload } = props
-                    const color = payload.mood ? moodColors[payload.mood] : "#E8E4DC"
-                    return <circle cx={cx} cy={cy} r={5} fill={color} stroke="#fff" strokeWidth={2} />
+                    const color = payload.mood ? moodColors[payload.mood] : "var(--border)"
+                    return <circle cx={cx} cy={cy} r={5} fill={color} stroke="var(--card)" strokeWidth={2} />
                   }}
-                  activeDot={{ r: 7, fill: "#7A8B6E" }}
+                  activeDot={{ r: 7, fill: "var(--chart-1)" }}
                   connectNulls={false}
                 />
               </LineChart>

@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { ModeToggle } from "@/components/mode-toggle"
+import { RemindersSection } from "@/components/settings/reminders-section"
 import { ArrowLeft, Brain } from "lucide-react"
 import { localDateStr } from "@/lib/utils"
 
@@ -181,6 +182,9 @@ export function SettingsPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Reminders */}
+        <RemindersSection />
 
         {/* Export */}
         <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">

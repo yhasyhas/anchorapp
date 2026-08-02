@@ -61,3 +61,12 @@ export interface AiInsight {
   category: "mood_action_correlation" | "pattern" | "suggestion"
   created_at: string
 }
+
+export interface NotificationPreferences {
+  user_id: string
+  reminders_enabled: boolean
+  morning_enabled: boolean
+  midday_enabled: boolean
+  evening_enabled: boolean
+  updated_at: string
+}

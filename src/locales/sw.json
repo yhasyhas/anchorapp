@@ -135,7 +135,16 @@
     "ai_checkins": "Jumuisha maandiko ya kujiangalia",
     "ai_checkins_desc": "Ruhusu AI kusoma tafakari zako kwa maarifa tajiri zaidi",
     "ai_no_key": "Ongeza ufunguo wa GROQ API katika mazingira yako kuwezesha vipengele vya AI.",
-    "save": "Hifadhi"
+    "save": "Hifadhi",
+    "reminders_title": "Vikumbusho",
+    "reminders_enable": "Vikumbusho vyororo",
+    "reminders_enable_desc": "Ukumbusho mwororo kwa hisia zako za asubuhi, nanga zako, na kujiangalia jioni.",
+    "reminders_morning": "Asubuhi — hisia na nia",
+    "reminders_midday": "Mchana — nanga zako",
+    "reminders_evening": "Jioni — kujiangalia",
+    "reminders_denied": "Arifa zimezimwa kwa Anchor kwenye kivinjari chako. Unaweza kuziwasha tena kutoka mipangilio ya kivinjari au simu yako wakati wowote uko tayari.",
+    "reminders_ios_install": "Ongeza Anchor kwenye skrini yako ya nyumbani kwanza — iPhone huruhusu vikumbusho kwa programu zilizosakinishwa tu.",
+    "reminders_unsupported": "Vikumbusho havipatikani bado kwenye kivinjari hiki."
   },
   "auth": {
     "login": "Ingia",
@@ -169,6 +178,16 @@
   },
   "offline": {
     "banner": "Huna mtandao. Mabadiliko yamehifadhiwa."
+  },
+  "pwa": {
+    "install_title": "Ongeza Anchor kwenye skrini yako ya nyumbani",
+    "install_message": "Ufikiaji wa haraka, utulivu wa skrini nzima — bila upau wa kivinjari.",
+    "install_ios_message": "Gusa Share, kisha \"Add to Home Screen\".",
+    "install_cta": "Sakinisha",
+    "install_later": "Labda baadaye",
+    "install_got_it": "Nimeelewa",
+    "update_available": "Toleo jipya la Anchor liko tayari.",
+    "update_reload": "Pakia upya"
   },
   "onboarding": {
     "welcome_title": "Karibu kwenye Anchor",
@@ -206,7 +225,10 @@
     "intention_message": "Nia huimarisha siku yako. Haihitaji kuwa kubwa — hata 'Amani' au 'Uelewa' inatosha.",
     "choose_mood": "Chagua hisia yangu",
     "choose_intention": "Chagua nia",
-    "continue_anyway": "Endelea hivyo hivyo"
+    "continue_anyway": "Endelea hivyo hivyo",
+    "push_title": "Umejitokeza kwa ajili yako leo",
+    "push_message": "Ungependa ukumbusho mwororo kesho, kwa hisia zako, nanga zako, na kujiangalia jioni?",
+    "push_enable": "Ndiyo, nikumbushe kwa upole"
   },
   "daily_cycle": {
     "title": "Mzunguko wako wa kila siku",

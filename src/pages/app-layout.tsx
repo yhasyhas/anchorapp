@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 import { isOnline, processSyncQueue } from "@/lib/offline-sync"
 import { useAuth } from "@/lib/auth-context"
 import { FocusModeModal } from "@/components/anchor/focus-mode-modal"
+import { InstallPrompt } from "@/components/pwa/install-prompt"
 
 const navItems = [
   { path: "/", icon: Home, labelKey: "home.title" },
@@ -42,6 +43,8 @@ export function AppLayout() {
 
   return (
     <div className="flex min-h-svh flex-col bg-background">
+      <InstallPrompt />
+
       {/* Offline Banner - Style doux */}
       {!online && (
         <div className="flex items-center justify-center gap-2 bg-lavender/40 px-4 py-2.5 text-center backdrop-blur-sm animate-in slide-in-from-top">

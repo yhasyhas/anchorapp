@@ -20,6 +20,7 @@ import { OnboardingModal } from "@/components/onboarding/onboarding-modal"
 import { MorningRitual } from "@/components/anchor/morning-ritual"
 import { ConfettiBurst } from "@/components/anchor/confetti"
 import { GentleNudgeModal } from "@/components/anchor/gentle-nudge-modal"
+import { PushNudge } from "@/components/anchor/push-nudge"
 
 function getGreetingKey(): string {
   const hour = new Date().getHours()
@@ -635,6 +636,8 @@ export function HomePage() {
           </p>
         </CardContent>
       </Card>
+
+      <PushNudge active={cycleComplete} />
     </div>
   )
 }

@@ -6,6 +6,7 @@ import App from "./App.tsx"
 import { AuthProvider } from "@/lib/auth-context"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
+import { PwaUpdateToast } from "@/components/pwa/pwa-update-toast"
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -13,6 +14,7 @@ createRoot(document.getElementById("root")!).render(
       <AuthProvider>
         <App />
         <Toaster />
+        <PwaUpdateToast />
       </AuthProvider>
     </ThemeProvider>
   </StrictMode>

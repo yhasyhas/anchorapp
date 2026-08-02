@@ -135,7 +135,16 @@
     "ai_checkins": "Include check-in notes",
     "ai_checkins_desc": "Allow AI to read your reflections for richer insights",
     "ai_no_key": "Add a GROQ API key in your environment to enable AI features.",
-    "save": "Save"
+    "save": "Save",
+    "reminders_title": "Reminders",
+    "reminders_enable": "Gentle reminders",
+    "reminders_enable_desc": "A soft nudge for your morning mood, your anchors, and your evening check-in.",
+    "reminders_morning": "Morning — mood & intention",
+    "reminders_midday": "Midday — your anchors",
+    "reminders_evening": "Evening — check-in",
+    "reminders_denied": "Notifications are turned off for Anchor in your browser. You can turn them back on from your browser or phone settings whenever you're ready.",
+    "reminders_ios_install": "Add Anchor to your home screen first — iPhone only allows reminders for installed apps.",
+    "reminders_unsupported": "Reminders aren't available in this browser yet."
   },
   "auth": {
     "login": "Log in",
@@ -169,6 +178,16 @@
   },
   "offline": {
     "banner": "You're offline. Changes saved locally."
+  },
+  "pwa": {
+    "install_title": "Add Anchor to your home screen",
+    "install_message": "Quick access, full-screen calm — no browser bar in the way.",
+    "install_ios_message": "Tap Share, then \"Add to Home Screen\".",
+    "install_cta": "Install",
+    "install_later": "Maybe later",
+    "install_got_it": "Got it",
+    "update_available": "A new version of Anchor is ready.",
+    "update_reload": "Reload"
   },
   "onboarding": {
     "welcome_title": "Welcome to Anchor",
@@ -206,7 +225,10 @@
     "intention_message": "An intention anchors your day. It doesn't have to be big — even 'Peace' or 'Clarity' is enough.",
     "choose_mood": "Choose my mood",
     "choose_intention": "Choose an intention",
-    "continue_anyway": "Continue anyway"
+    "continue_anyway": "Continue anyway",
+    "push_title": "You showed up for yourself today",
+    "push_message": "Want a gentle nudge tomorrow, for your mood, your anchors, and your evening check-in?",
+    "push_enable": "Yes, remind me gently"
   },
   "daily_cycle": {
     "title": "Your daily cycle",

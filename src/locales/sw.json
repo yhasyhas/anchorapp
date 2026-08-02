@@ -34,7 +34,8 @@
     "deep_insights": "Maarifa ya Kina",
     "analyzing": "Inachambua...",
     "loading": "Inapakia mifumo yako...",
-    "ai_badge": "Inaendeshwa na AI"
+    "ai_badge": "Inaendeshwa na AI",
+    "ai_disabled": "Maarifa ya AI yamezimwa. Yawashe kwenye Mipangilio ili kupata tafakari za kina zaidi."
   },
   "checkin": {
     "title": "Kujiangalia",

@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { ArrowLeft, Brain } from "lucide-react"
 import { localDateStr } from "@/lib/utils"
+import { isAiEnabled, isAiCheckInsEnabled, setAiEnabled as persistAiEnabled, setAiCheckInsEnabled as persistAiCheckInsEnabled } from "@/lib/ai-preferences"
 
 export function SettingsPage() {
   const { t, i18n } = useTranslation()
@@ -18,9 +19,10 @@ export function SettingsPage() {
   const navigate = useNavigate()
   const [name, setName] = useState(profile?.full_name ?? "")
 
-  // AI Settings states
-  const [aiEnabled, setAiEnabled] = useState(() => localStorage.getItem("anchor_ai_enabled") === "true")
-  const [aiCheckIns, setAiCheckIns] = useState(() => localStorage.getItem("anchor_ai_checkins") === "true")
+  // AI Settings states — scopées par compte, un second compte sur le même appareil ne
+  // doit pas hériter du consentement IA du premier
+  const [aiEnabled, setAiEnabled] = useState(() => (user ? isAiEnabled(user.id) : false))
+  const [aiCheckIns, setAiCheckIns] = useState(() => (user ? isAiCheckInsEnabled(user.id) : false))
 
   async function handleLanguageChange(lang: "en" | "sw") {
     i18n.changeLanguage(lang)
@@ -32,16 +34,18 @@ export function SettingsPage() {
   }
 
   function handleAiToggle(enabled: boolean) {
-    localStorage.setItem("anchor_ai_enabled", String(enabled))
+    if (!user) return
+    persistAiEnabled(user.id, enabled)
     setAiEnabled(enabled)
     if (!enabled) {
-      localStorage.setItem("anchor_ai_checkins", "false")
+      persistAiCheckInsEnabled(user.id, false)
       setAiCheckIns(false)
     }
   }
 
   function handleAiCheckInsToggle(enabled: boolean) {
-    localStorage.setItem("anchor_ai_checkins", String(enabled))
+    if (!user) return
+    persistAiCheckInsEnabled(user.id, enabled)
     setAiCheckIns(enabled)
   }
 

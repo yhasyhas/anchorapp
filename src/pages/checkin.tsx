@@ -147,7 +147,7 @@ export function CheckInPage() {
         const { error } = await supabase.from("check_ins").upsert(record, { onConflict: "user_id,date" })
         if (error) throw error
       } else {
-        addToSyncQueue({ table: "check_ins", action: "upsert", data: record, conflictKey: "user_id,date" })
+        addToSyncQueue(user.id, { table: "check_ins", action: "upsert", data: record, conflictKey: "user_id,date" })
       }
 
       setAudioBlob(null)

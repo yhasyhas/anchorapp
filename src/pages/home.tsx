@@ -79,14 +79,17 @@ export function HomePage() {
 
   useEffect(() => {
     if (user) {
-      loadTodayData()
-      loadContextData()
+      // loadContextData a besoin de daily_intention pour personnaliser le message du
+      // companion — on chaîne explicitement plutôt que de compter sur le state React
+      // (loadTodayData() est async et setAnchor() n'aurait pas encore appliqué sa mise à
+      // jour au moment où loadContextData lirait la valeur via une closure sur `anchor`).
+      loadTodayData().then((todayAnchor) => loadContextData(todayAnchor))
     }
   }, [user])
 
   useEffect(() => {
     if (dayMode === "tracking" && anchor.future_completed && anchor.mindbody_completed && anchor.life_completed) {
-      const celebratedKey = `anchor_celebrated_${todayStr()}`
+      const celebratedKey = `anchor_celebrated_${user?.id}_${todayStr()}`
       if (!localStorage.getItem(celebratedKey)) {
         setShowConfetti(true)
         localStorage.setItem(celebratedKey, "true")
@@ -95,8 +98,9 @@ export function HomePage() {
     }
   }, [anchor.future_completed, anchor.mindbody_completed, anchor.life_completed, dayMode])
 
-  async function loadTodayData() {
-    if (!user) return
+  async function loadTodayData(): Promise<DailyAnchor | undefined> {
+    if (!user) return undefined
+    let resolvedAnchor: DailyAnchor | undefined
     try {
       const localKey = `anchor_${user.id}_${todayStr()}`
       const cached = getLocalData<DailyAnchor>(localKey)
@@ -121,9 +125,11 @@ export function HomePage() {
           } else if (data.future_completed || data.mindbody_completed || data.life_completed) {
             setDayMode("tracking")
           }
+          resolvedAnchor = data
         } else if (cached) {
           setAnchor(cached)
           if (savedMode) setDayMode(savedMode)
+          resolvedAnchor = cached
         }
 
         const { data: moodData, error: moodError } = await supabase
@@ -139,14 +145,16 @@ export function HomePage() {
         setAnchor(cached)
         const savedMode = getLocalData<"planning" | "tracking">(modeKey)
         if (savedMode) setDayMode(savedMode)
+        resolvedAnchor = cached
       }
     } catch (err: any) {
       console.error("Failed to load today's data:", err)
       toast.error("Could not load your daily data")
     }
+    return resolvedAnchor
   }
 
-  async function loadContextData() {
+  async function loadContextData(todayAnchor?: DailyAnchor) {
     if (!user) return
     try {
       const thirtyAgo = new Date()
@@ -180,9 +188,10 @@ export function HomePage() {
       ])
 
       const msg = await generateCompanionMessage(
+        user.id,
         yCheckIn as CheckIn | null,
         yMood as MoodLog | null,
-        anchor.daily_intention,
+        todayAnchor?.daily_intention ?? "",
         i18n.language as "en" | "sw"
       )
       setCompanionMsg(msg)
@@ -222,7 +231,7 @@ export function HomePage() {
         const { error } = await supabase.from("mood_logs").upsert(record, { onConflict: "user_id,date" })
         if (error) throw error
       } else {
-        addToSyncQueue({ table: "mood_logs", action: "upsert", data: record, conflictKey: "user_id,date" })
+        addToSyncQueue(user.id, { table: "mood_logs", action: "upsert", data: record, conflictKey: "user_id,date" })
       }
     } catch (err: any) {
       console.error("Failed to save mood:", err)
@@ -264,7 +273,7 @@ export function HomePage() {
         const { error } = await supabase.from("daily_anchors").upsert(record, { onConflict: "user_id,date" })
         if (error) throw error
       } else {
-        addToSyncQueue({ table: "daily_anchors", action: "upsert", data: record, conflictKey: "user_id,date" })
+        addToSyncQueue(user.id, { table: "daily_anchors", action: "upsert", data: record, conflictKey: "user_id,date" })
       }
     } catch (err: any) {
       console.error("Failed to save anchor:", err)

@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { supabase } from "@/lib/supabase"
+import { cleanupLegacyLocalStorage } from "@/lib/user-storage"
+import { migrateLegacySyncQueue } from "@/lib/offline-sync"
 import type { Session, User } from "@supabase/supabase-js"
 import type { Profile } from "@/types"
 
@@ -50,6 +52,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   async function fetchProfile(userId: string) {
+    // Une fois l'identité connue : purge les anciennes clés localStorage non scopées
+    // (préférences/flags/cache d'un éventuel compte précédent sur cet appareil) et
+    // rattache à ce compte les écritures offline en attente de l'ancienne queue globale.
+    // Idempotent — no-op après le premier passage.
+    cleanupLegacyLocalStorage()
+    migrateLegacySyncQueue(userId)
+
     const { data } = await supabase
       .from("profiles")
       .select("*")

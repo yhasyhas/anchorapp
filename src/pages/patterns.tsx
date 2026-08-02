@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
 import { fetchInsightsWithFallback } from "@/lib/ai-service"
+import { isAiEnabled } from "@/lib/ai-preferences"
 import { moodToValue } from "@/lib/constants"
 import { localDateStr } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
@@ -37,6 +38,7 @@ export function PatternsPage() {
   const [loading, setLoading] = useState(true)
   const [loadingAi, setLoadingAi] = useState(false)
   const [source, setSource] = useState<"local" | "ai" | "cached_ai">("local")
+  const aiEnabled = user ? isAiEnabled(user.id) : false
 
   useEffect(() => {
     if (user) loadData()
@@ -88,6 +90,7 @@ export function PatternsPage() {
 
       if (monthMoods && anchors) {
         const result = await fetchInsightsWithFallback(
+          user.id,
           monthMoods as MoodLog[],
           anchors as DailyAnchor[],
           (checkIns as CheckIn[]) || undefined,
@@ -200,17 +203,22 @@ export function PatternsPage() {
       {/* AI Insights Header */}
       <div className="flex items-center justify-between">
         <h2 className="font-heading text-lg font-semibold">{t("patterns.insights")}</h2>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleDeepInsights}
-          disabled={loadingAi}
-          className="gap-1.5 text-primary hover:bg-primary/5"
-        >
-          {loadingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
-          {loadingAi ? t("patterns.analyzing") : t("patterns.deep_insights")}
-        </Button>
+        {aiEnabled && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleDeepInsights}
+            disabled={loadingAi}
+            className="gap-1.5 text-primary hover:bg-primary/5"
+          >
+            {loadingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
+            {loadingAi ? t("patterns.analyzing") : t("patterns.deep_insights")}
+          </Button>
+        )}
       </div>
+      {!aiEnabled && (
+        <p className="-mt-4 text-xs text-muted-foreground">{t("patterns.ai_disabled")}</p>
+      )}
 
       {/* Insights List */}
       <div className="space-y-3">

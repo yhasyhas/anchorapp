@@ -2,21 +2,25 @@ import { useState, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Anchor, Sun, Heart, Sparkles } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
+import { userKey } from "@/lib/user-storage"
 
-const ONBOARDING_KEY = "anchor_has_seen_onboarding"
+const ONBOARDING_KEY_BASE = "anchor_has_seen_onboarding"
 
 export function OnboardingModal() {
   const { t } = useTranslation()
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState(0)
 
   useEffect(() => {
-    const seen = localStorage.getItem(ONBOARDING_KEY)
+    if (!user) return
+    const seen = localStorage.getItem(userKey(ONBOARDING_KEY_BASE, user.id))
     if (!seen) setOpen(true)
-  }, [])
+  }, [user])
 
   function finish() {
-    localStorage.setItem(ONBOARDING_KEY, "true")
+    if (user) localStorage.setItem(userKey(ONBOARDING_KEY_BASE, user.id), "true")
     setOpen(false)
   }
 

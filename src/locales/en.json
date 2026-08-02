@@ -34,7 +34,8 @@
     "deep_insights": "Deep Insights",
     "analyzing": "Analyzing...",
     "loading": "Loading your patterns...",
-    "ai_badge": "AI Powered"
+    "ai_badge": "AI Powered",
+    "ai_disabled": "AI insights are off. Enable them in Settings to unlock deeper reflections."
   },
   "checkin": {
     "title": "Check-In",

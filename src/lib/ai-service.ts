@@ -1,6 +1,8 @@
-import { isOnline, getLocalData } from "@/lib/offline-sync"
+import { isOnline } from "@/lib/offline-sync"
 import { calculateBestStreakFromDates } from "@/lib/streaks"
 import { supabase } from "@/lib/supabase"
+import { getUserLocalData, setUserLocalData } from "@/lib/user-storage"
+import { isAiEnabled, isAiCheckInsEnabled } from "@/lib/ai-preferences"
 import { getISOWeek } from "date-fns"
 import type { MoodLog, DailyAnchor, CheckIn } from "@/types"
 
@@ -287,6 +289,7 @@ function buildPatternDataDev(moods: MoodLog[], anchors: DailyAnchor[], checkIns?
 // ==================== COMPANION : Message du matin ====================
 
 export async function generateCompanionMessage(
+  userId: string,
   yesterdayCheckIn: Partial<CheckIn> | null,
   yesterdayMood: MoodLog | null,
   todayIntention: string,
@@ -296,6 +299,11 @@ export async function generateCompanionMessage(
     return language === "sw"
       ? "Habari za asubuhi — weka nia moja ya upole kwa leo."
       : "Good morning — set one gentle intention for today."
+  }
+
+  // Respect du consentement : IA désactivée = message local uniquement, aucun appel réseau
+  if (!isAiEnabled(userId)) {
+    return getLocalCompanionFallback(yesterdayMood?.mood, language)
   }
 
   // 🚀 PROD : appel Edge Function
@@ -343,7 +351,7 @@ function getLocalCompanionFallback(mood: string | undefined, language: "en" | "s
 
 // ==================== CACHE & PERSISTENCE ====================
 
-const AI_INSIGHTS_CACHE_KEY = "anchor_ai_insights_cache"
+const AI_INSIGHTS_CACHE_BASE = "anchor_ai_insights_cache"
 
 interface InsightsCache {
   insights: AiInsightResult[]
@@ -356,23 +364,24 @@ function getWeekKey(): string {
   return `${now.getFullYear()}-W${getISOWeek(now)}`
 }
 
-export function getCachedAiInsights(): AiInsightResult[] | null {
-  const raw = getLocalData<InsightsCache>(AI_INSIGHTS_CACHE_KEY)
+export function getCachedAiInsights(userId: string): AiInsightResult[] | null {
+  const raw = getUserLocalData<InsightsCache>(AI_INSIGHTS_CACHE_BASE, userId)
   if (!raw) return null
   if (raw.weekKey !== getWeekKey()) return null
   return raw.insights
 }
 
-export function cacheAiInsights(insights: AiInsightResult[]) {
+export function cacheAiInsights(userId: string, insights: AiInsightResult[]) {
   const cache: InsightsCache = {
     insights,
     generatedAt: new Date().toISOString(),
     weekKey: getWeekKey(),
   }
-  localStorage.setItem(AI_INSIGHTS_CACHE_KEY, JSON.stringify(cache))
+  setUserLocalData(AI_INSIGHTS_CACHE_BASE, userId, cache)
 }
 
 export async function fetchInsightsWithFallback(
+  userId: string,
   moods: MoodLog[],
   anchors: DailyAnchor[],
   checkIns?: CheckIn[],
@@ -381,23 +390,31 @@ export async function fetchInsightsWithFallback(
   // 1. Toujours générer les locaux
   const localInsights = generateLocalInsights(moods, anchors)
 
-  // 2. Si pas online, retourner locaux
+  // 2. Respect du consentement : IA désactivée = insights locaux uniquement, aucun appel
+  // réseau et aucune lecture/écriture du cache IA
+  if (!isAiEnabled(userId)) {
+    return { insights: localInsights, source: "local" }
+  }
+
+  // 3. Si pas online, retourner locaux
   if (!isOnline()) {
     return { insights: localInsights, source: "local" }
   }
 
-  // 3. Vérifier cache hebdo (si pas force refresh)
+  // 4. Vérifier cache hebdo (si pas force refresh)
   if (!forceRefresh) {
-    const cached = getCachedAiInsights()
+    const cached = getCachedAiInsights(userId)
     if (cached) {
       return { insights: [...localInsights, ...cached].slice(0, 4), source: "cached_ai" }
     }
   }
 
-  // 4. Essayer IA (Edge Function en prod, direct en dev)
+  // 5. Essayer IA (Edge Function en prod, direct en dev). Le toggle "ai_checkins" contrôle
+  // si les extraits de check-ins quittent l'appareil — undefined = jamais inclus dans le payload
+  const checkInsForAi = isAiCheckInsEnabled(userId) ? checkIns : undefined
   try {
-    const aiInsights = await generateAiInsights(moods, anchors, checkIns)
-    cacheAiInsights(aiInsights)
+    const aiInsights = await generateAiInsights(moods, anchors, checkInsForAi)
+    cacheAiInsights(userId, aiInsights)
     return { insights: [...localInsights, ...aiInsights].slice(0, 4), source: "ai" }
   } catch (err) {
     console.warn("AI insights failed, falling back to local:", err)

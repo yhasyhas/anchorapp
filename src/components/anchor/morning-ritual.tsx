@@ -2,8 +2,10 @@ import { useState, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { todayStr } from "@/lib/utils"
+import { useAuth } from "@/lib/auth-context"
+import { userKey } from "@/lib/user-storage"
 
-const RITUAL_KEY = "anchor_morning_ritual_done"
+const RITUAL_KEY_BASE = "anchor_morning_ritual_done"
 
 interface MorningRitualProps {
   onComplete: () => void
@@ -11,15 +13,17 @@ interface MorningRitualProps {
 
 export function MorningRitual({ onComplete }: MorningRitualProps) {
   const { t } = useTranslation()
+  const { user } = useAuth()
   const [phase, setPhase] = useState<"inhale" | "hold" | "exhale" | "done">("inhale")
   const [cycle, setCycle] = useState(0)
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
+    if (!user) return
     const today = todayStr()
-    const done = localStorage.getItem(RITUAL_KEY)
+    const done = localStorage.getItem(userKey(RITUAL_KEY_BASE, user.id))
     if (done !== today) setVisible(true)
-  }, [])
+  }, [user])
 
   useEffect(() => {
     if (!visible) return
@@ -31,8 +35,7 @@ export function MorningRitual({ onComplete }: MorningRitualProps) {
     const runPhase = () => {
       if (currentCycle >= 3) {
         setPhase("done")
-        const today = todayStr()
-        localStorage.setItem(RITUAL_KEY, today)
+        if (user) localStorage.setItem(userKey(RITUAL_KEY_BASE, user.id), todayStr())
         setTimeout(() => {
           setVisible(false)
           onComplete()
@@ -92,8 +95,7 @@ export function MorningRitual({ onComplete }: MorningRitualProps) {
         variant="ghost"
         className="mt-12 text-muted-foreground hover:text-foreground"
         onClick={() => {
-          const today = todayStr()
-          localStorage.setItem(RITUAL_KEY, today)
+          if (user) localStorage.setItem(userKey(RITUAL_KEY_BASE, user.id), todayStr())
           setVisible(false)
           onComplete()
         }}

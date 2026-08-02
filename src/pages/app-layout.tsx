@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { Home, BarChart3, Heart, Footprints, CloudOff } from "lucide-react"
 import { useEffect, useState } from "react"
 import { isOnline, processSyncQueue } from "@/lib/offline-sync"
+import { useAuth } from "@/lib/auth-context"
 import { FocusModeModal } from "@/components/anchor/focus-mode-modal"
 
 const navItems = [
@@ -14,14 +15,16 @@ const navItems = [
 
 export function AppLayout() {
   const { t } = useTranslation()
+  const { user } = useAuth()
   const location = useLocation()
   const [online, setOnline] = useState(isOnline())
   const [showFocus, setShowFocus] = useState(false)
 
   useEffect(() => {
+    if (!user) return
     const handleOnline = () => {
       setOnline(true)
-      processSyncQueue()
+      processSyncQueue(user.id)
     }
     const handleOffline = () => setOnline(false)
     window.addEventListener("online", handleOnline)
@@ -30,11 +33,12 @@ export function AppLayout() {
       window.removeEventListener("online", handleOnline)
       window.removeEventListener("offline", handleOffline)
     }
-  }, [])
+  }, [user])
 
   useEffect(() => {
-    processSyncQueue()
-  }, [location])
+    if (!user) return
+    processSyncQueue(user.id)
+  }, [location, user])
 
   return (
     <div className="flex min-h-svh flex-col bg-background">

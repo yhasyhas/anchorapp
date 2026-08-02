@@ -15,6 +15,18 @@ interface PushSubscriptionRow {
   keys: { p256dh: string; auth: string }
 }
 
+export interface SendPushParams {
+  userId: string
+  title: string
+  body: string
+  url?: string
+}
+
+export interface SendPushResult {
+  sent: number
+  expired: number
+}
+
 function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -30,44 +42,18 @@ function safeEqual(a: string, b: string): boolean {
   return bufA.length === bufB.length && timingSafeEqual(bufA, bufB)
 }
 
-export default async function handler(request: Request): Promise<Response> {
-  if (request.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405)
-  }
-
+// Core send logic, shared by the HTTP handler below (external callers,
+// authenticated via x-push-secret) and api/cron/reminders.ts, which imports
+// this function directly and calls it in-process — same code, no duplicated
+// webpush/Supabase logic, no extra HTTP hop for a same-deployment caller.
+export async function sendPushToUser({ userId, title, body: message, url }: SendPushParams): Promise<SendPushResult> {
   const SUPABASE_URL = process.env.VITE_SUPABASE_URL
   const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
   const VAPID_PUBLIC_KEY = process.env.VITE_VAPID_PUBLIC_KEY
   const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY
-  const PUSH_SEND_SECRET = process.env.PUSH_SEND_SECRET
 
-  if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY || !PUSH_SEND_SECRET) {
-    return jsonResponse({ error: "Server misconfigured" }, 500)
-  }
-
-  // Trusted server-to-server call only — this must NEVER accept a regular user
-  // JWT, since anyone holding one could otherwise push a notification to any
-  // other user. Only a caller who knows this shared secret may invoke it (a
-  // cron job / internal scheduler), which is why it's a dedicated header and
-  // not the usual Authorization: Bearer <user token> pattern used elsewhere.
-  const providedSecret = request.headers.get("x-push-secret") || ""
-  if (!safeEqual(providedSecret, PUSH_SEND_SECRET)) {
-    return jsonResponse({ error: "Unauthorized" }, 401)
-  }
-
-  let body: any
-  try {
-    body = await request.json()
-  } catch {
-    return jsonResponse({ error: "Invalid JSON" }, 400)
-  }
-
-  const { user_id, title, body: message, url } = body || {}
-  if (typeof user_id !== "string" || typeof title !== "string" || typeof message !== "string") {
-    return jsonResponse({ error: "user_id, title and body are required strings" }, 400)
-  }
-  if (url !== undefined && typeof url !== "string") {
-    return jsonResponse({ error: "url must be a string" }, 400)
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+    throw new Error("Server misconfigured: missing Supabase/VAPID env vars")
   }
 
   webpush.setVapidDetails("mailto:support@anchorapp.app", VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
@@ -76,7 +62,7 @@ export default async function handler(request: Request): Promise<Response> {
   // with (it's triggered by a scheduler on behalf of a given user_id), so RLS
   // can't apply here the way it does for the rest of the app's REST calls.
   const subsRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/push_subscriptions?user_id=eq.${encodeURIComponent(user_id)}&select=endpoint,keys`,
+    `${SUPABASE_URL}/rest/v1/push_subscriptions?user_id=eq.${encodeURIComponent(userId)}&select=endpoint,keys`,
     {
       headers: {
         Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
@@ -86,12 +72,12 @@ export default async function handler(request: Request): Promise<Response> {
   )
 
   if (!subsRes.ok) {
-    return jsonResponse({ error: "Could not load subscriptions" }, 502)
+    throw new Error("Could not load subscriptions")
   }
 
-  const subscriptions: PushSubscriptionRow[] = await subsRes.json()
+  const subscriptions = (await subsRes.json()) as PushSubscriptionRow[]
   if (subscriptions.length === 0) {
-    return jsonResponse({ sent: 0, expired: 0 }, 200)
+    return { sent: 0, expired: 0 }
   }
 
   const payload = JSON.stringify({ title, body: message, url: url || "/" })
@@ -131,5 +117,48 @@ export default async function handler(request: Request): Promise<Response> {
     )
   }
 
-  return jsonResponse({ sent, expired: expiredEndpoints.length }, 200)
+  return { sent, expired: expiredEndpoints.length }
+}
+
+export default async function handler(request: Request): Promise<Response> {
+  if (request.method !== "POST") {
+    return jsonResponse({ error: "Method not allowed" }, 405)
+  }
+
+  const PUSH_SEND_SECRET = process.env.PUSH_SEND_SECRET
+  if (!PUSH_SEND_SECRET) {
+    return jsonResponse({ error: "Server misconfigured" }, 500)
+  }
+
+  // Trusted server-to-server call only — this must NEVER accept a regular user
+  // JWT, since anyone holding one could otherwise push a notification to any
+  // other user. Only a caller who knows this shared secret may invoke it (a
+  // cron job / internal scheduler), which is why it's a dedicated header and
+  // not the usual Authorization: Bearer <user token> pattern used elsewhere.
+  const providedSecret = request.headers.get("x-push-secret") || ""
+  if (!safeEqual(providedSecret, PUSH_SEND_SECRET)) {
+    return jsonResponse({ error: "Unauthorized" }, 401)
+  }
+
+  let body: any
+  try {
+    body = await request.json()
+  } catch {
+    return jsonResponse({ error: "Invalid JSON" }, 400)
+  }
+
+  const { user_id, title, body: message, url } = body || {}
+  if (typeof user_id !== "string" || typeof title !== "string" || typeof message !== "string") {
+    return jsonResponse({ error: "user_id, title and body are required strings" }, 400)
+  }
+  if (url !== undefined && typeof url !== "string") {
+    return jsonResponse({ error: "url must be a string" }, 400)
+  }
+
+  try {
+    const result = await sendPushToUser({ userId: user_id, title, body: message, url })
+    return jsonResponse(result, 200)
+  } catch (err: any) {
+    return jsonResponse({ error: err.message || "Failed to send push" }, 502)
+  }
 }

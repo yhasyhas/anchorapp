@@ -8,6 +8,8 @@ import { PatternsPage } from "@/pages/patterns"
 import { CheckInPage } from "@/pages/checkin"
 import { MovePage } from "@/pages/move"
 import { SettingsPage } from "@/pages/settings"
+import { LettersPage } from "@/pages/letters"
+import { LetterDetailPage } from "@/pages/letter-detail"
 import { Spinner } from "@/components/ui/spinner"
 import { ForgotPasswordPage } from "@/pages/forgot-password"
 import { ResetPasswordPage } from "@/pages/reset-password"
@@ -52,6 +54,8 @@ export default function App() {
           <Route path="patterns" element={<PatternsPage />} />
           <Route path="checkin" element={<CheckInPage />} />
           <Route path="move" element={<MovePage />} />
+          <Route path="letters" element={<LettersPage />} />
+          <Route path="letters/:weekStart" element={<LetterDetailPage />} />
         </Route>
         <Route
           path="/settings"

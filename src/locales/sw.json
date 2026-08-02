@@ -271,5 +271,21 @@
     "history_title": "Sentensi zako",
     "history_subtitle": "Siku 30 zilizopita, mstari mmoja kwa wakati.",
     "history_empty": "Sentensi zako za kila siku zitaonekana hapa."
+  },
+  "letters": {
+    "title": "Barua Zako",
+    "subtitle": "Kitu kidogo, kilichoandikwa kwa ajili yako, kila Jumapili.",
+    "loading": "Inapakia barua zako...",
+    "empty": "Barua yako ya kwanza itafika Jumapili hii.",
+    "empty_sub": "Jitokeze mara chache wiki hii, na kutakuwa na kitu kinachokusubiri.",
+    "error_load": "Imeshindikana kupakia barua zako",
+    "badge": "Imetengenezwa kwa ajili yako. Kila Jumapili.",
+    "signature": "— Nanga yako ⚓",
+    "share": "Shiriki",
+    "share_copied": "Barua imenakiliwa",
+    "share_downloaded": "Barua imehifadhiwa kama picha",
+    "share_failed": "Imeshindikana kushiriki barua yako",
+    "back_to_list": "Barua zote",
+    "not_found": "Barua hii haikuweza kupatikana."
   }
 }

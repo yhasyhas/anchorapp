@@ -79,3 +79,27 @@ export interface NotificationPreferences {
   evening_enabled: boolean
   updated_at: string
 }
+
+export interface WeeklyLetterHighlights {
+  dominantIntention: string | null
+  moodCounts: Record<string, number>
+  anchorsCompletedDays: number
+  totalDaysLogged: number
+  // Consecutive days (ending on week_end) with all 3 anchors completed,
+  // computed within this single week only — not the same figure as Home's
+  // multi-week grace-day anchor streak (see src/lib/streaks.ts), which needs
+  // a wider historical window this weekly aggregation doesn't fetch.
+  anchorStreakThisWeek: number
+  bestJournalSentence: string | null
+  bestJournalDate: string | null
+}
+
+export interface WeeklyLetter {
+  id: string
+  user_id: string
+  week_start: string
+  week_end: string
+  letter_text: string
+  highlights: WeeklyLetterHighlights
+  created_at: string
+}

@@ -271,5 +271,21 @@
     "history_title": "Your sentences",
     "history_subtitle": "The last 30 days, one line at a time.",
     "history_empty": "Your daily sentences will appear here."
+  },
+  "letters": {
+    "title": "Your Letters",
+    "subtitle": "A little something, written just for you, every Sunday.",
+    "loading": "Loading your letters...",
+    "empty": "Your first letter arrives this Sunday.",
+    "empty_sub": "Show up a few times this week, and there'll be something waiting for you.",
+    "error_load": "Could not load your letters",
+    "badge": "Made for you. Every Sunday.",
+    "signature": "— your Anchor ⚓",
+    "share": "Share",
+    "share_copied": "Letter copied to your clipboard",
+    "share_downloaded": "Letter saved as an image",
+    "share_failed": "Could not share your letter",
+    "back_to_list": "All letters",
+    "not_found": "This letter couldn't be found."
   }
 }

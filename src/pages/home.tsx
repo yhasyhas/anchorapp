@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Settings, Info, Heart, Flame, Anchor as AnchorIcon, Sparkles, Lock, Pencil, Sun, Moon } from "lucide-react"
+import { Settings, Info, Heart, Flame, Anchor as AnchorIcon, Sparkles, Lock, Pencil, Sun, Moon, Mail } from "lucide-react"
 import { toast } from "sonner"
 import { moodConfig, intentions } from "@/lib/constants"
 import { todayStr, localDateStr, canCheckAnchors, getTimeUntilAnchorCheck } from "@/lib/utils"
@@ -24,6 +24,7 @@ import { GentleNudgeModal } from "@/components/anchor/gentle-nudge-modal"
 import { PushNudge } from "@/components/anchor/push-nudge"
 import { JournalCard } from "@/components/anchor/journal-card"
 import { StreakMilestoneModal } from "@/components/anchor/streak-milestone-modal"
+import { getLastSeenLetterWeek } from "@/lib/letters"
 
 const ANCHOR_MILESTONES_CELEBRATED_KEY = "anchor_streak_milestones_celebrated"
 
@@ -84,6 +85,7 @@ export function HomePage() {
   const [loadingCompanion, setLoadingCompanion] = useState(true)
   const [showConfetti, setShowConfetti] = useState(false)
   const [streakMilestone, setStreakMilestone] = useState<number | null>(null)
+  const [hasUnreadLetter, setHasUnreadLetter] = useState(false)
 
   const [checkInDone, setCheckInDone] = useState(false)
 
@@ -125,6 +127,30 @@ export function HomePage() {
     setStreakMilestone(milestone)
     setUserLocalData(ANCHOR_MILESTONES_CELEBRATED_KEY, user.id, [...celebrated, milestone])
   }, [streaks.currentAnchorStreak, user])
+
+  useEffect(() => {
+    if (user) checkUnreadLetter()
+  }, [user])
+
+  async function checkUnreadLetter() {
+    if (!user) return
+    try {
+      const { data } = await supabase
+        .from("weekly_letters")
+        .select("week_start")
+        .eq("user_id", user.id)
+        .order("week_start", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      const latest = data?.week_start
+      if (!latest) return
+      const lastSeen = getLastSeenLetterWeek(user.id)
+      setHasUnreadLetter(!lastSeen || latest > lastSeen)
+    } catch {
+      // Badge is a nice-to-have — not worth surfacing an error toast for.
+    }
+  }
 
   async function loadTodayData(): Promise<DailyAnchor | undefined> {
     if (!user) return undefined
@@ -406,11 +432,26 @@ export function HomePage() {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">{t("home.subtitle")}</p>
         </div>
-        <Link to="/settings">
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground transition-colors">
-            <Settings className="h-5 w-5" />
-          </Button>
-        </Link>
+        <div className="flex items-center gap-1">
+          <Link to="/letters">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={t("letters.title")}
+            >
+              <Mail className="h-5 w-5" />
+              {hasUnreadLetter && (
+                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-accent" />
+              )}
+            </Button>
+          </Link>
+          <Link to="/settings">
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground transition-colors">
+              <Settings className="h-5 w-5" />
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Companion */}

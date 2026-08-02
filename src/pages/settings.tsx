@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { ModeToggle } from "@/components/mode-toggle"
 import { RemindersSection } from "@/components/settings/reminders-section"
+import { JournalExportSection } from "@/components/settings/journal-export-section"
 import { ArrowLeft, Brain } from "lucide-react"
 import { localDateStr } from "@/lib/utils"
 
@@ -186,11 +187,14 @@ export function SettingsPage() {
         {/* Reminders */}
         <RemindersSection />
 
-        {/* Export */}
+        {/* Anchor Journal PDF export */}
+        <JournalExportSection />
+
+        {/* Raw JSON export */}
         <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5">
             <Button variant="outline" className="w-full" onClick={handleExport}>
-              {t("settings.export")}
+              {t("settings.export_json")}
             </Button>
           </CardContent>
         </Card>

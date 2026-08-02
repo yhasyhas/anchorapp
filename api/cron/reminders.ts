@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto"
-import { sendPushToUser } from "../send-push"
+import { sendPushToUser } from "../send-push.js"
 
 // Same reasoning as api/send-push.ts: web-push (pulled in transitively via
 // sendPushToUser) needs Node's crypto/https, unavailable on Vercel's Edge

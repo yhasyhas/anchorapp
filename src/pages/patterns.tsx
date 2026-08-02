@@ -1,17 +1,18 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
 import { fetchInsightsWithFallback } from "@/lib/ai-service"
 import { moodToValue } from "@/lib/constants"
 import { localDateStr } from "@/lib/utils"
+import { formatWeekRange } from "@/lib/letters"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Sparkles, Brain, Loader2 } from "lucide-react"
+import { Sparkles, Brain, Loader2, BookOpen } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts"
 import { EmptyState } from "@/components/ui/empty-state"
 import { toast } from "sonner"
-import type { MoodLog, DailyAnchor, CheckIn, JournalEntry } from "@/types"
+import type { MoodLog, DailyAnchor, CheckIn, JournalEntry, ProgressStory } from "@/types"
 import { todayStr } from "@/lib/utils"
 
 const dayKeys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
@@ -46,9 +47,41 @@ export function PatternsPage() {
   const [source, setSource] = useState<"local" | "ai" | "cached_ai">("local")
   const aiEnabled = profile?.ai_enabled ?? false
 
+  const [stories, setStories] = useState<ProgressStory[]>([])
+  const [selectedStory, setSelectedStory] = useState<ProgressStory | null>(null)
+  const [loadingStory, setLoadingStory] = useState(true)
+
   useEffect(() => {
     if (user) loadData()
   }, [user])
+
+  useEffect(() => {
+    if (user) loadProgressStories()
+  }, [user])
+
+  async function loadProgressStories() {
+    if (!user) return
+    try {
+      const { data, error } = await supabase
+        .from("progress_stories")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("period_end", { ascending: false })
+
+      if (error) throw error
+      const rows = (data as ProgressStory[]) || []
+      setStories(rows)
+      setSelectedStory(rows[0] ?? null)
+    } catch (err: any) {
+      // Not surfaced via toast — this section just falls back to the empty
+      // state, which reads fine either way ("no story yet" vs. a failed
+      // load look the same to her, and that's an acceptable trade for not
+      // stacking a second error toast on top of the insights one below.
+      console.error("Failed to load progress stories:", err)
+    } finally {
+      setLoadingStory(false)
+    }
+  }
 
   async function loadData(forceAi = false) {
     if (!user) return
@@ -152,6 +185,14 @@ export function PatternsPage() {
     return points
   }
 
+  const moodTrendData = useMemo(() => {
+    if (!selectedStory) return []
+    return selectedStory.stats.weeks.map((w, i) => ({
+      label: i === 2 ? t("progress_story.this_week_label") : t("progress_story.weeks_ago", { count: 3 - i }),
+      value: w.avgMoodValue, // null (not 0) for a quiet week — connectNulls={false} skips the point instead of dipping the line to zero
+    }))
+  }, [selectedStory, t])
+
   const insightIcons: Record<string, string> = {
     mood_action_correlation: "\u2600\uFE0F",
     pattern: "\u{1F319}",
@@ -169,6 +210,118 @@ export function PatternsPage() {
         </div>
         {source === "ai" && (
           <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">{t("patterns.ai_badge")}</span>
+        )}
+      </div>
+
+      {/* Progress Story — the story is the headline here, the chart below it
+          is supporting detail, not the other way around. */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <BookOpen className="h-5 w-5 text-primary" />
+          <h2 className="font-heading text-lg font-semibold">{t("progress_story.title")}</h2>
+        </div>
+
+        {loadingStory ? (
+          <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-center gap-2 py-6">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">{t("progress_story.loading")}</span>
+              </div>
+            </CardContent>
+          </Card>
+        ) : selectedStory ? (
+          <div className="space-y-3">
+            <div className="rounded-3xl bg-gradient-to-br from-lavender/20 via-card to-sage-light/30 p-7 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+              <p className="text-xs text-muted-foreground">
+                {formatWeekRange(selectedStory.period_start, selectedStory.period_end, i18n.language)}
+              </p>
+              <div className="mt-4 whitespace-pre-line font-heading text-lg italic leading-relaxed text-foreground/90">
+                {selectedStory.story_text}
+              </div>
+              <p className="mt-6 text-sm font-medium text-primary">{t("progress_story.closing_line")}</p>
+            </div>
+
+            {/* Mood trend across the 3 weeks */}
+            <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+              <CardContent className="p-5">
+                <p className="mb-3 text-sm font-medium text-muted-foreground">{t("progress_story.mood_trend")}</p>
+                <ResponsiveContainer width="100%" height={130}>
+                  <LineChart data={moodTrendData}>
+                    <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
+                    <YAxis domain={[0, 5]} hide />
+                    <Tooltip
+                      formatter={(value: any) => [typeof value === "number" ? value.toFixed(1) : "—", t("progress_story.mood_trend")]}
+                      contentStyle={{
+                        backgroundColor: "var(--card)",
+                        border: "none",
+                        borderRadius: "12px",
+                        boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+                      }}
+                      labelStyle={{ color: "var(--card-foreground)" }}
+                      itemStyle={{ color: "var(--card-foreground)" }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="value"
+                      stroke="var(--chart-3)"
+                      strokeWidth={2.5}
+                      dot={{ r: 5, fill: "var(--chart-3)", stroke: "var(--card)", strokeWidth: 2 }}
+                      activeDot={{ r: 7 }}
+                      connectNulls={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Top intentions across the period */}
+            {selectedStory.stats.topIntentions.length > 0 && (
+              <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+                <CardContent className="p-5">
+                  <p className="mb-3 text-sm font-medium text-muted-foreground">{t("progress_story.top_intentions")}</p>
+                  <div className="space-y-2.5">
+                    {selectedStory.stats.topIntentions.map((ti) => (
+                      <div key={ti.intention} className="flex items-center justify-between">
+                        <span className="text-sm text-foreground">{t(`intentions.${ti.intention.toLowerCase()}`)}</span>
+                        <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                          {t("progress_story.days_count", { count: ti.days })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Past stories — simple history, swap the featured card above */}
+            {stories.length > 1 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">{t("progress_story.past_stories")}</p>
+                <div className="flex flex-wrap gap-2">
+                  {stories.map((story) => (
+                    <button
+                      key={story.id}
+                      onClick={() => setSelectedStory(story)}
+                      className={`rounded-full px-3 py-1.5 text-xs transition-all ${
+                        story.id === selectedStory.id
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground hover:bg-accent"
+                      }`}
+                    >
+                      {formatWeekRange(story.period_start, story.period_end, i18n.language)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+            <CardContent className="p-5">
+              <EmptyState icon="seedling" titleKey="progress_story.empty" descriptionKey="progress_story.empty_sub" />
+            </CardContent>
+          </Card>
         )}
       </div>
 

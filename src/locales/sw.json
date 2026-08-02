@@ -287,5 +287,18 @@
     "share_failed": "Imeshindikana kushiriki barua yako",
     "back_to_list": "Barua zote",
     "not_found": "Barua hii haikuweza kupatikana."
+  },
+  "progress_story": {
+    "title": "Hadithi Yako ya Maendeleo",
+    "loading": "Inapakia hadithi yako...",
+    "closing_line": "Unajitokeza kwa ajili yako. Na inaonekana.",
+    "mood_trend": "Mwelekeo wa hisia",
+    "top_intentions": "Nia kuu",
+    "days_count": "siku {{count}}",
+    "past_stories": "Hadithi zilizopita",
+    "empty": "Hadithi yako inaanza tu 🌱",
+    "empty_sub": "Rudi baada ya wiki chache — kutakuwa na kitu cha kusimulia.",
+    "weeks_ago": "Wiki {{count}} zilizopita",
+    "this_week_label": "Wiki hii"
   }
 }

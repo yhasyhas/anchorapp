@@ -287,5 +287,18 @@
     "share_failed": "Could not share your letter",
     "back_to_list": "All letters",
     "not_found": "This letter couldn't be found."
+  },
+  "progress_story": {
+    "title": "Your Progress Story",
+    "loading": "Loading your story...",
+    "closing_line": "You're showing up for you. And it shows.",
+    "mood_trend": "Mood trend",
+    "top_intentions": "Top intentions",
+    "days_count": "{{count}} days",
+    "past_stories": "Past stories",
+    "empty": "Your story is just beginning 🌱",
+    "empty_sub": "Come back after a couple of weeks — there'll be something to tell.",
+    "weeks_ago": "{{count}} weeks ago",
+    "this_week_label": "This week"
   }
 }

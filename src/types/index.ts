@@ -103,3 +103,35 @@ export interface WeeklyLetter {
   highlights: WeeklyLetterHighlights
   created_at: string
 }
+
+export interface ProgressStoryWeekStat {
+  weekStart: string
+  weekEnd: string
+  dominantIntention: string | null
+  // 1-5 scale (see moodToValue in src/lib/constants.ts), null when no mood
+  // was logged that week at all — distinct from a low average.
+  avgMoodValue: number | null
+  moodCounts: Record<string, number>
+  anchorsCompletedDays: number
+  activeDays: number
+}
+
+export interface ProgressStoryStats {
+  // Chronological, oldest first — always length 3: [3 weeks ago, 2 weeks ago, this week]
+  weeks: ProgressStoryWeekStat[]
+  topIntentions: { intention: string; days: number }[]
+  // % of days-with-any-anchor-task where all 3 were completed, over the
+  // full 21-day window — not the same denominator as a raw 21-day average.
+  completionRate: number
+  totalActiveDays: number
+}
+
+export interface ProgressStory {
+  id: string
+  user_id: string
+  period_start: string
+  period_end: string
+  story_text: string
+  stats: ProgressStoryStats
+  created_at: string
+}

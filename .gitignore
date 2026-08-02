@@ -12,6 +12,16 @@ dist
 dist-ssr
 *.local
 
+# Export LLM du projet
+project-export.md
+project-export-clean.md
+
+# Fichiers generes par les outils
+*.tsbuildinfo
+.vercel
+supabase/.temp
+supabase/.branches
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -23,5 +33,7 @@ dist-ssr
 *.sln
 *.sw?
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!.env.sample
+!.env.*.example

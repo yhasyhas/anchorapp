@@ -1,33 +1,5 @@
-// import { useState } from "react"
-// import { Link } from "react-router-dom"
-// import { useTranslation } from "react-i18next"
-// import { useAuth } from "@/lib/auth-context"
-// import { Button } from "@/components/ui/button"
-// import { Input } from "@/components/ui/input"
-// import { Label } from "@/components/ui/label"
-// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-// import { Anchor } from "lucide-react"
-
-// export function RegisterPage() {
-//   const { t } = useTranslation()
-//   const { signUp } = useAuth()
-//   const [email, setEmail] = useState("")
-//   const [password, setPassword] = useState("")
-//   const [fullName, setFullName] = useState("")
-//   const [error, setError] = useState("")
-//   const [loading, setLoading] = useState(false)
-
-//   async function handleSubmit(e: React.FormEvent) {
-//     e.preventDefault()
-//     setError("")
-//     setLoading(true)
-//     const { error } = await signUp(email, password, fullName)
-//     if (error) setError(error)
-//     setLoading(false)
-//   }
-
 import { useState } from "react"
-import { Link, useNavigate } from "react-router-dom"  // ← ajoute useNavigate
+import { Link, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"

@@ -17,9 +17,21 @@ interface SlotDef {
   minute: number
 }
 
-// Must stay in sync with the cron schedule in vercel.json (every 15 min) —
-// each slot's local trigger time is matched against a [hour:minute, +WINDOW)
-// bucket for that run.
+// Each slot's local trigger time is matched against a [hour:minute, +WINDOW)
+// bucket at whatever moment the cron actually fires — this is genuinely
+// timezone-aware per user via profiles.timezone, not hardcoded to Nairobi.
+//
+// BUT: the ideal design (a single cron every ~15 min, catching every
+// timezone's exact local slot) needs Vercel Pro — Hobby plans only allow
+// cron jobs that fire once per day (see vercel.json, which currently has 3
+// fixed-UTC-time entries: 06:00 / 12:00 / 16:30 UTC, i.e. exactly 9:00 /
+// 15:00 / 19:30 in Africa/Nairobi, the app's default and current userbase).
+// On Hobby, only users whose local time matches one of those 3 fixed UTC
+// moments (in practice, Africa/Nairobi) get correctly-timed reminders — a
+// user in a different timezone simply won't have a cron firing at their
+// 9am. If/when the userbase spans more timezones, either upgrade to Pro and
+// switch vercel.json back to a single `*/15 * * * *` entry, or add more
+// fixed-time cron entries for the other timezones you need to cover.
 const SLOTS: SlotDef[] = [
   { key: "morning", hour: 9, minute: 0 },
   { key: "midday", hour: 15, minute: 0 },

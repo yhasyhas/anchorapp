@@ -11,7 +11,8 @@ import { Sparkles, Brain, Loader2 } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts"
 import { EmptyState } from "@/components/ui/empty-state"
 import { toast } from "sonner"
-import type { MoodLog, DailyAnchor, CheckIn } from "@/types"
+import type { MoodLog, DailyAnchor, CheckIn, JournalEntry } from "@/types"
+import { todayStr } from "@/lib/utils"
 
 const dayKeys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
 
@@ -29,11 +30,17 @@ interface InsightItem {
   source: "local" | "ai" | "cached_ai"
 }
 
+function formatEntryDate(dateStr: string, lang: string): string {
+  const d = new Date(`${dateStr}T00:00:00`)
+  return d.toLocaleDateString(lang === "sw" ? "sw-TZ" : "en-US", { month: "short", day: "numeric" })
+}
+
 export function PatternsPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { user, profile } = useAuth()
   const [chartData, setChartData] = useState<{ day: string; value: number; mood: string | null }[]>([])
   const [insights, setInsights] = useState<InsightItem[]>([])
+  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingAi, setLoadingAi] = useState(false)
   const [source, setSource] = useState<"local" | "ai" | "cached_ai">("local")
@@ -56,7 +63,7 @@ export function PatternsPage() {
       thirtyAgo.setDate(thirtyAgo.getDate() - 30)
       const thirtyStr = localDateStr(thirtyAgo)
 
-      const [{ data: weekMoods }, { data: monthMoods }, { data: anchors }, { data: checkIns }] = await Promise.all([
+      const [{ data: weekMoods }, { data: monthMoods }, { data: anchors }, { data: checkIns }, { data: journal }] = await Promise.all([
         supabase
           .from("mood_logs")
           .select("*")
@@ -81,7 +88,15 @@ export function PatternsPage() {
           .eq("user_id", user.id)
           .gte("date", thirtyStr)
           .order("date", { ascending: true }),
+        supabase
+          .from("journal_entries")
+          .select("*")
+          .eq("user_id", user.id)
+          .gte("date", thirtyStr)
+          .order("date", { ascending: false }),
       ])
+
+      setJournalEntries((journal as JournalEntry[]) || [])
 
       if (weekMoods && weekMoods.length > 0) {
         setChartData(buildChartData(weekMoods as MoodLog[]))
@@ -260,6 +275,35 @@ export function PatternsPage() {
           <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
             <CardContent className="p-5">
               <EmptyState icon="seedling" titleKey="patterns.empty" />
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Journal History */}
+      <div className="space-y-3">
+        <div>
+          <h2 className="font-heading text-lg font-semibold">{t("journal.history_title")}</h2>
+          <p className="text-xs text-muted-foreground">{t("journal.history_subtitle")}</p>
+        </div>
+
+        {journalEntries.length > 0 ? (
+          <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+            <CardContent className="divide-y divide-border/60 p-0">
+              {journalEntries.map((entry) => (
+                <div key={entry.id} className="flex items-start gap-3 p-4">
+                  <span className="mt-0.5 w-14 shrink-0 text-xs font-medium text-muted-foreground">
+                    {entry.date === todayStr() ? t("journal.today_label") : formatEntryDate(entry.date, i18n.language)}
+                  </span>
+                  <p className="text-sm italic text-foreground/85 leading-relaxed">{entry.sentence}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+            <CardContent className="p-5">
+              <EmptyState icon="flower" titleKey="journal.history_empty" />
             </CardContent>
           </Card>
         )}

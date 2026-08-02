@@ -247,5 +247,19 @@
     "time_left": "{{time}} left",
     "hours_until": "About {{hours}} hour{{plural}} to go",
     "soon": "Soon"
+  },
+  "journal": {
+    "title": "Journal",
+    "placeholder": "One sentence is enough...",
+    "save": "Save",
+    "saved": "Moment saved",
+    "edit": "Edit",
+    "today_label": "Today",
+    "char_count": "{{count}}/{{max}}",
+    "error_load": "Could not load your journal entry",
+    "error_save": "Could not save your journal entry",
+    "history_title": "Your sentences",
+    "history_subtitle": "The last 30 days, one line at a time.",
+    "history_empty": "Your daily sentences will appear here."
   }
 }

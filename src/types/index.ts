@@ -63,6 +63,14 @@ export interface AiInsight {
   created_at: string
 }
 
+export interface JournalEntry {
+  id: string
+  user_id: string
+  date: string
+  sentence: string
+  created_at: string
+}
+
 export interface NotificationPreferences {
   user_id: string
   reminders_enabled: boolean

@@ -21,6 +21,7 @@ import { MorningRitual } from "@/components/anchor/morning-ritual"
 import { ConfettiBurst } from "@/components/anchor/confetti"
 import { GentleNudgeModal } from "@/components/anchor/gentle-nudge-modal"
 import { PushNudge } from "@/components/anchor/push-nudge"
+import { JournalCard } from "@/components/anchor/journal-card"
 
 function getGreetingKey(): string {
   const hour = new Date().getHours()
@@ -458,6 +459,9 @@ export function HomePage() {
           )}
         </CardContent>
       </Card>
+
+      {/* One-Sentence Journal — a bonus, not part of the daily cycle */}
+      <JournalCard />
 
       {/* Streaks */}
       <div className="flex gap-3">

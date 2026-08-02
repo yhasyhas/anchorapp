@@ -151,6 +151,7 @@ interface ProfileRow {
   full_name: string
   preferred_language: Language
   timezone: string
+  ai_checkins_enabled: boolean
 }
 
 interface MoodLogRow {
@@ -176,6 +177,21 @@ interface CheckInRow {
   date: string
   evening_mood: string | null
   what_felt_real: string
+  voice_transcript: string | null
+}
+
+// Best (longest) check-in reflection in a window — same "pick the fullest
+// one" heuristic as bestJournalSentence. Only ever called when the caller
+// has already checked profile.ai_checkins_enabled; this function itself
+// doesn't know about the toggle, it just picks from whatever it's given.
+function pickBestCheckInSnippet(checkIns: CheckInRow[]): string | null {
+  let best: string | null = null
+  for (const c of checkIns) {
+    const text = [c.what_felt_real, c.voice_transcript].filter(Boolean).join(". ")
+    if (!text) continue
+    if (!best || text.length > best.length) best = text
+  }
+  return best
 }
 
 interface JournalRow {
@@ -282,9 +298,13 @@ const LETTER_MAX_WORDS = 210
 async function generateLetterWithGroq(params: {
   firstName: string
   highlights: Highlights
+  // Best check-in reflection (what_felt_real + voice transcript) this week —
+  // already gated by profile.ai_checkins_enabled at the call site; null here
+  // just means either nothing to quote or the user opted out.
+  checkInSnippet: string | null
   groqApiKey: string
 }): Promise<string> {
-  const { firstName, highlights, groqApiKey } = params
+  const { firstName, highlights, checkInSnippet, groqApiKey } = params
 
   const intentionLabel = translateIntention(highlights.dominantIntention, "en")
   const moodSummary = Object.entries(highlights.moodCounts)
@@ -298,6 +318,7 @@ async function generateLetterWithGroq(params: {
     highlights.anchorsCompletedDays > 0 ? `Fully completed all 3 daily anchors on ${highlights.anchorsCompletedDays} day(s) this week` : null,
     highlights.anchorStreakThisWeek >= 2 ? `Currently on a ${highlights.anchorStreakThisWeek}-day anchor streak ending today` : null,
     highlights.bestJournalSentence ? `Something she wrote in her journal this week: "${highlights.bestJournalSentence}"` : null,
+    checkInSnippet ? `Something she reflected on in a check-in this week: "${checkInSnippet}"` : null,
   ].filter(Boolean)
 
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -389,16 +410,19 @@ async function buildLetterText(params: {
   language: Language
   firstName: string
   highlights: Highlights
+  checkInSnippet: string | null
   groqApiKey: string | undefined
 }): Promise<string> {
-  const { language, firstName, highlights, groqApiKey } = params
+  const { language, firstName, highlights, checkInSnippet, groqApiKey } = params
 
   if (language === "sw" || !groqApiKey) {
+    // Static fallback never references check-in text — it doesn't need the
+    // toggle-gated snippet at all, only the AI path does.
     return buildStaticLetter(language, firstName, highlights)
   }
 
   try {
-    return await generateLetterWithGroq({ firstName, highlights, groqApiKey })
+    return await generateLetterWithGroq({ firstName, highlights, checkInSnippet, groqApiKey })
   } catch {
     return buildStaticLetter(language, firstName, highlights)
   }
@@ -492,9 +516,13 @@ const STORY_MAX_WORDS = 320
 async function generateStoryWithGroq(params: {
   firstName: string
   stats: StoryStats
+  // Best check-in reflection across the whole 21-day period — same
+  // ai_checkins_enabled gating as the letter's own snippet, not broken down
+  // per week (keeps the story prompt from growing too complex for one quote).
+  checkInSnippet: string | null
   groqApiKey: string
 }): Promise<string> {
-  const { firstName, stats, groqApiKey } = params
+  const { firstName, stats, checkInSnippet, groqApiKey } = params
 
   const weekLines = stats.weeks.map((w, i) => {
     const label = WEEK_LABELS_EN[i]
@@ -521,6 +549,7 @@ async function generateStoryWithGroq(params: {
     ...weekLines,
     topIntentionsLine,
     `Overall anchor completion rate this period: ${stats.completionRate}%`,
+    checkInSnippet ? `Something she reflected on in a check-in during this period: "${checkInSnippet}"` : null,
   ].filter(Boolean)
 
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -592,16 +621,17 @@ async function buildStoryText(params: {
   language: Language
   firstName: string
   stats: StoryStats
+  checkInSnippet: string | null
   groqApiKey: string | undefined
 }): Promise<string> {
-  const { language, firstName, stats, groqApiKey } = params
+  const { language, firstName, stats, checkInSnippet, groqApiKey } = params
 
   if (language === "sw" || !groqApiKey) {
     return buildStaticStory(language, firstName, stats)
   }
 
   try {
-    return await generateStoryWithGroq({ firstName, stats, groqApiKey })
+    return await generateStoryWithGroq({ firstName, stats, checkInSnippet, groqApiKey })
   } catch {
     return buildStaticStory(language, firstName, stats)
   }
@@ -628,7 +658,7 @@ export async function GET(request: Request): Promise<Response> {
   const rest: RestConfig = { url: SUPABASE_URL, serviceRoleKey: SERVICE_ROLE_KEY }
   const now = new Date()
 
-  const profiles = await restGet<ProfileRow>(rest, "profiles?select=id,full_name,preferred_language,timezone")
+  const profiles = await restGet<ProfileRow>(rest, "profiles?select=id,full_name,preferred_language,timezone,ai_checkins_enabled")
   if (profiles.length === 0) {
     return jsonResponse({ processed: 0, lettersGenerated: 0, storiesGenerated: 0 }, 200)
   }
@@ -671,7 +701,7 @@ export async function GET(request: Request): Promise<Response> {
       rest,
       `daily_anchors?user_id=in.(${dueIdList})&date=gte.${earliestFloor}&select=user_id,date,future_task,mindbody_task,life_task,future_completed,mindbody_completed,life_completed,daily_intention`
     ),
-    restGet<CheckInRow>(rest, `check_ins?user_id=in.(${dueIdList})&date=gte.${earliestFloor}&select=user_id,date,evening_mood,what_felt_real`),
+    restGet<CheckInRow>(rest, `check_ins?user_id=in.(${dueIdList})&date=gte.${earliestFloor}&select=user_id,date,evening_mood,what_felt_real,voice_transcript`),
     restGet<JournalRow>(rest, `journal_entries?user_id=in.(${dueIdList})&date=gte.${earliestFloor}&select=user_id,date,sentence`),
   ])
 
@@ -712,7 +742,8 @@ export async function GET(request: Request): Promise<Response> {
         // Quiet week: no letter, no push, no reproach — silence is the kind
         // response here, not a "you didn't do enough" notification.
         if (highlights.totalDaysLogged >= MIN_ACTIVE_DAYS_LETTER) {
-          const letterText = await buildLetterText({ language, firstName, highlights, groqApiKey: GROQ_API_KEY })
+          const checkInSnippet = profile.ai_checkins_enabled ? pickBestCheckInSnippet(wCheckIns) : null
+          const letterText = await buildLetterText({ language, firstName, highlights, checkInSnippet, groqApiKey: GROQ_API_KEY })
           try {
             await restInsert(rest, "weekly_letters", {
               user_id: userId,
@@ -744,7 +775,8 @@ export async function GET(request: Request): Promise<Response> {
         const stats = buildStoryStats(weeks, allAnchors)
 
         if (stats.totalActiveDays >= MIN_ACTIVE_DAYS_STORY) {
-          const storyText = await buildStoryText({ language, firstName, stats, groqApiKey: GROQ_API_KEY })
+          const checkInSnippet = profile.ai_checkins_enabled ? pickBestCheckInSnippet(allCheckIns) : null
+          const storyText = await buildStoryText({ language, firstName, stats, checkInSnippet, groqApiKey: GROQ_API_KEY })
           try {
             await restInsert(rest, "progress_stories", {
               user_id: userId,

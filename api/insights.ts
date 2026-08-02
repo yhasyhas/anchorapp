@@ -444,9 +444,9 @@ function buildPatternData(moods: any[], anchors: any[], checkIns?: any[]) {
   )
 
   const snippets = checkIns
-    ?.filter((c: any) => c.what_matters || c.what_felt_real)
+    ?.filter((c: any) => c.what_matters || c.what_felt_real || c.voice_transcript)
     .slice(-5)
-    .map((c: any) => [c.what_matters, c.what_felt_real].filter(Boolean).join(". "))
+    .map((c: any) => [c.what_matters, c.what_felt_real, c.voice_transcript].filter(Boolean).join(". "))
     .filter(Boolean)
 
   return {

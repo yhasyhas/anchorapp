@@ -87,7 +87,9 @@
     "error_load": "Could not load your reflection",
     "error_save": "Could not save your reflection",
     "error_upload_voice": "Failed to upload voice note",
-    "mic_permission_denied": "Please allow microphone access to record voice notes."
+    "mic_permission_denied": "Please allow microphone access to record voice notes.",
+    "transcribing": "Listening to your voice... ✨",
+    "transcript_label": "What you said"
   },
   "move": {
     "title": "Move",
@@ -270,7 +272,10 @@
     "error_save": "Could not save your journal entry",
     "history_title": "Your sentences",
     "history_subtitle": "The last 30 days, one line at a time.",
-    "history_empty": "Your daily sentences will appear here."
+    "history_empty": "Your daily sentences will appear here.",
+    "record_voice": "Speak your sentence instead",
+    "transcribing": "Listening... ✨",
+    "mic_permission_denied": "Please allow microphone access to record your journal entry."
   },
   "letters": {
     "title": "Your Letters",

@@ -325,9 +325,9 @@ function buildPatternDataDev(moods: MoodLog[], anchors: DailyAnchor[], checkIns?
   )
 
   const snippets = checkIns
-    ?.filter((c) => c.what_matters || c.what_felt_real)
+    ?.filter((c) => c.what_matters || c.what_felt_real || c.voice_transcript)
     .slice(-5)
-    .map((c) => [c.what_matters, c.what_felt_real].filter(Boolean).join(". "))
+    .map((c) => [c.what_matters, c.what_felt_real, c.voice_transcript].filter(Boolean).join(". "))
     .filter(Boolean)
 
   return {

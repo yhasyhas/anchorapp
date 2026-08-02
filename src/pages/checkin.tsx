@@ -4,16 +4,28 @@ import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
 import { addToSyncQueue, isOnline, setLocalData, getLocalData } from "@/lib/offline-sync"
 import { getDailyQuestions } from "@/lib/checkin-questions"
+import { transcribeAudio } from "@/lib/transcribe"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Heart, Moon, Mic, Square, Play, Trash2 } from "lucide-react"
+import { Heart, Moon, Mic, Square, Play, Trash2, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 import { moodConfig } from "@/lib/constants"
 import { isCheckInTime, todayStr } from "@/lib/utils"
 import type { CheckIn } from "@/types"
 import { EveningReleaseAnimation } from "@/components/anchor/evening-release-animation"
+
+const SIGNED_URL_TTL_SECONDS = 60 * 60 // 1h — plenty for a single viewing session; reloading gets a fresh one
+
+// Handles both the new bare-path format (`${userId}/${date}.webm`) and any
+// legacy full-URL value that might still be sitting in an old row — extracts
+// just the storage path either way so it can be re-signed.
+function extractVoiceNotePath(stored: string): string {
+  const marker = "/voice-notes/"
+  const idx = stored.indexOf(marker)
+  return idx >= 0 ? stored.slice(idx + marker.length) : stored
+}
 
 export function CheckInPage() {
   const { t, i18n } = useTranslation()
@@ -24,6 +36,7 @@ export function CheckInPage() {
     what_felt_real: "",
     evening_release: "",
     evening_mood: "",
+    voice_transcript: "",
   })
   const [saved, setSaved] = useState(false)
   const [released, setReleased] = useState(false)
@@ -35,6 +48,7 @@ export function CheckInPage() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [transcribing, setTranscribing] = useState(false)
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
@@ -81,14 +95,14 @@ export function CheckInPage() {
         if (data) {
           setCheckIn(data)
           setLocalData(localKey, data)
-          if (data.voice_note_url) setAudioUrl(data.voice_note_url)
+          if (data.voice_note_url) loadSignedAudioUrl(data.voice_note_url)
         } else if (cached) {
           setCheckIn(cached)
-          if (cached.voice_note_url) setAudioUrl(cached.voice_note_url)
+          if (cached.voice_note_url) loadSignedAudioUrl(cached.voice_note_url)
         }
       } else if (cached) {
         setCheckIn(cached)
-        if (cached.voice_note_url) setAudioUrl(cached.voice_note_url)
+        if (cached.voice_note_url) loadSignedAudioUrl(cached.voice_note_url)
       }
     } catch (err: any) {
       console.error("Failed to load check-in:", err)
@@ -96,6 +110,22 @@ export function CheckInPage() {
     }
   }
 
+  // voice-notes is a private bucket (see the migration) — playback always
+  // goes through a freshly-signed URL, never a stored permanent one.
+  async function loadSignedAudioUrl(stored: string) {
+    try {
+      const path = extractVoiceNotePath(stored)
+      const { data, error } = await supabase.storage.from("voice-notes").createSignedUrl(path, SIGNED_URL_TTL_SECONDS)
+      if (error) throw error
+      if (data?.signedUrl) setAudioUrl(data.signedUrl)
+    } catch (err) {
+      console.error("Failed to load voice note:", err)
+      // Doesn't block the rest of the check-in — the recording just won't play back.
+    }
+  }
+
+  // Returns the storage PATH, not a public URL — the bucket is private, so a
+  // permanent public URL wouldn't resolve anyway. Playback re-signs on load.
   async function uploadVoiceNote(blob: Blob): Promise<string | null> {
     if (!user) return null
     const fileName = `${user.id}/${todayStr()}.webm`
@@ -110,8 +140,7 @@ export function CheckInPage() {
 
       if (uploadError) throw uploadError
 
-      const { data } = supabase.storage.from("voice-notes").getPublicUrl(fileName)
-      return data.publicUrl
+      return fileName
     } catch (err: any) {
       console.error("Voice upload failed:", err)
       toast.error(t("checkin.error_upload_voice"))
@@ -123,10 +152,31 @@ export function CheckInPage() {
     if (!user) return
 
     try {
-      let voiceUrl = audioUrl
+      // Not `audioUrl` — that's a local blob/signed URL, never what belongs
+      // in the DB column. `checkIn.voice_note_url` is the persisted path,
+      // and deleteVoiceNote() clears it directly so this stays correct
+      // whether nothing changed, a new recording replaced it, or it was removed.
+      let voicePath = checkIn.voice_note_url ?? null
+      let transcript = checkIn.voice_transcript ?? ""
+
       if (audioBlob) {
         const uploaded = await uploadVoiceNote(audioBlob)
-        if (uploaded) voiceUrl = uploaded
+        if (uploaded) voicePath = uploaded
+
+        // Transcription only ever runs here — once per fresh recording, at
+        // explicit save, never on every keystroke/edit of the other fields.
+        setTranscribing(true)
+        try {
+          const text = await transcribeAudio(audioBlob)
+          if (text) {
+            transcript = text
+            setCheckIn((prev) => ({ ...prev, voice_transcript: text }))
+          }
+          // A failed transcription (text === null) is silent by design — the
+          // voice note itself still saves and plays back fine either way.
+        } finally {
+          setTranscribing(false)
+        }
       }
 
       const record = {
@@ -137,7 +187,8 @@ export function CheckInPage() {
         what_felt_real: checkIn.what_felt_real ?? "",
         evening_release: checkIn.evening_release ?? "",
         evening_mood: checkIn.evening_mood ?? "",
-        voice_note_url: voiceUrl ?? "",
+        voice_note_url: voicePath ?? "",
+        voice_transcript: transcript,
       }
 
       const localKey = `checkin_${user.id}_${todayStr()}`
@@ -233,6 +284,7 @@ export function CheckInPage() {
     setAudioUrl(null)
     setAudioBlob(null)
     setIsPlaying(false)
+    setCheckIn((prev) => ({ ...prev, voice_note_url: null, voice_transcript: "" }))
     if (audioPlayerRef.current) {
       audioPlayerRef.current.pause()
       audioPlayerRef.current = null
@@ -406,23 +458,43 @@ export function CheckInPage() {
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-3">
-              <button
-                onClick={togglePlay}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground hover:scale-105 transition-transform"
-              >
-                {isPlaying ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4 ml-0.5" />}
-              </button>
-              <div className="flex-1">
-                <p className="text-xs font-medium text-foreground">{t("checkin.voice_recorded")}</p>
-                <p className="text-xs text-muted-foreground">{isPlaying ? t("checkin.playing") : t("checkin.ready_to_play")}</p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-3">
+                <button
+                  onClick={togglePlay}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground hover:scale-105 transition-transform"
+                >
+                  {isPlaying ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4 ml-0.5" />}
+                </button>
+                <div className="flex-1">
+                  <p className="text-xs font-medium text-foreground">{t("checkin.voice_recorded")}</p>
+                  <p className="text-xs text-muted-foreground">{isPlaying ? t("checkin.playing") : t("checkin.ready_to_play")}</p>
+                </div>
+                <button
+                  onClick={deleteVoiceNote}
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </div>
-              <button
-                onClick={deleteVoiceNote}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+
+              {transcribing ? (
+                <div className="flex items-center gap-2 px-1">
+                  <Sparkles className="h-3.5 w-3.5 animate-pulse text-primary" />
+                  <span className="text-xs italic text-muted-foreground">{t("checkin.transcribing")}</span>
+                </div>
+              ) : checkIn.voice_transcript ? (
+                <div className="rounded-xl bg-secondary/60 p-3">
+                  <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    {t("checkin.transcript_label")}
+                  </p>
+                  <Textarea
+                    value={checkIn.voice_transcript}
+                    onChange={(e) => updateField("voice_transcript", e.target.value)}
+                    className="min-h-[60px] border-0 bg-transparent p-0 text-sm italic leading-relaxed text-foreground/85 shadow-none focus-visible:ring-0"
+                  />
+                </div>
+              ) : null}
             </div>
           )}
         </CardContent>

@@ -458,5 +458,28 @@
       "small_steps_count": "Small steps still count",
       "holding_you_gently": "Holding you gently today"
     }
+  },
+  "sos": {
+    "button_label": "Need a gentle word? 💜",
+    "confirm_title": "Need a gentle word?",
+    "confirm_body": "Your circle will know you could use some love today. Nothing else will be shared.",
+    "confirm_cancel": "Not now",
+    "confirm_send": "Send",
+    "sending": "Sending...",
+    "sent_toast": "Your circle knows 💜",
+    "active_title": "Your circle knows 💜",
+    "active_body": "You're not alone today.",
+    "already_sent_toast": "You've already reached out today 💜",
+    "no_circle_title": "You're not alone",
+    "no_circle_invite_cta": "Invite someone to your circle",
+    "no_circle_loading": "Finding the right words...",
+    "history_link": "See your past reach-outs",
+    "history_title": "Your past reach-outs",
+    "history_empty": "Nothing here yet.",
+    "history_resolved": "Closed",
+    "history_open": "Still open today",
+    "error_generic": "Could not send right now. Please try again.",
+    "circle_card_title": "{{name}} could use a gentle word today",
+    "circle_card_subtitle": "No pressure — a small word is enough."
   }
 }

@@ -131,11 +131,13 @@ export async function acceptInviteByToken(token: string): Promise<void> {
   if (error) throw toCircleError(error)
 }
 
-// Best-effort side effects after a successful inviteByEmail — the
-// circle_memberships/circle_invites row already exists by the time these
-// run, so a failure here (offline, provider hiccup) is a soft miss, never a
-// reason to roll back or re-surface an error to the inviter.
-async function bestEffortPost(path: string, body: unknown): Promise<void> {
+// Best-effort side effects after a successful write (invite, encouragement,
+// SOS...) — the underlying row already exists by the time these run, so a
+// failure here (offline, provider hiccup) is a soft miss, never a reason to
+// roll back or re-surface an error to the caller. Exported so other
+// circle-adjacent modules (e.g. circle-sos.ts) can reuse the same
+// session/fetch plumbing instead of duplicating it.
+export async function bestEffortPost(path: string, body: unknown): Promise<void> {
   const {
     data: { session },
   } = await supabase.auth.getSession()

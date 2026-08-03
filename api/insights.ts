@@ -173,6 +173,16 @@ function validateCompanionBody(body: any): string | null {
   return null
 }
 
+function validateReassuranceBody(body: any): string | null {
+  if (body.language !== undefined && body.language !== "en" && body.language !== "sw") {
+    return "invalid language"
+  }
+  if (body.tone !== undefined && body.tone !== "gentle" && body.tone !== "direct" && body.tone !== "poetic") {
+    return "invalid tone"
+  }
+  return null
+}
+
 export default async function handler(request: Request) {
   if (request.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405)
@@ -230,6 +240,12 @@ export default async function handler(request: Request) {
       const validationError = validateCompanionBody(body)
       if (validationError) return jsonResponse({ error: validationError }, 400)
       return await handleCompanion(body, GROQ_API_KEY)
+    }
+
+    if (type === "reassurance") {
+      const validationError = validateReassuranceBody(body)
+      if (validationError) return jsonResponse({ error: validationError }, 400)
+      return await handleReassurance(body, GROQ_API_KEY)
     }
 
     const validationError = validateInsightsBody(body)
@@ -355,6 +371,65 @@ Examples:
 
   const json = await response.json()
   const message = json.choices?.[0]?.message?.content?.trim() || "Good morning — set a gentle intention for today."
+
+  return new Response(JSON.stringify({ message }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  })
+}
+
+// SOS doux, no-circle branch: she tapped the gentle SOS button but has no one
+// to notify yet — this is a standalone reassurance, not a reaction to any
+// mood/check-in data, so the prompt carries no personal context at all.
+async function handleReassurance(body: any, apiKey: string) {
+  const { language = "en" } = body
+  const tone = normalizeTone(body.tone)
+
+  const STATIC_FALLBACK = "You are not alone, even in this quiet moment."
+
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "llama-3.1-8b-instant",
+      messages: [
+        {
+          role: "system",
+          content: `You are Anchor, a gentle companion. Someone just reached for support but has no one in her circle to notify yet. Write ONE short, warm reassurance sentence (max 20 words).
+
+Rules:
+- ${TONE_INSTRUCTIONS[tone]}
+- Never diagnose, never suggest a crisis hotline or clinical language — this is warm companionship, not a medical response
+- Acknowledge the hard moment without asking her to explain it
+- Max 20 words
+- Respond in ${language === "sw" ? "Swahili" : "English"}
+
+Examples:
+- "You don't have to carry this alone — even in this quiet moment, you are not too much."
+- "This moment is hard, and that's real. You've gotten through hard moments before."`,
+        },
+        {
+          role: "user",
+          content: "Write the reassurance sentence now.",
+        },
+      ],
+      temperature: 0.5,
+      max_tokens: 100,
+    }),
+  })
+
+  if (!response.ok) {
+    return new Response(JSON.stringify({ message: STATIC_FALLBACK }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })
+  }
+
+  const json = await response.json()
+  const message = json.choices?.[0]?.message?.content?.trim() || STATIC_FALLBACK
 
   return new Response(JSON.stringify({ message }), {
     status: 200,

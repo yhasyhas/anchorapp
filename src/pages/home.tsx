@@ -26,6 +26,7 @@ import { JournalCard } from "@/components/anchor/journal-card"
 import { StreakMilestoneModal } from "@/components/anchor/streak-milestone-modal"
 import { getLastSeenLetterWeek } from "@/lib/letters"
 import { CircleInviteNudge } from "@/components/circle/circle-invite-nudge"
+import { SosWidget } from "@/components/anchor/sos-widget"
 import { listPendingReceivedInvites, listReceivedEncouragements } from "@/lib/circle"
 
 const ANCHOR_MILESTONES_CELEBRATED_KEY = "anchor_streak_milestones_celebrated"
@@ -792,6 +793,8 @@ export function HomePage() {
           </p>
         </CardContent>
       </Card>
+
+      <SosWidget />
 
       <PushNudge active={cycleComplete} />
     </div>

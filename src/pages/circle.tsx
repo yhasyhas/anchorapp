@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
-import { Heart, Loader2, Mail } from "lucide-react"
+import { Heart, HeartHandshake, Loader2, Mail } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -21,6 +21,7 @@ import {
   sendEncouragement,
   getSharedLetters,
 } from "@/lib/circle"
+import { listActiveCircleSos, type CircleSosEntry } from "@/lib/circle-sos"
 import { ENCOURAGEMENT_PRESET_KEYS } from "@/types"
 import type {
   CircleMembership,
@@ -54,6 +55,7 @@ export function CirclePage() {
   const [presence, setPresence] = useState<Record<string, boolean>>({})
   const [feed, setFeed] = useState<FeedItem[]>([])
   const [sharedLetters, setSharedLetters] = useState<SharedLetter[]>([])
+  const [activeSos, setActiveSos] = useState<CircleSosEntry[]>([])
   const [openLetter, setOpenLetter] = useState<SharedLetter | null>(null)
 
   const [composeFor, setComposeFor] = useState<{ id: string; name: string } | null>(null)
@@ -66,19 +68,21 @@ export function CirclePage() {
 
   async function load() {
     try {
-      const [membershipRows, nameMap, presenceRows, received, sent, letters] = await Promise.all([
+      const [membershipRows, nameMap, presenceRows, received, sent, letters, sos] = await Promise.all([
         listMemberships(),
         getMemberNames(),
         getPresenceToday(),
         listReceivedEncouragements(),
         listSentEncouragements(),
         getSharedLetters(),
+        listActiveCircleSos(),
       ])
 
       setMembers(membershipRows.filter((m) => m.status === "active"))
       setNames(nameMap)
       setPresence(Object.fromEntries(presenceRows.map((p) => [p.friend_id, p.present])))
       setSharedLetters(letters)
+      setActiveSos(sos)
 
       const receivedItems: FeedItem[] = (received as ReceivedEncouragement[]).map((e) => ({
         id: e.id,
@@ -181,6 +185,36 @@ export function CirclePage() {
         </Card>
       ) : (
         <>
+          {activeSos.length > 0 && (
+            <div className="space-y-2">
+              {activeSos.map((sos) => (
+                <Card
+                  key={sos.senderId}
+                  className="border-0 bg-gradient-to-br from-lavender/30 to-peach/20 shadow-[0_2px_10px_rgba(0,0,0,0.04)]"
+                >
+                  <CardContent className="flex items-center justify-between gap-3 p-4">
+                    <div className="flex items-center gap-3">
+                      <HeartHandshake className="h-4 w-4 shrink-0 text-primary" />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          {t("sos.circle_card_title", { name: friendName(sos.senderId) })}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{t("sos.circle_card_subtitle")}</p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setComposeFor({ id: sos.senderId, name: friendName(sos.senderId) })}
+                    >
+                      {t("circle.send_love_button")}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
           <div className="space-y-3">
             {members.map((m) => (
               <Card key={m.id} className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">

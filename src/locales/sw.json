@@ -458,5 +458,28 @@
       "small_steps_count": "Hatua ndogo bado zinahesabika",
       "holding_you_gently": "Nakushikilia kwa upole leo"
     }
+  },
+  "sos": {
+    "button_label": "Unahitaji neno la upole? 💜",
+    "confirm_title": "Unahitaji neno la upole?",
+    "confirm_body": "Mzunguko wako utajua kwamba ungependa upendo kidogo leo. Hakuna kitu kingine kitakachoshirikiwa.",
+    "confirm_cancel": "Sio sasa",
+    "confirm_send": "Tuma",
+    "sending": "Inatuma...",
+    "sent_toast": "Mzunguko wako unajua 💜",
+    "active_title": "Mzunguko wako unajua 💜",
+    "active_body": "Huko peke yako leo.",
+    "already_sent_toast": "Tayari umeomba msaada leo 💜",
+    "no_circle_title": "Hauko peke yako",
+    "no_circle_invite_cta": "Mwalike mtu kwenye mzunguko wako",
+    "no_circle_loading": "Inatafuta maneno sahihi...",
+    "history_link": "Ona maombi yako ya nyuma",
+    "history_title": "Maombi yako ya nyuma",
+    "history_empty": "Bado hakuna kitu hapa.",
+    "history_resolved": "Imefungwa",
+    "history_open": "Bado wazi leo",
+    "error_generic": "Imeshindwa kutuma sasa. Tafadhali jaribu tena.",
+    "circle_card_title": "{{name}} angependa neno la upole leo",
+    "circle_card_subtitle": "Hakuna shinikizo — neno dogo linatosha."
   }
 }

@@ -454,6 +454,64 @@ function getLocalCompanionFallback(mood: string | undefined, language: "en" | "s
   return lines.neutral
 }
 
+// ==================== REASSURANCE : SOS doux sans cercle ====================
+
+// Shown immediately when someone taps the gentle SOS button but has no
+// active circle to notify — "personne ne doit taper un SOS dans le vide".
+// Same dev/prod/offline/consent split as generateCompanionMessage, just
+// without yesterday's mood/check-in context (there's nothing to react to
+// here — this is a standalone reassurance, not a morning greeting).
+export async function generateReassuranceMessage(
+  aiEnabled: boolean,
+  language: "en" | "sw" = "en",
+  tone: Tone = "gentle"
+): Promise<string> {
+  if (!isOnline()) {
+    return getLocalReassuranceFallback(language, tone)
+  }
+
+  if (!aiEnabled) {
+    return getLocalReassuranceFallback(language, tone)
+  }
+
+  if (!import.meta.env.DEV) {
+    try {
+      const response = await fetch("/api/insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(await getAuthHeader()) },
+        body: JSON.stringify({ type: "reassurance", language, tone }),
+      })
+
+      if (!response.ok) throw new Error("reassurance_failed")
+      const json = await response.json()
+      return json.message
+    } catch {
+      return getLocalReassuranceFallback(language, tone)
+    }
+  }
+
+  return getLocalReassuranceFallback(language, tone)
+}
+
+const LOCAL_REASSURANCE_FALLBACK: Record<Tone, Record<"en" | "sw", string>> = {
+  gentle: {
+    en: "You don't have to carry this alone — even in this quiet moment, you are not too much, and this will pass.",
+    sw: "Huhitaji kubeba hili peke yako — hata katika wakati huu wa utulivu, wewe si mzigo, na hii itapita.",
+  },
+  direct: {
+    en: "This moment is hard, and that's real. You've gotten through hard moments before — you will get through this one too.",
+    sw: "Wakati huu ni mgumu, na hilo ni kweli. Umeshapitia nyakati ngumu hapo awali — utapita na hii pia.",
+  },
+  poetic: {
+    en: "Even the quietest nights end in light. Rest here a moment — you are still held.",
+    sw: "Hata usiku wa kimya zaidi huisha kwa mwanga. Pumzika hapa kidogo — bado unashikiliwa.",
+  },
+}
+
+function getLocalReassuranceFallback(language: "en" | "sw", tone: Tone): string {
+  return LOCAL_REASSURANCE_FALLBACK[tone][language]
+}
+
 // ==================== CACHE & PERSISTENCE ====================
 
 const AI_INSIGHTS_CACHE_BASE = "anchor_ai_insights_cache"

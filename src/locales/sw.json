@@ -89,7 +89,11 @@
     "error_upload_voice": "Imeshindwa kupakia ujumbe wa sauti",
     "mic_permission_denied": "Tafadhali ruhusu ufikiaji wa maikrofoni ili kurekodi ujumbe wa sauti.",
     "transcribing": "Inasikiliza sauti yako... ✨",
-    "transcript_label": "Ulichosema"
+    "transcript_label": "Ulichosema",
+    "personalized_badge": "Kwa ajili yako",
+    "evening_mood_note_heavy": "Ni nini kinachokulemea usiku huu?",
+    "evening_mood_note_good": "Ni nini kilichofanya leo ing'ae?",
+    "evening_mood_note_neutral": "Kuna kitu chochote cha kutaja leo?"
   },
   "move": {
     "title": "Sogeza",

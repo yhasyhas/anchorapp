@@ -5,16 +5,79 @@ import { supabase } from "@/lib/supabase"
 import { addToSyncQueue, isOnline, setLocalData, getLocalData } from "@/lib/offline-sync"
 import { getDailyQuestions } from "@/lib/checkin-questions"
 import { transcribeAudio } from "@/lib/transcribe"
+import { generateFollowUpQuestion, type FollowUpEntry } from "@/lib/ai-service"
+import { getQuickReplyChips } from "@/lib/checkin-chips"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Heart, Moon, Mic, Square, Play, Trash2, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 import { moodConfig } from "@/lib/constants"
-import { isCheckInTime, todayStr } from "@/lib/utils"
-import type { CheckIn } from "@/types"
+import { isCheckInTime, todayStr, localDateStr } from "@/lib/utils"
+import type { CheckIn, DailyAnchor } from "@/types"
 import { EveningReleaseAnimation } from "@/components/anchor/evening-release-animation"
+
+function daysAgoStr(n: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() - n)
+  return localDateStr(d)
+}
+
+function moodNoteBucket(mood: string): "heavy" | "good" | "neutral" {
+  if (mood === "low" || mood === "stressed") return "heavy"
+  if (mood === "great" || mood === "okay") return "good"
+  return "neutral"
+}
+
+// Merges the last 7 days of check-ins/journal/anchors into one entry per
+// date, dropping days with nothing textual at all — this is the payload
+// handed to generateFollowUpQuestion, and the ONLY source of "recent
+// history" it ever sees, which is what keeps the personalized question from
+// ever referencing anything older than 7 days.
+function buildFollowUpEntries(
+  checkIns: Partial<CheckIn>[],
+  journal: { date: string; sentence: string }[],
+  anchors: Partial<DailyAnchor>[]
+): FollowUpEntry[] {
+  const byDate = new Map<string, FollowUpEntry>()
+
+  function entryFor(date: string): FollowUpEntry {
+    let e = byDate.get(date)
+    if (!e) {
+      e = { date }
+      byDate.set(date, e)
+    }
+    return e
+  }
+
+  for (const c of checkIns) {
+    if (!c.date) continue
+    const e = entryFor(c.date)
+    if (c.what_matters) e.whatMatters = c.what_matters
+    if (c.what_avoiding) e.whatAvoiding = c.what_avoiding
+    if (c.what_felt_real) e.whatFeltReal = c.what_felt_real
+    if (c.evening_mood) e.eveningMood = c.evening_mood
+    if (c.evening_mood_note) e.eveningMoodNote = c.evening_mood_note
+    if (c.voice_transcript) e.voiceTranscript = c.voice_transcript
+  }
+  for (const j of journal) {
+    if (!j.date || !j.sentence) continue
+    entryFor(j.date).journalSentence = j.sentence
+  }
+  for (const a of anchors) {
+    if (!a.date) continue
+    const taskText = [a.future_task, a.mindbody_task, a.life_task].filter(Boolean).join("; ")
+    if (taskText) entryFor(a.date).anchorText = taskText
+    if (a.daily_intention) entryFor(a.date).intention = a.daily_intention
+  }
+
+  return Array.from(byDate.values())
+    .filter((e) => Object.keys(e).length > 1)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 7)
+}
 
 const SIGNED_URL_TTL_SECONDS = 60 * 60 // 1h — plenty for a single viewing session; reloading gets a fresh one
 
@@ -29,19 +92,22 @@ function extractVoiceNotePath(stored: string): string {
 
 export function CheckInPage() {
   const { t, i18n } = useTranslation()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [checkIn, setCheckIn] = useState<Partial<CheckIn>>({
     what_matters: "",
     what_avoiding: "",
     what_felt_real: "",
     evening_release: "",
     evening_mood: "",
+    evening_mood_note: "",
     voice_transcript: "",
   })
   const [saved, setSaved] = useState(false)
   const [released, setReleased] = useState(false)
 
   const [dailyQuestions, setDailyQuestions] = useState<[string, string]>(["", ""])
+  const [personalQuestion, setPersonalQuestion] = useState<string | null>(null)
+  const [recentCheckIns, setRecentCheckIns] = useState<Partial<CheckIn>[]>([])
 
   const [isRecording, setIsRecording] = useState(false)
   const [recordingDuration, setRecordingDuration] = useState(0)
@@ -59,6 +125,7 @@ export function CheckInPage() {
     if (user) {
       loadDailyQuestions()
       loadCheckIn()
+      loadPersonalizedQuestion()
     }
   }, [user])
 
@@ -73,6 +140,71 @@ export function CheckInPage() {
       const qs = getDailyQuestions(user.id, todayStr(), i18n.language as "en" | "sw")
       setLocalData(key, qs)
       setDailyQuestions(qs)
+    }
+  }
+
+  // Generated once per day and cached — see the personal_q key below — never
+  // regenerated just because the page was reopened. Also fetches the same
+  // 7-day window the quick-reply chips render from, regardless of whether a
+  // personalized question ends up existing for today.
+  async function loadPersonalizedQuestion() {
+    if (!user) return
+    const key = `anchor_checkin_personal_q_${user.id}_${todayStr()}`
+    const cached = getLocalData<{ question: string | null }>(key)
+    if (cached) setPersonalQuestion(cached.question)
+
+    try {
+      const since = daysAgoStr(6)
+      const [{ data: checkIns }, { data: journal }, { data: anchors }] = await Promise.all([
+        supabase
+          .from("check_ins")
+          .select("date, what_matters, what_avoiding, what_felt_real, evening_mood, evening_mood_note, voice_transcript")
+          .eq("user_id", user.id)
+          .gte("date", since),
+        supabase.from("journal_entries").select("date, sentence").eq("user_id", user.id).gte("date", since),
+        supabase
+          .from("daily_anchors")
+          .select("date, future_task, mindbody_task, life_task, daily_intention")
+          .eq("user_id", user.id)
+          .gte("date", since),
+      ])
+
+      setRecentCheckIns((checkIns as Partial<CheckIn>[]) || [])
+
+      // The question itself is already resolved for today — only the chips
+      // above needed this fetch.
+      if (cached) return
+
+      if (!profile?.ai_enabled || !profile?.ai_checkins_enabled) {
+        setLocalData(key, { question: null })
+        return
+      }
+
+      const entries = buildFollowUpEntries(
+        (checkIns as Partial<CheckIn>[]) || [],
+        (journal as { date: string; sentence: string }[]) || [],
+        (anchors as Partial<DailyAnchor>[]) || []
+      )
+      if (entries.length === 0) {
+        setLocalData(key, { question: null })
+        return
+      }
+
+      const question = await generateFollowUpQuestion(
+        true,
+        true,
+        entries,
+        i18n.language as "en" | "sw",
+        profile?.tone ?? "gentle"
+      )
+      setLocalData(key, { question })
+      setPersonalQuestion(question)
+    } catch (err) {
+      console.error("Failed to load personalized question:", err)
+      if (!cached) {
+        setLocalData(key, { question: null })
+        setPersonalQuestion(null)
+      }
     }
   }
 
@@ -187,6 +319,7 @@ export function CheckInPage() {
         what_felt_real: checkIn.what_felt_real ?? "",
         evening_release: checkIn.evening_release ?? "",
         evening_mood: checkIn.evening_mood ?? "",
+        evening_mood_note: checkIn.evening_mood_note ?? "",
         voice_note_url: voicePath ?? "",
         voice_transcript: transcript,
       }
@@ -292,8 +425,25 @@ export function CheckInPage() {
   }, [])
 
   const [q1, q2] = dailyQuestions
+  const q2Display = personalQuestion ?? q2
   const isEvening = isCheckInTime()
   const hoursUntilEvening = Math.max(0, 19 - new Date().getHours())
+  const lang: "en" | "sw" = i18n.language === "sw" ? "sw" : "en"
+  const chipsWhatMatters = getQuickReplyChips(
+    "what_matters",
+    recentCheckIns.map((c) => c.what_matters).filter((t): t is string => !!t),
+    lang
+  )
+  const chipsWhatAvoiding = getQuickReplyChips(
+    "what_avoiding",
+    recentCheckIns.map((c) => c.what_avoiding).filter((t): t is string => !!t),
+    lang
+  )
+  const chipsWhatFeltReal = getQuickReplyChips(
+    "what_felt_real",
+    recentCheckIns.map((c) => c.what_felt_real).filter((t): t is string => !!t),
+    lang
+  )
 
   if (!isEvening) {
     return (
@@ -355,6 +505,19 @@ export function CheckInPage() {
               </button>
             ))}
           </div>
+          {checkIn.evening_mood && (
+            <div className="mt-4">
+              <p className="mb-1.5 text-xs text-muted-foreground">
+                {t(`checkin.evening_mood_note_${moodNoteBucket(checkIn.evening_mood)}`)}
+              </p>
+              <Input
+                value={checkIn.evening_mood_note ?? ""}
+                onChange={(e) => updateField("evening_mood_note", e.target.value)}
+                placeholder="..."
+                className="border-0 bg-muted/50 shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -376,6 +539,20 @@ export function CheckInPage() {
             placeholder="..."
             className="min-h-[80px] border-0 bg-muted/50 shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
           />
+          {chipsWhatMatters.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {chipsWhatMatters.map((chip) => (
+                <button
+                  key={chip}
+                  type="button"
+                  onClick={() => updateField("what_matters", chip)}
+                  className="rounded-full bg-muted px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-sage-light"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -384,12 +561,19 @@ export function CheckInPage() {
         <CardContent className="p-5">
           <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span>&#x2601;&#xFE0F;</span>
-              <p className="text-sm font-medium text-foreground">{q2}</p>
+              <span>{personalQuestion ? "✨" : "☁️"}</span>
+              <p className="text-sm font-medium text-foreground">{q2Display}</p>
             </div>
-            <Badge variant="secondary" className="text-[10px]">
-              {t("checkin.reflection")} 2
-            </Badge>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {personalQuestion && (
+                <Badge className="border-0 bg-primary/10 text-[10px] text-primary">
+                  {t("checkin.personalized_badge")} ✨
+                </Badge>
+              )}
+              <Badge variant="secondary" className="text-[10px]">
+                {t("checkin.reflection")} 2
+              </Badge>
+            </div>
           </div>
           <Textarea
             value={checkIn.what_avoiding ?? ""}
@@ -397,6 +581,20 @@ export function CheckInPage() {
             placeholder="..."
             className="min-h-[80px] border-0 bg-muted/50 shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
           />
+          {chipsWhatAvoiding.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {chipsWhatAvoiding.map((chip) => (
+                <button
+                  key={chip}
+                  type="button"
+                  onClick={() => updateField("what_avoiding", chip)}
+                  className="rounded-full bg-muted px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-sage-light"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -418,6 +616,20 @@ export function CheckInPage() {
             placeholder="..."
             className="min-h-[80px] border-0 bg-muted/50 shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
           />
+          {chipsWhatFeltReal.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {chipsWhatFeltReal.map((chip) => (
+                <button
+                  key={chip}
+                  type="button"
+                  onClick={() => updateField("what_felt_real", chip)}
+                  className="rounded-full bg-muted px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-sage-light"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 

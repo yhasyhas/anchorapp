@@ -89,7 +89,11 @@
     "error_upload_voice": "Failed to upload voice note",
     "mic_permission_denied": "Please allow microphone access to record voice notes.",
     "transcribing": "Listening to your voice... ✨",
-    "transcript_label": "What you said"
+    "transcript_label": "What you said",
+    "personalized_badge": "For you",
+    "evening_mood_note_heavy": "What's weighing on you tonight?",
+    "evening_mood_note_good": "What made today shine?",
+    "evening_mood_note_neutral": "Anything worth naming today?"
   },
   "move": {
     "title": "Move",

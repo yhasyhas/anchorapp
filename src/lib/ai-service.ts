@@ -512,6 +512,69 @@ function getLocalReassuranceFallback(language: "en" | "sw", tone: Tone): string 
   return LOCAL_REASSURANCE_FALLBACK[tone][language]
 }
 
+// ==================== FOLLOW-UP QUESTION : check-in personnalisé ====================
+
+export interface FollowUpEntry {
+  date: string
+  whatMatters?: string
+  whatAvoiding?: string
+  whatFeltReal?: string
+  eveningMood?: string
+  eveningMoodNote?: string
+  voiceTranscript?: string
+  journalSentence?: string
+  anchorText?: string
+  intention?: string
+}
+
+// Replaces one of the two static pool questions in the evening check-in with
+// something that shows the app remembers the last 7 days — "the app that
+// sees you". No local fallback text exists for this (unlike the companion
+// message): a null return just means the caller keeps the pool question it
+// already has, which IS the fallback. Consent is checked here, before
+// `entries` is ever touched, mirroring the exact
+// `checkInsForAi = aiCheckInsEnabled ? checkIns : undefined` gate in
+// fetchInsightsWithFallback below — nothing is sent unless both toggles are on.
+export async function generateFollowUpQuestion(
+  aiEnabled: boolean,
+  aiCheckInsEnabled: boolean,
+  entries: FollowUpEntry[],
+  language: "en" | "sw" = "en",
+  tone: Tone = "gentle"
+): Promise<string | null> {
+  if (!aiEnabled || !aiCheckInsEnabled || entries.length === 0) {
+    return null
+  }
+
+  if (!isOnline()) {
+    return null
+  }
+
+  // Unlike generateAiInsights, there's no direct-Groq dev path here — a
+  // single edge-function prompt is easier to keep correct than duplicating
+  // it, and there's no local fallback text to fall back to anyway; dev mode
+  // simply behaves like "AI declined to answer" (same as generateCompanionMessage's
+  // simpler dev behavior, not generateAiInsights's).
+  if (import.meta.env.DEV) {
+    return null
+  }
+
+  try {
+    const response = await fetch("/api/insights", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(await getAuthHeader()) },
+      body: JSON.stringify({ type: "followup_question", language, tone, entries }),
+    })
+
+    if (!response.ok) return null
+    const json = await response.json()
+    const message = typeof json.message === "string" ? json.message.trim() : null
+    return message && message.toUpperCase() !== "NONE" ? message : null
+  } catch {
+    return null
+  }
+}
+
 // ==================== CACHE & PERSISTENCE ====================
 
 const AI_INSIGHTS_CACHE_BASE = "anchor_ai_insights_cache"

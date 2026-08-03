@@ -183,6 +183,41 @@ function validateReassuranceBody(body: any): string | null {
   return null
 }
 
+const MAX_FOLLOWUP_ENTRIES = 7
+const FOLLOWUP_ENTRY_STRING_FIELDS = [
+  "whatMatters",
+  "whatAvoiding",
+  "whatFeltReal",
+  "eveningMood",
+  "eveningMoodNote",
+  "voiceTranscript",
+  "journalSentence",
+  "anchorText",
+  "intention",
+] as const
+
+function validateFollowUpBody(body: any): string | null {
+  if (body.language !== undefined && body.language !== "en" && body.language !== "sw") {
+    return "invalid language"
+  }
+  if (body.tone !== undefined && body.tone !== "gentle" && body.tone !== "direct" && body.tone !== "poetic") {
+    return "invalid tone"
+  }
+  if (!Array.isArray(body.entries)) return "entries must be an array"
+  if (body.entries.length > MAX_FOLLOWUP_ENTRIES) return `entries array too large (max ${MAX_FOLLOWUP_ENTRIES})`
+  for (const entry of body.entries) {
+    if (typeof entry !== "object" || entry === null || typeof entry.date !== "string") {
+      return "invalid entry"
+    }
+    for (const field of FOLLOWUP_ENTRY_STRING_FIELDS) {
+      if (entry[field] !== undefined && typeof entry[field] !== "string") {
+        return `invalid entry.${field}`
+      }
+    }
+  }
+  return null
+}
+
 export default async function handler(request: Request) {
   if (request.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405)
@@ -246,6 +281,12 @@ export default async function handler(request: Request) {
       const validationError = validateReassuranceBody(body)
       if (validationError) return jsonResponse({ error: validationError }, 400)
       return await handleReassurance(body, GROQ_API_KEY)
+    }
+
+    if (type === "followup_question") {
+      const validationError = validateFollowUpBody(body)
+      if (validationError) return jsonResponse({ error: validationError }, 400)
+      return await handleFollowUp(body, GROQ_API_KEY)
     }
 
     const validationError = validateInsightsBody(body)
@@ -430,6 +471,108 @@ Examples:
 
   const json = await response.json()
   const message = json.choices?.[0]?.message?.content?.trim() || STATIC_FALLBACK
+
+  return new Response(JSON.stringify({ message }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  })
+}
+
+interface FollowUpEntry {
+  date: string
+  whatMatters?: string
+  whatAvoiding?: string
+  whatFeltReal?: string
+  eveningMood?: string
+  eveningMoodNote?: string
+  voiceTranscript?: string
+  journalSentence?: string
+  anchorText?: string
+  intention?: string
+}
+
+function formatFollowUpEntry(entry: FollowUpEntry): string {
+  const parts = [
+    entry.whatMatters ? `what mattered to her: "${entry.whatMatters}"` : null,
+    entry.whatAvoiding ? `what she was avoiding: "${entry.whatAvoiding}"` : null,
+    entry.whatFeltReal ? `what felt real: "${entry.whatFeltReal}"` : null,
+    entry.eveningMood ? `evening mood: ${entry.eveningMood}` : null,
+    entry.eveningMoodNote ? `note on that mood: "${entry.eveningMoodNote}"` : null,
+    entry.voiceTranscript ? `voice reflection: "${entry.voiceTranscript}"` : null,
+    entry.journalSentence ? `journal: "${entry.journalSentence}"` : null,
+    entry.anchorText ? `tasks she set: "${entry.anchorText}"` : null,
+    entry.intention ? `intention: ${entry.intention}` : null,
+  ].filter(Boolean)
+  return `${entry.date} — ${parts.join("; ")}`
+}
+
+// SOS-adjacent in spirit but for the evening check-in: turns one of the two
+// pool questions into a follow-up that shows the app actually remembers what
+// she said this week. Only ever called with entries the client already
+// restricted to the last 7 days (see generateFollowUpQuestion in
+// src/lib/ai-service.ts) — this function has no way to know or enforce that
+// window itself, the client-side restriction is what "never reference
+// anything older than 7 days" relies on.
+async function handleFollowUp(body: any, apiKey: string) {
+  const { language = "en", entries } = body
+  const tone = normalizeTone(body.tone)
+
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return new Response(JSON.stringify({ message: null }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })
+  }
+
+  const entryLines = (entries as FollowUpEntry[]).map(formatFollowUpEntry)
+
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "llama-3.1-8b-instant",
+      messages: [
+        {
+          role: "system",
+          content: `You are Anchor, a caring friend who remembers what she told you this week. Below are her real entries from the last 7 days.
+
+Generate ONE short follow-up question (max 20 words, one sentence, ending in "?") that gently references a SPECIFIC concrete detail from the entries below — a task, worry, feeling, or theme she actually mentioned.
+
+Rules:
+- ${TONE_INSTRUCTIONS[tone]}
+- Only reference something explicitly present in the entries below — never invent people, events, or details
+- Warm and curious, like a friend who remembers, never clinical or like a check-up
+- If nothing specific enough exists to reference, respond with exactly: NONE
+- Max 20 words
+- Respond in ${language === "sw" ? "Swahili" : "English"}
+
+Examples:
+- "You mentioned avoiding a tough conversation — how did it go?"
+- "How has work been sitting with you these days?"`,
+        },
+        {
+          role: "user",
+          content: entryLines.join("\n"),
+        },
+      ],
+      temperature: 0.5,
+      max_tokens: 60,
+    }),
+  })
+
+  if (!response.ok) {
+    return new Response(JSON.stringify({ message: null }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })
+  }
+
+  const json = await response.json()
+  const text = json.choices?.[0]?.message?.content?.trim() || ""
+  const message = !text || text.toUpperCase() === "NONE" ? null : text
 
   return new Response(JSON.stringify({ message }), {
     status: 200,

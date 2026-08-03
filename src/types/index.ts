@@ -49,6 +49,7 @@ export interface CheckIn {
   voice_transcript: string | null
   evening_release: string
   evening_mood: string | null  // ← AJOUTÉ
+  evening_mood_note: string
   created_at: string
 }
 

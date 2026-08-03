@@ -193,6 +193,7 @@ interface CheckInRow {
   user_id: string
   date: string
   evening_mood: string | null
+  evening_mood_note: string | null
   what_felt_real: string
   voice_transcript: string | null
 }
@@ -201,10 +202,14 @@ interface CheckInRow {
 // one" heuristic as bestJournalSentence. Only ever called when the caller
 // has already checked profile.ai_checkins_enabled; this function itself
 // doesn't know about the toggle, it just picks from whatever it's given.
+// evening_mood_note (the mood-adapted micro-question's answer, see
+// src/pages/checkin.tsx) is folded in here too, so it reaches both the
+// weekly letter and the progress story for free — they both call this same
+// function on the same CheckInRow[].
 function pickBestCheckInSnippet(checkIns: CheckInRow[]): string | null {
   let best: string | null = null
   for (const c of checkIns) {
-    const text = [c.what_felt_real, c.voice_transcript].filter(Boolean).join(". ")
+    const text = [c.what_felt_real, c.evening_mood_note, c.voice_transcript].filter(Boolean).join(". ")
     if (!text) continue
     if (!best || text.length > best.length) best = text
   }
@@ -723,7 +728,7 @@ export async function GET(request: Request): Promise<Response> {
       rest,
       `daily_anchors?user_id=in.(${dueIdList})&date=gte.${earliestFloor}&select=user_id,date,future_task,mindbody_task,life_task,future_completed,mindbody_completed,life_completed,daily_intention`
     ),
-    restGet<CheckInRow>(rest, `check_ins?user_id=in.(${dueIdList})&date=gte.${earliestFloor}&select=user_id,date,evening_mood,what_felt_real,voice_transcript`),
+    restGet<CheckInRow>(rest, `check_ins?user_id=in.(${dueIdList})&date=gte.${earliestFloor}&select=user_id,date,evening_mood,evening_mood_note,what_felt_real,voice_transcript`),
     restGet<JournalRow>(rest, `journal_entries?user_id=in.(${dueIdList})&date=gte.${earliestFloor}&select=user_id,date,sentence`),
   ])
 

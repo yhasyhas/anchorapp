@@ -169,6 +169,42 @@ export interface ProgressStory {
   created_at: string
 }
 
+export interface WrappedMoodTrend {
+  thisMonthAvg: number | null
+  prevMonthAvg: number | null
+}
+
+export interface WrappedJournalHighlight {
+  date: string
+  sentence: string
+}
+
+export interface WrappedStats {
+  daysPresent: number
+  dominantIntention: string | null
+  dominantIntentionDays: number
+  bestMoodStreak: number
+  bestAnchorStreak: number
+  gratitudeCount: number
+  journalHighlight: WrappedJournalHighlight | null
+  moodTrend: WrappedMoodTrend
+  // Dominant daily_intention in the first vs second half of the month —
+  // feeds the "you started the month seeking X, you ended it choosing Y"
+  // evolution sentence (see src/lib/wrapped.ts).
+  startIntention: string | null
+  endIntention: string | null
+}
+
+export interface MonthlyRecap {
+  id: string
+  user_id: string
+  month_start: string
+  month_end: string
+  evolution_sentence: string
+  stats: WrappedStats
+  created_at: string
+}
+
 export type CircleMembershipStatus = "pending" | "active" | "declined"
 
 export interface CircleMembership {

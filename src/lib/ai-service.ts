@@ -74,7 +74,9 @@ const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
 const GROQ_MODEL = "llama-3.1-8b-instant"
 
 // L'Edge Function /api/insights exige un JWT Supabase valide (rate limiting par user_id)
-async function getAuthHeader(): Promise<Record<string, string>> {
+// Exported for reuse by src/lib/wrapped.ts, which calls the same edge function directly
+// rather than duplicating this auth-header logic.
+export async function getAuthHeader(): Promise<Record<string, string>> {
   const { data: { session } } = await supabase.auth.getSession()
   return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
 }

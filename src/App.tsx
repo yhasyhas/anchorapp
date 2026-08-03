@@ -16,6 +16,8 @@ import { ResetPasswordPage } from "@/pages/reset-password"
 import { CircleInvitePage } from "@/pages/circle-invite"
 import { CirclePage } from "@/pages/circle"
 import { JarPage } from "@/pages/jar"
+import { WrappedHistoryPage } from "@/pages/wrapped-history"
+import { WrappedPage } from "@/pages/wrapped"
 
 export default function App() {
   const { session, loading } = useAuth()
@@ -66,6 +68,8 @@ export default function App() {
           <Route path="letters/:weekStart" element={<LetterDetailPage />} />
           <Route path="circle" element={<CirclePage />} />
           <Route path="jar" element={<JarPage />} />
+          <Route path="wrapped" element={<WrappedHistoryPage />} />
+          <Route path="wrapped/:monthStart" element={<WrappedPage />} />
         </Route>
         <Route
           path="/settings"

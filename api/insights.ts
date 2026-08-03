@@ -176,6 +176,31 @@ function validateCompanionBody(body: any): string | null {
   return null
 }
 
+function validateWrappedEvolutionBody(body: any): string | null {
+  if (body.language !== undefined && body.language !== "en" && body.language !== "sw") {
+    return "invalid language"
+  }
+  if (body.tone !== undefined && body.tone !== "gentle" && body.tone !== "direct" && body.tone !== "poetic") {
+    return "invalid tone"
+  }
+  if (body.startIntention !== undefined && body.startIntention !== null && typeof body.startIntention !== "string") {
+    return "invalid startIntention"
+  }
+  if (body.endIntention !== undefined && body.endIntention !== null && typeof body.endIntention !== "string") {
+    return "invalid endIntention"
+  }
+  if (typeof body.daysPresent !== "number") {
+    return "daysPresent must be a number"
+  }
+  if (typeof body.bestAnchorStreak !== "number") {
+    return "bestAnchorStreak must be a number"
+  }
+  if (typeof body.moodTrend !== "object" || body.moodTrend === null) {
+    return "moodTrend must be an object"
+  }
+  return null
+}
+
 function validateReassuranceBody(body: any): string | null {
   if (body.language !== undefined && body.language !== "en" && body.language !== "sw") {
     return "invalid language"
@@ -319,6 +344,12 @@ export default async function handler(request: Request) {
       const validationError = validateReassuranceBody(body)
       if (validationError) return jsonResponse({ error: validationError }, 400)
       return await handleReassurance(body, GROQ_API_KEY)
+    }
+
+    if (type === "wrapped_evolution") {
+      const validationError = validateWrappedEvolutionBody(body)
+      if (validationError) return jsonResponse({ error: validationError }, 400)
+      return await handleWrappedEvolution(body, GROQ_API_KEY)
     }
 
     if (type === "followup_question") {
@@ -519,6 +550,107 @@ Examples:
 
   const json = await response.json()
   const message = json.choices?.[0]?.message?.content?.trim() || STATIC_FALLBACK
+
+  return new Response(JSON.stringify({ message }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  })
+}
+
+// Raw daily_intention values are stored in English — duplicated small translation map, same
+// per-module convention already used elsewhere in this file / api/cron/weekly-letter.ts.
+const WRAPPED_INTENTION_LABELS: Record<string, string> = {
+  clarity: "clarity",
+  courage: "courage",
+  love: "love",
+  abundance: "abundance",
+  peace: "peace",
+}
+
+function wrappedIntentionLabel(raw: string | null): string | null {
+  if (!raw) return null
+  return WRAPPED_INTENTION_LABELS[raw.toLowerCase()] ?? raw.toLowerCase()
+}
+
+// The Wrapped's "evolution sentence" — one line summing up how the month
+// shifted (see src/lib/wrapped.ts's generateWrappedEvolution, which calls
+// this with type: "wrapped_evolution"). Deliberately narrow context: only
+// the two half-month dominant intentions, the mood trend, the anchor streak,
+// and days present — nothing else exists for the model to invent from.
+async function handleWrappedEvolution(body: any, apiKey: string) {
+  const { startIntention, endIntention, moodTrend, bestAnchorStreak, daysPresent, language = "en" } = body
+  const tone = normalizeTone(body.tone)
+
+  const startLabel = wrappedIntentionLabel(startIntention)
+  const endLabel = wrappedIntentionLabel(endIntention)
+  const trendLine =
+    moodTrend?.thisMonthAvg != null && moodTrend?.prevMonthAvg != null
+      ? moodTrend.thisMonthAvg > moodTrend.prevMonthAvg
+        ? "Her mood trended a little lighter than the previous month"
+        : moodTrend.thisMonthAvg < moodTrend.prevMonthAvg
+          ? "Her mood trended a little heavier than the previous month"
+          : "Her mood stayed fairly steady month to month"
+      : null
+
+  const contextLines = [
+    `Days she showed up this month: ${daysPresent}`,
+    bestAnchorStreak > 0 ? `Best anchor streak this month: ${bestAnchorStreak} days` : null,
+    startLabel ? `What she was seeking in the first half of the month: ${startLabel}` : null,
+    endLabel ? `What she was seeking in the second half of the month: ${endLabel}` : null,
+    trendLine,
+  ].filter(Boolean)
+
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "llama-3.1-8b-instant",
+      messages: [
+        {
+          role: "system",
+          content: `You are Anchor, writing ONE closing sentence for a woman's monthly "Wrapped" recap — a proud, warm summary of how her month unfolded.
+
+Rules:
+- ${TONE_INSTRUCTIONS[tone]}
+- If both a first-half and second-half intention are given AND they differ, write in the shape "You started the month seeking X. You ended it choosing/protecting Y." — two short sentences, using those exact real values, not synonyms invented from nothing.
+- If they're the same or only one/neither is given, write ONE proud sentence about her consistency instead, grounded only in the days-present/streak facts given below.
+- NEVER invent specific details, events, or people beyond what's given below.
+- NEVER guilt-trip, NEVER compare her to other users, NEVER mention days she was absent.
+- Max 30 words total.
+- Respond in ${language === "sw" ? "Swahili" : "English"}.
+- Return ONLY the sentence(s), no quotes, no explanation.
+
+Examples:
+- "You started the month seeking clarity. You ended it protecting your peace."
+- "18 days this month, you kept choosing yourself — that's not a small thing."`,
+        },
+        {
+          role: "user",
+          content: contextLines.join("\n"),
+        },
+      ],
+      temperature: 0.6,
+      max_tokens: 80,
+    }),
+  })
+
+  const FALLBACK =
+    startLabel && endLabel && startLabel !== endLabel
+      ? `You started the month seeking ${startLabel}. You ended it choosing ${endLabel}.`
+      : `${daysPresent} days this month, you kept showing up for yourself.`
+
+  if (!response.ok) {
+    return new Response(JSON.stringify({ message: FALLBACK }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })
+  }
+
+  const json = await response.json()
+  const message = json.choices?.[0]?.message?.content?.trim() || FALLBACK
 
   return new Response(JSON.stringify({ message }), {
     status: 200,

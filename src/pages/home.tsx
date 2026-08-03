@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Settings, Info, Heart, Flame, Anchor as AnchorIcon, Sparkles, Lock, Pencil, Sun, Moon, Mail } from "lucide-react"
+import { Settings, Info, Heart, Flame, Anchor as AnchorIcon, Sparkles, Lock, Pencil, Sun, Moon, Mail, PartyPopper } from "lucide-react"
 import { toast } from "sonner"
 import { moodConfig, intentions, FIRST_INTENTION_KEY_BASE } from "@/lib/constants"
 import { todayStr, localDateStr, canCheckAnchors, getTimeUntilAnchorCheck } from "@/lib/utils"
@@ -43,6 +43,7 @@ import { JarIcon } from "@/components/anchor/jar-icon"
 import { isThirdConsecutiveLowMoodDay, isAbsenceReturn, hasTwoConsecutiveGoodDaysEndingYesterday } from "@/lib/soft-mode"
 import { SoftModeNudgeCard } from "@/components/anchor/soft-mode-nudge-card"
 import { SoftModeBadge } from "@/components/anchor/soft-mode-badge"
+import { ensureWrappedGenerated } from "@/lib/wrapped"
 
 const ANCHOR_MILESTONES_CELEBRATED_KEY = "anchor_streak_milestones_celebrated"
 
@@ -165,6 +166,14 @@ export function HomePage() {
 
   useEffect(() => {
     if (user) checkUnreadLetter()
+  }, [user])
+
+  // Fire-and-forget, same "nothing to show for it unless it finds something"
+  // pattern as checkUnreadLetter above — generates last month's Wrapped the
+  // first time she opens the app in a new month (see src/lib/wrapped.ts).
+  useEffect(() => {
+    if (user) ensureWrappedGenerated(user, profile)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   // Drives only the Settings icon's badge dot — the nudge card itself
@@ -671,6 +680,16 @@ export function HomePage() {
               )}
             </Button>
           </Link>
+          <Link to="/wrapped">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={t("wrapped.history_title")}
+            >
+              <PartyPopper className="h-5 w-5" />
+            </Button>
+          </Link>
           <Link to="/jar">
             <Button
               variant="ghost"
@@ -723,6 +742,12 @@ export function HomePage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Micro-tease for the upcoming Wrapped — pure date check, self-resolving once
+          the month rolls over and generation (ensureWrappedGenerated above) takes over. */}
+      {new Date().getDate() >= 28 && (
+        <p className="text-center text-xs italic text-muted-foreground">{t("wrapped.teaser")}</p>
+      )}
 
       {featuredMoveTitle && !anchor.anchors_locked_at && (
         <MoveOfTheDayCard

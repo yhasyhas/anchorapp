@@ -216,6 +216,34 @@ function pickBestCheckInSnippet(checkIns: CheckInRow[]): string | null {
   return best
 }
 
+interface GratitudeRow {
+  user_id: string
+  created_at: string
+  text: string
+}
+
+// gratitudes has no `date` column (just created_at) — every other row type
+// in this file is windowed by a plain date string via dateInRange, so this
+// derives the same shape (YYYY-MM-DD) rather than comparing full ISO
+// timestamps directly (a naive `created_at <= weekEnd` string compare would
+// wrongly exclude anything created later than midnight on weekEnd's date).
+function gratitudeDate(row: GratitudeRow): string {
+  return row.created_at.slice(0, 10)
+}
+
+// Same "pick the fullest one" heuristic as bestJournalSentence/
+// pickBestCheckInSnippet. Optional, unconditional (no ai_checkins_enabled
+// gate) — it's her own gratitude text, same sensitivity class as the
+// journal sentence already included unconditionally in this file.
+function pickBestGratitude(rows: GratitudeRow[]): string | null {
+  let best: string | null = null
+  for (const g of rows) {
+    if (!g.text) continue
+    if (!best || g.text.length > best.length) best = g.text
+  }
+  return best
+}
+
 interface JournalRow {
   user_id: string
   date: string
@@ -324,10 +352,13 @@ async function generateLetterWithGroq(params: {
   // already gated by profile.ai_checkins_enabled at the call site; null here
   // just means either nothing to quote or the user opted out.
   checkInSnippet: string | null
+  // Best gratitude-jar entry this week (see pickBestGratitude above) —
+  // unconditional, no consent gate. Null just means nothing dropped this week.
+  gratitudeSnippet: string | null
   tone: Tone
   groqApiKey: string
 }): Promise<string> {
-  const { firstName, highlights, checkInSnippet, tone, groqApiKey } = params
+  const { firstName, highlights, checkInSnippet, gratitudeSnippet, tone, groqApiKey } = params
 
   const intentionLabel = translateIntention(highlights.dominantIntention, "en")
   const moodSummary = Object.entries(highlights.moodCounts)
@@ -342,6 +373,7 @@ async function generateLetterWithGroq(params: {
     highlights.anchorStreakThisWeek >= 2 ? `Currently on a ${highlights.anchorStreakThisWeek}-day anchor streak ending today` : null,
     highlights.bestJournalSentence ? `Something she wrote in her journal this week: "${highlights.bestJournalSentence}"` : null,
     checkInSnippet ? `Something she reflected on in a check-in this week: "${checkInSnippet}"` : null,
+    gratitudeSnippet ? `Something good she dropped in her gratitude jar this week: "${gratitudeSnippet}"` : null,
   ].filter(Boolean)
 
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -433,21 +465,22 @@ async function buildLetterText(params: {
   firstName: string
   highlights: Highlights
   checkInSnippet: string | null
+  gratitudeSnippet: string | null
   tone: Tone
   groqApiKey: string | undefined
 }): Promise<string> {
-  const { language, firstName, highlights, checkInSnippet, tone, groqApiKey } = params
+  const { language, firstName, highlights, checkInSnippet, gratitudeSnippet, tone, groqApiKey } = params
 
   if (language === "sw" || !groqApiKey) {
-    // Static fallback never references check-in text — it doesn't need the
-    // toggle-gated snippet at all, only the AI path does. Swahili's static
+    // Static fallback never references check-in text or gratitudes — it
+    // doesn't need either snippet, only the AI path does. Swahili's static
     // template also doesn't vary by tone (same fluency reasoning above) —
     // tone only reaches the letter for English users, who go through Groq below.
     return buildStaticLetter(language, firstName, highlights)
   }
 
   try {
-    return await generateLetterWithGroq({ firstName, highlights, checkInSnippet, tone, groqApiKey })
+    return await generateLetterWithGroq({ firstName, highlights, checkInSnippet, gratitudeSnippet, tone, groqApiKey })
   } catch {
     return buildStaticLetter(language, firstName, highlights)
   }
@@ -545,10 +578,13 @@ async function generateStoryWithGroq(params: {
   // ai_checkins_enabled gating as the letter's own snippet, not broken down
   // per week (keeps the story prompt from growing too complex for one quote).
   checkInSnippet: string | null
+  // Best gratitude-jar entry across the whole 21-day period — same
+  // unconditional, no-gate reasoning as the letter's own gratitudeSnippet.
+  gratitudeSnippet: string | null
   tone: Tone
   groqApiKey: string
 }): Promise<string> {
-  const { firstName, stats, checkInSnippet, tone, groqApiKey } = params
+  const { firstName, stats, checkInSnippet, gratitudeSnippet, tone, groqApiKey } = params
 
   const weekLines = stats.weeks.map((w, i) => {
     const label = WEEK_LABELS_EN[i]
@@ -576,6 +612,7 @@ async function generateStoryWithGroq(params: {
     topIntentionsLine,
     `Overall anchor completion rate this period: ${stats.completionRate}%`,
     checkInSnippet ? `Something she reflected on in a check-in during this period: "${checkInSnippet}"` : null,
+    gratitudeSnippet ? `Something good she dropped in her gratitude jar during this period: "${gratitudeSnippet}"` : null,
   ].filter(Boolean)
 
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -648,17 +685,18 @@ async function buildStoryText(params: {
   firstName: string
   stats: StoryStats
   checkInSnippet: string | null
+  gratitudeSnippet: string | null
   tone: Tone
   groqApiKey: string | undefined
 }): Promise<string> {
-  const { language, firstName, stats, checkInSnippet, tone, groqApiKey } = params
+  const { language, firstName, stats, checkInSnippet, gratitudeSnippet, tone, groqApiKey } = params
 
   if (language === "sw" || !groqApiKey) {
     return buildStaticStory(language, firstName, stats)
   }
 
   try {
-    return await generateStoryWithGroq({ firstName, stats, checkInSnippet, tone, groqApiKey })
+    return await generateStoryWithGroq({ firstName, stats, checkInSnippet, gratitudeSnippet, tone, groqApiKey })
   } catch {
     return buildStaticStory(language, firstName, stats)
   }
@@ -720,7 +758,7 @@ export async function GET(request: Request): Promise<Response> {
     due.get(dueIds[0])!.periodStart
   )
 
-  const [existingLetters, existingStories, moodLogs, anchors, checkIns, journal] = await Promise.all([
+  const [existingLetters, existingStories, moodLogs, anchors, checkIns, journal, gratitudes] = await Promise.all([
     restGet<ExistingLetterRow>(rest, `weekly_letters?user_id=in.(${dueIdList})&select=user_id,week_start`),
     restGet<ExistingStoryRow>(rest, `progress_stories?user_id=in.(${dueIdList})&select=user_id,period_end`),
     restGet<MoodLogRow>(rest, `mood_logs?user_id=in.(${dueIdList})&date=gte.${earliestFloor}&select=user_id,date,mood`),
@@ -730,6 +768,10 @@ export async function GET(request: Request): Promise<Response> {
     ),
     restGet<CheckInRow>(rest, `check_ins?user_id=in.(${dueIdList})&date=gte.${earliestFloor}&select=user_id,date,evening_mood,evening_mood_note,what_felt_real,voice_transcript`),
     restGet<JournalRow>(rest, `journal_entries?user_id=in.(${dueIdList})&date=gte.${earliestFloor}&select=user_id,date,sentence`),
+    restGet<GratitudeRow>(
+      rest,
+      `gratitudes?user_id=in.(${dueIdList})&created_at=gte.${encodeURIComponent(earliestFloor + "T00:00:00.000Z")}&select=user_id,created_at,text`
+    ),
   ])
 
   const existingLetterByUser = new Set(existingLetters.map((l) => `${l.user_id}:${l.week_start}`))
@@ -738,6 +780,7 @@ export async function GET(request: Request): Promise<Response> {
   const anchorsByUser = groupBy(anchors)
   const checkInsByUser = groupBy(checkIns)
   const journalByUser = groupBy(journal)
+  const gratitudesByUser = groupBy(gratitudes)
 
   let lettersGenerated = 0
   let storiesGenerated = 0
@@ -753,6 +796,7 @@ export async function GET(request: Request): Promise<Response> {
       const allAnchors = (anchorsByUser.get(userId) || []).filter((a) => dateInRange(a.date, periodStart, weekEnd))
       const allCheckIns = (checkInsByUser.get(userId) || []).filter((c) => dateInRange(c.date, periodStart, weekEnd))
       const allJournal = (journalByUser.get(userId) || []).filter((j) => dateInRange(j.date, periodStart, weekEnd))
+      const allGratitudes = (gratitudesByUser.get(userId) || []).filter((g) => dateInRange(gratitudeDate(g), periodStart, weekEnd))
 
       let letterGenerated = false
       let storyGenerated = false
@@ -763,6 +807,7 @@ export async function GET(request: Request): Promise<Response> {
         const wAnchors = allAnchors.filter((a) => dateInRange(a.date, weekStart, weekEnd))
         const wCheckIns = allCheckIns.filter((c) => dateInRange(c.date, weekStart, weekEnd))
         const wJournal = allJournal.filter((j) => dateInRange(j.date, weekStart, weekEnd))
+        const wGratitudes = allGratitudes.filter((g) => dateInRange(gratitudeDate(g), weekStart, weekEnd))
 
         const highlights = buildHighlights({ weekEnd, moods: wMoods, anchors: wAnchors, checkIns: wCheckIns, journal: wJournal })
 
@@ -770,11 +815,13 @@ export async function GET(request: Request): Promise<Response> {
         // response here, not a "you didn't do enough" notification.
         if (highlights.totalDaysLogged >= MIN_ACTIVE_DAYS_LETTER) {
           const checkInSnippet = profile.ai_checkins_enabled ? pickBestCheckInSnippet(wCheckIns) : null
+          const gratitudeSnippet = pickBestGratitude(wGratitudes)
           const letterText = await buildLetterText({
             language,
             firstName,
             highlights,
             checkInSnippet,
+            gratitudeSnippet,
             tone: normalizeTone(profile.tone),
             groqApiKey: GROQ_API_KEY,
           })
@@ -810,11 +857,13 @@ export async function GET(request: Request): Promise<Response> {
 
         if (stats.totalActiveDays >= MIN_ACTIVE_DAYS_STORY) {
           const checkInSnippet = profile.ai_checkins_enabled ? pickBestCheckInSnippet(allCheckIns) : null
+          const gratitudeSnippet = pickBestGratitude(allGratitudes)
           const storyText = await buildStoryText({
             language,
             firstName,
             stats,
             checkInSnippet,
+            gratitudeSnippet,
             tone: normalizeTone(profile.tone),
             groqApiKey: GROQ_API_KEY,
           })

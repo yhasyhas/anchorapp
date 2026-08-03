@@ -498,5 +498,33 @@
     "error_generic": "Imeshindwa kutuma sasa. Tafadhali jaribu tena.",
     "circle_card_title": "{{name}} angependa neno la upole leo",
     "circle_card_subtitle": "Hakuna shinikizo — neno dogo linatosha."
+  },
+  "jar": {
+    "page_title": "Chombo Chako",
+    "counter": "Nyakati {{count}} za mwanga 🫙",
+    "empty_title": "Chombo chako kinasubiri",
+    "empty_desc": "Weka jambo jema la kwanza wakati wowote uko tayari.",
+    "drop_title": "Weka jambo jema kwenye chombo chako 🫙",
+    "drop_placeholder": "Jambo jema, hata dogo...",
+    "drop_button": "Liweke ndani",
+    "drop_success": "Limewekwa kwenye chombo chako 🫙",
+    "drop_error": "Imeshindwa kuhifadhi. Tafadhali jaribu tena.",
+    "char_count": "{{count}}/{{max}}",
+    "load_more": "Pakia zaidi",
+    "prompt_title": "Siku ngumu hutokea 💛",
+    "prompt_body": "Unataka kufungua chombo chako?",
+    "prompt_yes": "Fungua chombo changu",
+    "prompt_not_now": "Sio sasa",
+    "empty_invite_title": "Bado hakuna kitu kwenye chombo chako",
+    "empty_invite_body": "Unataka kuweka jambo jema la kwanza? Litakuwepo kwa ajili yako wakati mwingine.",
+    "reveal_next": "Endelea",
+    "reveal_finish": "Funga",
+    "closing_message": "Haya yalikuwa ya kweli. Yatarudi tena.",
+    "close": "Funga",
+    "reminder_title": "Jambo jema leo?",
+    "reminder_body": "Liweke kwenye chombo chako 🫙 — wewe wa baadaye atafurahi ulifanya hivyo.",
+    "reminder_cta": "Fungua chombo",
+    "add_from_checkin": "Ongeza kwenye chombo",
+    "added_from_checkin": "Imeongezwa kwenye chombo chako 🫙"
   }
 }

@@ -7,6 +7,7 @@ import { getDailyQuestions } from "@/lib/checkin-questions"
 import { transcribeAudio } from "@/lib/transcribe"
 import { generateFollowUpQuestion, type FollowUpEntry } from "@/lib/ai-service"
 import { getQuickReplyChips } from "@/lib/checkin-chips"
+import { addGratitude } from "@/lib/gratitude"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
@@ -103,6 +104,8 @@ export function CheckInPage() {
     voice_transcript: "",
   })
   const [saved, setSaved] = useState(false)
+  const [jarAdded, setJarAdded] = useState(false)
+  const [addingToJar, setAddingToJar] = useState(false)
   const [released, setReleased] = useState(false)
 
   const [dailyQuestions, setDailyQuestions] = useState<[string, string]>(["", ""])
@@ -391,6 +394,26 @@ export function CheckInPage() {
     setCheckIn((prev) => ({ ...prev, [field]: value }))
   }
 
+  // 1-tap, no second text entry — reuses whatever she already wrote in
+  // Reflection 1. jarAdded is session-only (not persisted): reopening the
+  // check-in another day is a fresh, legitimate new drop, so it's only
+  // guarding against an accidental double-tap in the same sitting.
+  async function handleAddToJar() {
+    const text = (checkIn.what_matters ?? "").trim()
+    if (!text || jarAdded || addingToJar) return
+    setAddingToJar(true)
+    try {
+      await addGratitude(text)
+      setJarAdded(true)
+      toast.success(t("jar.added_from_checkin"))
+    } catch (err) {
+      console.error("Failed to add gratitude from check-in:", err)
+      toast.error(t("jar.drop_error"))
+    } finally {
+      setAddingToJar(false)
+    }
+  }
+
   const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -589,6 +612,17 @@ export function CheckInPage() {
                 </button>
               ))}
             </div>
+          )}
+          {(checkIn.what_matters ?? "").trim() && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleAddToJar}
+              disabled={jarAdded || addingToJar}
+              className="mt-2 gap-1.5 px-0 text-xs text-primary hover:bg-transparent hover:underline disabled:opacity-60"
+            >
+              🫙 {jarAdded ? t("jar.added_from_checkin") : t("jar.add_from_checkin")}
+            </Button>
           )}
         </CardContent>
       </Card>

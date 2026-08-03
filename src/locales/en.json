@@ -498,5 +498,33 @@
     "error_generic": "Could not send right now. Please try again.",
     "circle_card_title": "{{name}} could use a gentle word today",
     "circle_card_subtitle": "No pressure — a small word is enough."
+  },
+  "jar": {
+    "page_title": "Your Jar",
+    "counter": "{{count}} moments of light 🫙",
+    "empty_title": "Your jar is waiting",
+    "empty_desc": "Drop the first good thing whenever you're ready.",
+    "drop_title": "Drop something good in your jar 🫙",
+    "drop_placeholder": "Something good, even small...",
+    "drop_button": "Drop it in",
+    "drop_success": "Dropped in your jar 🫙",
+    "drop_error": "Could not save that. Please try again.",
+    "char_count": "{{count}}/{{max}}",
+    "load_more": "Load more",
+    "prompt_title": "Tough days happen 💛",
+    "prompt_body": "Want to open your jar?",
+    "prompt_yes": "Open my jar",
+    "prompt_not_now": "Not now",
+    "empty_invite_title": "Nothing in your jar yet",
+    "empty_invite_body": "Want to drop the first good thing? It'll be there for you next time.",
+    "reveal_next": "Next",
+    "reveal_finish": "Close",
+    "closing_message": "These were real. They'll come back.",
+    "close": "Close",
+    "reminder_title": "One good thing today?",
+    "reminder_body": "Drop it in your jar 🫙 — future you will be glad you did.",
+    "reminder_cta": "Open the jar",
+    "add_from_checkin": "Add to jar",
+    "added_from_checkin": "Added to your jar 🫙"
   }
 }

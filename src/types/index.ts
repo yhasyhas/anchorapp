@@ -74,6 +74,13 @@ export interface MoveSuggestion {
   created_at: string
 }
 
+export interface Gratitude {
+  id: string
+  user_id: string
+  text: string
+  created_at: string
+}
+
 export interface AiInsight {
   id: string
   user_id: string

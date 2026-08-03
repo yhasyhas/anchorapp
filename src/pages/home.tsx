@@ -23,7 +23,7 @@ import { Settings, Info, Heart, Flame, Anchor as AnchorIcon, Sparkles, Lock, Pen
 import { toast } from "sonner"
 import { moodConfig, intentions, FIRST_INTENTION_KEY_BASE } from "@/lib/constants"
 import { todayStr, localDateStr, canCheckAnchors, getTimeUntilAnchorCheck } from "@/lib/utils"
-import type { DailyAnchor, MoodType, CheckIn, MoodLog, MoveSuggestion } from "@/types"
+import type { DailyAnchor, MoodType, CheckIn, MoodLog, MoveSuggestion, Gratitude } from "@/types"
 import { OnboardingModal } from "@/components/onboarding/onboarding-modal"
 import { MorningRitual } from "@/components/anchor/morning-ritual"
 import { ConfettiBurst } from "@/components/anchor/confetti"
@@ -35,6 +35,11 @@ import { getLastSeenLetterWeek } from "@/lib/letters"
 import { CircleInviteNudge } from "@/components/circle/circle-invite-nudge"
 import { SosWidget } from "@/components/anchor/sos-widget"
 import { listPendingReceivedInvites, listReceivedEncouragements } from "@/lib/circle"
+import { getAllGratitudesForReveal, isSecondConsecutiveLowMoodDay } from "@/lib/gratitude"
+import { GratitudeDropCard } from "@/components/anchor/gratitude-drop-card"
+import { GratitudeReminderCard } from "@/components/anchor/gratitude-reminder-card"
+import { JarOpeningModal } from "@/components/anchor/jar-opening-modal"
+import { JarIcon } from "@/components/anchor/jar-icon"
 
 const ANCHOR_MILESTONES_CELEBRATED_KEY = "anchor_streak_milestones_celebrated"
 
@@ -106,6 +111,9 @@ export function HomePage() {
   const [nudgeOpen, setNudgeOpen] = useState(false)
   const [nudgeType, setNudgeType] = useState<"mood" | "intention">("mood")
   const [pendingLock, setPendingLock] = useState(false)
+
+  const [jarModalOpen, setJarModalOpen] = useState(false)
+  const [jarGratitudes, setJarGratitudes] = useState<Gratitude[]>([])
 
   useEffect(() => {
     if (user) {
@@ -356,6 +364,27 @@ export function HomePage() {
       console.error("Failed to save mood:", err)
       toast.error(t("home.error_save_mood"))
     }
+
+    // Gratitude jar reveal offer — never automatic (see JarOpeningModal),
+    // just the trigger check: today's mood is the 2nd consecutive
+    // low/stressed day, and she hasn't already been offered today.
+    if (isSecondConsecutiveLowMoodDay(mood, recentMoods)) {
+      const shownKey = `anchor_jar_prompt_shown_${user.id}_${todayStr()}`
+      if (!localStorage.getItem(shownKey)) {
+        localStorage.setItem(shownKey, "true")
+        openJarPrompt()
+      }
+    }
+  }
+
+  async function openJarPrompt() {
+    try {
+      const all = await getAllGratitudesForReveal()
+      setJarGratitudes(all)
+      setJarModalOpen(true)
+    } catch (err) {
+      console.error("Failed to load jar for reveal:", err)
+    }
   }
 
   async function saveAnchor(updates: Partial<DailyAnchor>) {
@@ -500,6 +529,8 @@ export function HomePage() {
         onClose={() => setStreakMilestone(null)}
       />
 
+      <JarOpeningModal open={jarModalOpen} onClose={() => setJarModalOpen(false)} gratitudes={jarGratitudes} />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -533,6 +564,16 @@ export function HomePage() {
               {hasUnreadEncouragement && (
                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-accent" />
               )}
+            </Button>
+          </Link>
+          <Link to="/jar">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={t("jar.page_title")}
+            >
+              <JarIcon className="h-5 w-5" />
             </Button>
           </Link>
           <Link to="/settings">
@@ -644,6 +685,9 @@ export function HomePage() {
 
       {/* One-Sentence Journal — a bonus, not part of the daily cycle */}
       <JournalCard />
+
+      {/* Gratitude jar — same "small bonus habit" slot as the journal */}
+      <GratitudeDropCard />
 
       {/* Streaks — mechanical count below MIN_STREAK_FOR_INTENTION, meaningful sentence
           above it (celebrated state: warmer card, dominant intention of the streak
@@ -839,6 +883,8 @@ export function HomePage() {
       </Card>
 
       <SosWidget />
+
+      <GratitudeReminderCard todayMood={selectedMood} />
 
       <PushNudge active={cycleComplete} />
     </div>

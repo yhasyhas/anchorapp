@@ -113,8 +113,17 @@
       "physical": "Kimwili",
       "social": "Kijamii",
       "mindful": "Kutafakari",
-      "novelty": "Upya"
-    }
+      "novelty": "Upya",
+      "creative": "Ubunifu",
+      "rest": "Kupumzika"
+    },
+    "featured_title": "Hatua ya leo",
+    "absence_fallback": "Toka nje kidogo tu",
+    "correlation_hint": "Jioni zako huwa nyepesi siku za {{keyword}} ☀️",
+    "favorite": "Pendwa",
+    "home_card_title": "Hatua ndogo kwa ajili ya leo",
+    "home_card_cta": "Ifanye nanga yangu ya Maisha 🌍",
+    "home_card_cta_mindbody": "Ifanye nanga yangu ya Akili/Mwili 🧠"
   },
   "focus": {
     "title": "Hali ya Kuzingatia",

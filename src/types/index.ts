@@ -61,8 +61,16 @@ export interface MoveSuggestion {
   id: string
   user_id: string
   title: string
-  category: "physical" | "social" | "mindful" | "novelty"
+  category: "physical" | "social" | "mindful" | "novelty" | "creative" | "rest"
   is_custom: boolean
+  // 'user' for customs, 'ai' for the weekly Groq-generated batch — the
+  // hardcoded static pool is never a DB row at all.
+  generated_by: "user" | "ai"
+  // ISO week the AI batch was generated for (see getWeekKey in ai-service.ts),
+  // null for customs. Drives the "archive last week's AI batch" filter.
+  week_key: string | null
+  is_favorite: boolean
+  intensity: "gentle" | "standard" | "ambitious"
   created_at: string
 }
 

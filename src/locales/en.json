@@ -113,8 +113,17 @@
       "physical": "Physical",
       "social": "Social",
       "mindful": "Mindful",
-      "novelty": "Novelty"
-    }
+      "novelty": "Novelty",
+      "creative": "Creative",
+      "rest": "Rest"
+    },
+    "featured_title": "Today's move",
+    "absence_fallback": "Just step outside",
+    "correlation_hint": "Your evenings tend to be lighter on {{keyword}} days ☀️",
+    "favorite": "Favorite",
+    "home_card_title": "A little move for today",
+    "home_card_cta": "Make it my Life anchor 🌍",
+    "home_card_cta_mindbody": "Make it my Mind/Body anchor 🧠"
   },
   "focus": {
     "title": "Focus Mode",

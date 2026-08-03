@@ -4,7 +4,14 @@ import { useTranslation } from "react-i18next"
 import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
 import { addToSyncQueue, isOnline, setLocalData, getLocalData } from "@/lib/offline-sync"
-import { generateCompanionMessage } from "@/lib/ai-service"
+import { generateCompanionMessage, getWeekKey } from "@/lib/ai-service"
+import {
+  resolveMoveReason,
+  pickFeaturedSuggestion,
+  getMoveMoodCorrelation,
+  filterVisibleMoveSuggestions,
+} from "@/lib/move-selection"
+import { MoveOfTheDayCard } from "@/components/anchor/move-of-the-day-card"
 import { calculateStreaks, reachedAnchorMilestone, MIN_STREAK_FOR_INTENTION, type StreakData } from "@/lib/streaks"
 import { getUserLocalData, setUserLocalData, removeUserLocalData } from "@/lib/user-storage"
 import { Card, CardContent } from "@/components/ui/card"
@@ -16,7 +23,7 @@ import { Settings, Info, Heart, Flame, Anchor as AnchorIcon, Sparkles, Lock, Pen
 import { toast } from "sonner"
 import { moodConfig, intentions, FIRST_INTENTION_KEY_BASE } from "@/lib/constants"
 import { todayStr, localDateStr, canCheckAnchors, getTimeUntilAnchorCheck } from "@/lib/utils"
-import type { DailyAnchor, MoodType, CheckIn, MoodLog } from "@/types"
+import type { DailyAnchor, MoodType, CheckIn, MoodLog, MoveSuggestion } from "@/types"
 import { OnboardingModal } from "@/components/onboarding/onboarding-modal"
 import { MorningRitual } from "@/components/anchor/morning-ritual"
 import { ConfettiBurst } from "@/components/anchor/confetti"
@@ -75,6 +82,8 @@ export function HomePage() {
   const [dayMode, setDayMode] = useState<"planning" | "tracking">("planning")
   const [recentMoods, setRecentMoods] = useState<MoodLog[]>([])
   const [recentAnchors, setRecentAnchors] = useState<DailyAnchor[]>([])
+  const [recentCheckInMoods, setRecentCheckInMoods] = useState<{ date: string; evening_mood: string | null }[]>([])
+  const [moveSuggestions, setMoveSuggestions] = useState<MoveSuggestion[]>([])
 
   const [streaks, setStreaks] = useState<StreakData>({
     currentMoodStreak: 0,
@@ -264,9 +273,11 @@ export function HomePage() {
       thirtyAgo.setDate(thirtyAgo.getDate() - 30)
       const since = localDateStr(thirtyAgo)
 
-      const [{ data: monthMoods }, { data: monthAnchors }] = await Promise.all([
+      const [{ data: monthMoods }, { data: monthAnchors }, { data: monthCheckIns }, { data: moveSuggestionsData }] = await Promise.all([
         supabase.from("mood_logs").select("*").eq("user_id", user.id).gte("date", since),
         supabase.from("daily_anchors").select("*").eq("user_id", user.id).gte("date", since),
+        supabase.from("check_ins").select("date, evening_mood").eq("user_id", user.id).gte("date", since),
+        supabase.from("move_suggestions").select("*").eq("user_id", user.id),
       ])
 
       const moods = (monthMoods || []) as MoodLog[]
@@ -274,6 +285,8 @@ export function HomePage() {
 
       setRecentMoods(moods)
       setRecentAnchors(anchors)
+      setRecentCheckInMoods((monthCheckIns as { date: string; evening_mood: string | null }[]) || [])
+      setMoveSuggestions((moveSuggestionsData as MoveSuggestion[]) || [])
       setStreaks(calculateStreaks(moods, anchors))
 
       const { data: todayCheckIn } = await supabase
@@ -447,6 +460,26 @@ export function HomePage() {
   const anchorsDone = allAnchorsDone
   const cycleComplete = moodDone && anchorsDone && checkInDone
 
+  // "Move of the day" — same shared selection logic as src/pages/move.tsx
+  // (src/lib/move-selection.ts), fed from state this page already loads
+  // (recentMoods, recentAnchors, streaks) plus the two lightweight fetches
+  // added to loadContextData above. Only shown before the day is locked in.
+  const moveWeekKey = getWeekKey()
+  const visibleMoveSuggestions = filterVisibleMoveSuggestions(moveSuggestions, moveWeekKey)
+  const moveReason = resolveMoveReason({ recentMoods, currentAnchorStreak: streaks.currentAnchorStreak })
+  const featuredMovePick = moveReason === "absence" ? null : pickFeaturedSuggestion(visibleMoveSuggestions, moveReason)
+  const featuredMoveTitle = moveReason === "absence" ? t("move.absence_fallback") : featuredMovePick?.title
+  const featuredMoveCategory = moveReason === "absence" ? "physical" : featuredMovePick?.category ?? "physical"
+  const featuredMoveIsAi = featuredMovePick?.generated_by === "ai"
+  const moveCorrelationHint = featuredMoveTitle ? getMoveMoodCorrelation(featuredMoveTitle, recentAnchors, recentCheckInMoods) : null
+  const moveCtaTarget: "life" | "mindbody" | undefined = !anchor.life_task ? "life" : !anchor.mindbody_task ? "mindbody" : undefined
+
+  function handleAddMoveToAnchor(target: "life" | "mindbody") {
+    if (!featuredMoveTitle) return
+    if (target === "life") saveAnchor({ life_task: featuredMoveTitle })
+    else saveAnchor({ mindbody_task: featuredMoveTitle })
+  }
+
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <ConfettiBurst active={showConfetti} />
@@ -537,6 +570,17 @@ export function HomePage() {
           </div>
         </CardContent>
       </Card>
+
+      {featuredMoveTitle && !anchor.anchors_locked_at && (
+        <MoveOfTheDayCard
+          title={featuredMoveTitle}
+          category={featuredMoveCategory}
+          isAiGenerated={featuredMoveIsAi}
+          correlationHint={moveCorrelationHint}
+          ctaTarget={moveCtaTarget}
+          onAdd={handleAddMoveToAnchor}
+        />
+      )}
 
       {/* Daily Cycle */}
       <Card className={`border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] ${cycleComplete ? "bg-sage-light/40" : "bg-card"}`}>

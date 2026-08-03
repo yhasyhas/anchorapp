@@ -183,6 +183,41 @@ function validateReassuranceBody(body: any): string | null {
   return null
 }
 
+const MOVE_CATEGORIES = ["physical", "social", "mindful", "novelty", "creative", "rest"] as const
+const MOVE_INTENSITIES = ["gentle", "standard", "ambitious"] as const
+
+function validateMoveSuggestionsBody(body: any): string | null {
+  if (body.language !== undefined && body.language !== "en" && body.language !== "sw") {
+    return "invalid language"
+  }
+  if (body.tone !== undefined && body.tone !== "gentle" && body.tone !== "direct" && body.tone !== "poetic") {
+    return "invalid tone"
+  }
+  if (!Array.isArray(body.moodTrend)) return "moodTrend must be an array"
+  if (body.moodTrend.length > 14) return "moodTrend array too large (max 14)"
+  for (const m of body.moodTrend) {
+    if (typeof m !== "object" || m === null || typeof m.date !== "string" || typeof m.mood !== "string") {
+      return "invalid moodTrend entry"
+    }
+  }
+  if (typeof body.anchorCompletion !== "object" || body.anchorCompletion === null) {
+    return "anchorCompletion must be an object"
+  }
+  for (const key of ["future", "mindbody", "life"]) {
+    if (typeof body.anchorCompletion[key] !== "number") return `anchorCompletion.${key} must be a number`
+  }
+  if (!Array.isArray(body.topIntentions) || body.topIntentions.some((i: unknown) => typeof i !== "string")) {
+    return "topIntentions must be an array of strings"
+  }
+  if (!Array.isArray(body.triedCategories) || body.triedCategories.some((c: unknown) => typeof c !== "string")) {
+    return "triedCategories must be an array of strings"
+  }
+  if (!Array.isArray(body.untriedCategories) || body.untriedCategories.some((c: unknown) => typeof c !== "string")) {
+    return "untriedCategories must be an array of strings"
+  }
+  return null
+}
+
 const MAX_FOLLOWUP_ENTRIES = 7
 const FOLLOWUP_ENTRY_STRING_FIELDS = [
   "whatMatters",
@@ -287,6 +322,12 @@ export default async function handler(request: Request) {
       const validationError = validateFollowUpBody(body)
       if (validationError) return jsonResponse({ error: validationError }, 400)
       return await handleFollowUp(body, GROQ_API_KEY)
+    }
+
+    if (type === "move_suggestions") {
+      const validationError = validateMoveSuggestionsBody(body)
+      if (validationError) return jsonResponse({ error: validationError }, 400)
+      return await handleMoveSuggestions(body, GROQ_API_KEY)
     }
 
     const validationError = validateInsightsBody(body)
@@ -578,6 +619,102 @@ Examples:
     status: 200,
     headers: { "Content-Type": "application/json" },
   })
+}
+
+interface MoveSuggestionOut {
+  title: string
+  category: string
+  intensity: string
+}
+
+// Weekly personalized batch for the Move page (src/pages/move.tsx). Payload
+// is deliberately structured-data-only (mood enum trend, completion rates,
+// intention/category labels) — never raw journal/check-in/task text — so
+// this feature only needs profile.ai_enabled, not the stricter
+// ai_checkins_enabled gate the follow-up question above requires.
+async function handleMoveSuggestions(body: any, apiKey: string) {
+  const { language = "en", moodTrend, anchorCompletion, topIntentions, triedCategories, untriedCategories } = body
+  const tone = normalizeTone(body.tone)
+
+  const moodSummary = (moodTrend as { date: string; mood: string }[]).map((m: any) => m.mood).join(", ") || "no recent moods logged"
+  const contextLines = [
+    `Mood trend, oldest to newest (last 14 days): ${moodSummary}`,
+    `Anchor completion rate (last 14 days): future ${anchorCompletion.future}%, mindbody ${anchorCompletion.mindbody}%, life ${anchorCompletion.life}%`,
+    topIntentions.length > 0 ? `Intentions she's returned to often: ${topIntentions.join(", ")}` : null,
+    triedCategories.length > 0 ? `Categories she's already gotten suggestions in: ${triedCategories.join(", ")}` : null,
+    untriedCategories.length > 0 ? `Categories she's never gotten a suggestion in yet: ${untriedCategories.join(", ")}` : null,
+  ].filter(Boolean)
+
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "llama-3.1-8b-instant",
+      messages: [
+        {
+          role: "system",
+          content: `You are Anchor, suggesting small real actions to a woman based on her recent patterns.
+
+Generate EXACTLY 5 suggestions as JSON: {"suggestions":[{"title":"...","category":"...","intensity":"..."}, ...]}
+
+Rules:
+- ${TONE_INSTRUCTIONS[tone]}
+- Each title is ONE small, real, concrete action doable in 5-30 minutes, phrased as a gentle invitation, NEVER as an instruction or obligation — e.g. "Take a gentle walk", NEVER "You should exercise" or "You need to move more"
+- "category" must be exactly one of: ${MOVE_CATEGORIES.join(", ")}
+- "intensity" must be exactly one of: ${MOVE_INTENSITIES.join(", ")} — mix these across the 5, don't make them all the same
+- Vary the categories across the 5 suggestions; if she has untried categories, include at least one of them
+- NEVER diagnose, NEVER reference specific tasks or events beyond what's given below
+- Respond in ${language === "sw" ? "Swahili" : "English"}
+- Return ONLY the JSON object, nothing else`,
+        },
+        {
+          role: "user",
+          content: contextLines.join("\n"),
+        },
+      ],
+      temperature: 0.7,
+      max_tokens: 400,
+      response_format: { type: "json_object" },
+    }),
+  })
+
+  if (!response.ok) {
+    return new Response(JSON.stringify({ suggestions: [] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })
+  }
+
+  try {
+    const json = await response.json()
+    const content = json.choices?.[0]?.message?.content
+    const parsed = JSON.parse(content)
+    const raw = Array.isArray(parsed) ? parsed : parsed.suggestions || []
+    const suggestions: MoveSuggestionOut[] = raw
+      .filter(
+        (s: any) =>
+          s &&
+          typeof s.title === "string" &&
+          s.title.trim() &&
+          MOVE_CATEGORIES.includes(s.category) &&
+          MOVE_INTENSITIES.includes(s.intensity)
+      )
+      .slice(0, 5)
+      .map((s: any) => ({ title: s.title.trim(), category: s.category, intensity: s.intensity }))
+
+    return new Response(JSON.stringify({ suggestions }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })
+  } catch {
+    return new Response(JSON.stringify({ suggestions: [] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })
+  }
 }
 
 function buildSystemPrompt(): string {

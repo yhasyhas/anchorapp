@@ -575,6 +575,58 @@ export async function generateFollowUpQuestion(
   }
 }
 
+// ==================== MOVE SUGGESTIONS : coach hebdomadaire ====================
+
+export interface MoveSuggestionContext {
+  moodTrend: { date: string; mood: string }[]
+  anchorCompletion: { future: number; mindbody: number; life: number }
+  topIntentions: string[]
+  triedCategories: string[]
+  untriedCategories: string[]
+}
+
+export interface GeneratedMoveSuggestion {
+  title: string
+  category: string
+  intensity: string
+}
+
+// Weekly personalized batch for the Move page — gated on aiEnabled alone
+// (not aiCheckInsEnabled) because MoveSuggestionContext is structured data
+// only (mood enum values, percentages, category/intention labels), never
+// raw journal/check-in/task text, same privacy posture as the main insights
+// tier's buildPatternData. Same offline/dev-mode shape as
+// generateFollowUpQuestion: no local fallback text exists for AI-generated
+// titles, so any non-prod outcome is just an empty array — the caller
+// already has the static pool to fall back to.
+export async function generateMoveSuggestions(
+  aiEnabled: boolean,
+  context: MoveSuggestionContext,
+  language: "en" | "sw" = "en",
+  tone: Tone = "gentle"
+): Promise<GeneratedMoveSuggestion[]> {
+  if (!aiEnabled) return []
+  if (!isOnline()) return []
+  if (import.meta.env.DEV) return []
+
+  try {
+    const response = await fetch("/api/insights", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(await getAuthHeader()) },
+      body: JSON.stringify({ type: "move_suggestions", language, tone, ...context }),
+    })
+
+    if (!response.ok) return []
+    const json = await response.json()
+    const suggestions = Array.isArray(json.suggestions) ? json.suggestions : []
+    return suggestions.filter(
+      (s: any) => s && typeof s.title === "string" && typeof s.category === "string" && typeof s.intensity === "string"
+    )
+  } catch {
+    return []
+  }
+}
+
 // ==================== CACHE & PERSISTENCE ====================
 
 const AI_INSIGHTS_CACHE_BASE = "anchor_ai_insights_cache"
@@ -585,7 +637,11 @@ interface InsightsCache {
   weekKey: string
 }
 
-function getWeekKey(): string {
+// Exported for reuse by src/pages/move.tsx, which keys its own weekly
+// AI-generated suggestion batch (move_suggestions.week_key) to the exact
+// same ISO-week format as this AI-insights cache, so "this week" means the
+// same thing everywhere in the app.
+export function getWeekKey(): string {
   const now = new Date()
   return `${now.getFullYear()}-W${getISOWeek(now)}`
 }

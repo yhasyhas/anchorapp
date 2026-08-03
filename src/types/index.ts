@@ -140,3 +140,27 @@ export interface ProgressStory {
   stats: ProgressStoryStats
   created_at: string
 }
+
+export type CircleMembershipStatus = "pending" | "active" | "declined"
+
+export interface CircleMembership {
+  id: string
+  user_id: string
+  friend_id: string
+  status: CircleMembershipStatus
+  invited_by: string
+  invited_at: string
+  accepted_at: string | null
+}
+
+export type CircleInviteStatus = "pending" | "accepted"
+
+export interface CircleInvite {
+  id: string
+  token: string
+  inviter_id: string
+  invitee_email: string
+  status: CircleInviteStatus
+  created_at: string
+  expires_at: string
+}

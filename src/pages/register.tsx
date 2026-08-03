@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,8 @@ export function RegisterPage() {
   const { t } = useTranslation()
   const { signUp } = useAuth()
   const navigate = useNavigate()  // ← ajoute ça
+  const [searchParams] = useSearchParams()
+  const redirect = searchParams.get("redirect")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [fullName, setFullName] = useState("")
@@ -28,7 +30,8 @@ export function RegisterPage() {
       setLoading(false)
     } else {
       // La session est déjà active dans auth-context, on navigue vers la home
-      navigate("/")
+      // (ou vers la destination d'origine, ex: un lien d'invitation de cercle)
+      navigate(redirect || "/")
     }
   }
 
@@ -85,7 +88,10 @@ export function RegisterPage() {
           </form>
           <p className="mt-4 text-center text-sm text-muted-foreground">
             {t("auth.has_account")}{" "}
-            <Link to="/login" className="text-primary underline">
+            <Link
+              to={redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : "/login"}
+              className="text-primary underline"
+            >
               {t("auth.login")}
             </Link>
           </p>

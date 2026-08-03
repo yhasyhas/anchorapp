@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,8 @@ export function LoginPage() {
   const { t } = useTranslation()
   const { signIn } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const redirect = searchParams.get("redirect")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -25,8 +27,9 @@ export function LoginPage() {
     if (error) {
       setError(error)
     } else {
-      // ✅ REDIRECTION APRÈS LOGIN RÉUSSI
-      navigate("/", { replace: true })
+      // ✅ REDIRECTION APRÈS LOGIN RÉUSSI (ou vers la destination d'origine,
+      // ex: un lien d'invitation de cercle)
+      navigate(redirect || "/", { replace: true })
     }
     setLoading(false)
   }
@@ -78,7 +81,10 @@ export function LoginPage() {
             </Link>
             <p className="text-sm text-muted-foreground">
               {t("auth.no_account")}{" "}
-              <Link to="/register" className="text-primary underline">
+              <Link
+                to={redirect ? `/register?redirect=${encodeURIComponent(redirect)}` : "/register"}
+                className="text-primary underline"
+              >
                 {t("auth.register")}
               </Link>
             </p>

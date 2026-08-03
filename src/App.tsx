@@ -13,6 +13,7 @@ import { LetterDetailPage } from "@/pages/letter-detail"
 import { Spinner } from "@/components/ui/spinner"
 import { ForgotPasswordPage } from "@/pages/forgot-password"
 import { ResetPasswordPage } from "@/pages/reset-password"
+import { CircleInvitePage } from "@/pages/circle-invite"
 
 export default function App() {
   const { session, loading } = useAuth()
@@ -44,6 +45,11 @@ export default function App() {
 
         {/* ✅ RESET PASSWORD : toujours accessible, même connecté */}
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+        {/* Circle invite landing page: reachable whether logged in or not —
+            same reasoning as /reset-password above. A visitor may need to
+            sign in/register before accepting, or may already be logged in. */}
+        <Route path="/circle/invite/:token" element={<CircleInvitePage />} />
 
         {/* Routes protégées */}
         <Route

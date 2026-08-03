@@ -9,6 +9,7 @@ export interface Profile {
   timezone: string
   tone: Tone
   onboarded_at: string | null
+  share_presence_enabled: boolean
   created_at: string
 }
 
@@ -106,6 +107,7 @@ export interface WeeklyLetter {
   week_end: string
   letter_text: string
   highlights: WeeklyLetterHighlights
+  shared_with_circle: boolean
   created_at: string
 }
 
@@ -163,4 +165,48 @@ export interface CircleInvite {
   status: CircleInviteStatus
   created_at: string
   expires_at: string
+}
+
+export const ENCOURAGEMENT_PRESET_KEYS = [
+  "thinking_of_you",
+  "proud_of_you",
+  "one_gentle_step",
+  "sending_warmth",
+  "you_are_doing_great",
+  "here_for_you",
+  "small_steps_count",
+  "holding_you_gently",
+] as const
+
+export type EncouragementPresetKey = (typeof ENCOURAGEMENT_PRESET_KEYS)[number]
+
+// Received encouragements have `read_at`; sent ones never do — the RPC that
+// lists sent encouragements has no read_at column at all (see the migration
+// comment), so a sender can never learn whether her message was read.
+export interface CircleEncouragement {
+  id: string
+  message: string
+  is_preset: boolean
+  created_at: string
+}
+
+export interface ReceivedEncouragement extends CircleEncouragement {
+  sender_id: string
+  read_at: string | null
+}
+
+export interface SentEncouragement extends CircleEncouragement {
+  recipient_id: string
+}
+
+export interface CirclePresence {
+  friend_id: string
+  present: boolean
+}
+
+export interface SharedLetter {
+  friend_id: string
+  week_start: string
+  week_end: string
+  letter_text: string
 }

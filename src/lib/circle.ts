@@ -1,5 +1,13 @@
 import { supabase } from "@/lib/supabase"
-import type { CircleInvite, CircleMembership } from "@/types"
+import type {
+  CircleInvite,
+  CircleMembership,
+  CirclePresence,
+  EncouragementPresetKey,
+  ReceivedEncouragement,
+  SentEncouragement,
+  SharedLetter,
+} from "@/types"
 
 export const MAX_CIRCLE_MEMBERS = 2
 
@@ -149,4 +157,57 @@ export function notifyExistingUserInvite(friendId: string): Promise<void> {
 
 export function sendInviteEmail(token: string): Promise<void> {
   return bestEffortPost("/api/circle/send-invite-email", { token })
+}
+
+// ============================================================================
+// Shared experience: presence, encouragements, shared letters
+// ============================================================================
+
+export async function getPresenceToday(): Promise<CirclePresence[]> {
+  const { data, error } = await supabase.rpc("circle_get_presence_today")
+  if (error) throw toCircleError(error)
+  return (data ?? []) as CirclePresence[]
+}
+
+export async function sendEncouragement(
+  recipientId: string,
+  message: string,
+  isPreset: boolean
+): Promise<void> {
+  const { error } = await supabase.rpc("circle_send_encouragement", {
+    p_recipient_id: recipientId,
+    p_message: message,
+    p_is_preset: isPreset,
+  })
+  if (error) throw toCircleError(error)
+  // Best-effort push — the encouragement row already exists by the time
+  // this runs, same reasoning as notifyExistingUserInvite.
+  bestEffortPost("/api/circle/notify-encouragement", { recipient_id: recipientId })
+}
+
+export async function sendPresetEncouragement(recipientId: string, presetKey: EncouragementPresetKey): Promise<void> {
+  return sendEncouragement(recipientId, presetKey, true)
+}
+
+export async function listReceivedEncouragements(): Promise<ReceivedEncouragement[]> {
+  const { data, error } = await supabase.rpc("circle_list_encouragements_received")
+  if (error) throw toCircleError(error)
+  return (data ?? []) as ReceivedEncouragement[]
+}
+
+export async function listSentEncouragements(): Promise<SentEncouragement[]> {
+  const { data, error } = await supabase.rpc("circle_list_encouragements_sent")
+  if (error) throw toCircleError(error)
+  return (data ?? []) as SentEncouragement[]
+}
+
+export async function markEncouragementRead(id: string): Promise<void> {
+  const { error } = await supabase.rpc("circle_mark_encouragement_read", { p_id: id })
+  if (error) throw toCircleError(error)
+}
+
+export async function getSharedLetters(): Promise<SharedLetter[]> {
+  const { data, error } = await supabase.rpc("circle_get_shared_letters")
+  if (error) throw toCircleError(error)
+  return (data ?? []) as SharedLetter[]
 }

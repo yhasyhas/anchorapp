@@ -188,7 +188,9 @@
     "circle_accept_button": "Accept",
     "circle_decline_button": "Not yet",
     "circle_accept_success": "You're in her circle now 💜",
-    "circle_decline_success": "Okay — she won't be notified."
+    "circle_decline_success": "Okay — she won't be notified.",
+    "circle_share_presence": "Share my presence with my circle",
+    "circle_share_presence_desc": "Let your circle see, on days you show up, a simple \"showed up today 🌱\" — never what you did."
   },
   "auth": {
     "login": "Log in",
@@ -357,7 +359,12 @@
     "share_downloaded": "Letter saved as an image",
     "share_failed": "Could not share your letter",
     "back_to_list": "All letters",
-    "not_found": "This letter couldn't be found."
+    "not_found": "This letter couldn't be found.",
+    "share_with_circle": "Share with my circle 💛",
+    "shared_with_circle_on": "Shared with your circle",
+    "shared_with_circle_off": "Stop sharing with your circle",
+    "share_with_circle_success": "Shared with your circle 💛",
+    "unshare_with_circle_success": "No longer shared with your circle"
   },
   "progress_story": {
     "title": "Your Progress Story",
@@ -414,6 +421,42 @@
     "landing_sign_in": "Sign in",
     "landing_create_account": "Create account",
     "landing_join_success": "Welcome to her circle 💜",
-    "landing_join_error": "Could not join her circle. Please try again."
+    "landing_join_error": "Could not join her circle. Please try again.",
+    "page_title": "Your Circle",
+    "page_subtitle": "A quiet space to show up for each other.",
+    "presence_badge": "Showed up today 🌱",
+    "empty_title": "Everything is better shared — gently",
+    "empty_desc": "Invite a friend to begin.",
+    "empty_cta": "Invite a friend",
+    "manage_link": "Manage your circle",
+    "send_love_button": "Send love 💛",
+    "send_love_sheet_title": "Send {{name}} some love",
+    "send_love_custom_label": "Or write your own",
+    "send_love_custom_placeholder": "Something short and warm...",
+    "send_love_char_count": "{{count}}/140",
+    "send_love_send": "Send",
+    "send_love_sending": "Sending...",
+    "send_love_success": "Sent 💛",
+    "send_love_error_limit": "You've sent enough love to her for today — try again tomorrow.",
+    "send_love_error_invalid": "Write something between 1 and 140 characters.",
+    "send_love_error_not_member": "You're no longer connected in a circle.",
+    "send_love_error_generic": "Could not send. Please try again.",
+    "feed_title": "Recent encouragements",
+    "feed_empty": "No encouragements yet — send the first one.",
+    "feed_from": "From {{name}}",
+    "feed_to": "To {{name}}",
+    "shared_letters_title": "Shared letters",
+    "shared_letters_read": "Read letter",
+    "shared_letters_from": "{{name}}'s letter",
+    "presets": {
+      "thinking_of_you": "Thinking of you today 💛",
+      "proud_of_you": "Proud of you, always",
+      "one_gentle_step": "One gentle step at a time",
+      "sending_warmth": "Sending you warmth today",
+      "you_are_doing_great": "You're doing better than you think",
+      "here_for_you": "Here for you, always",
+      "small_steps_count": "Small steps still count",
+      "holding_you_gently": "Holding you gently today"
+    }
   }
 }

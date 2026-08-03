@@ -188,7 +188,9 @@
     "circle_accept_button": "Kubali",
     "circle_decline_button": "Bado",
     "circle_accept_success": "Sasa uko kwenye mzunguko wake 💜",
-    "circle_decline_success": "Sawa — hatapata arifa."
+    "circle_decline_success": "Sawa — hatapata arifa.",
+    "circle_share_presence": "Shiriki uwepo wangu na mzunguko wangu",
+    "circle_share_presence_desc": "Ruhusu mzunguko wako kuona, siku unazojitokeza, ujumbe rahisi \"amejitokeza leo 🌱\" — kamwe si ulichofanya."
   },
   "auth": {
     "login": "Ingia",
@@ -357,7 +359,12 @@
     "share_downloaded": "Barua imehifadhiwa kama picha",
     "share_failed": "Imeshindikana kushiriki barua yako",
     "back_to_list": "Barua zote",
-    "not_found": "Barua hii haikuweza kupatikana."
+    "not_found": "Barua hii haikuweza kupatikana.",
+    "share_with_circle": "Shiriki na mzunguko wangu 💛",
+    "shared_with_circle_on": "Imeshirikiwa na mzunguko wako",
+    "shared_with_circle_off": "Acha kushiriki na mzunguko wako",
+    "share_with_circle_success": "Imeshirikiwa na mzunguko wako 💛",
+    "unshare_with_circle_success": "Haishirikiwi tena na mzunguko wako"
   },
   "progress_story": {
     "title": "Hadithi Yako ya Maendeleo",
@@ -414,6 +421,42 @@
     "landing_sign_in": "Ingia",
     "landing_create_account": "Tengeneza akaunti",
     "landing_join_success": "Karibu kwenye mzunguko wake 💜",
-    "landing_join_error": "Imeshindwa kujiunga na mzunguko wake. Tafadhali jaribu tena."
+    "landing_join_error": "Imeshindwa kujiunga na mzunguko wake. Tafadhali jaribu tena.",
+    "page_title": "Mzunguko Wako",
+    "page_subtitle": "Nafasi tulivu ya kutiana moyo.",
+    "presence_badge": "Amejitokeza leo 🌱",
+    "empty_title": "Kila kitu ni bora kikishirikiwa — kwa upole",
+    "empty_desc": "Mwalike rafiki ili kuanza.",
+    "empty_cta": "Mwalike rafiki",
+    "manage_link": "Simamia mzunguko wako",
+    "send_love_button": "Tuma upendo 💛",
+    "send_love_sheet_title": "Tuma upendo kwa {{name}}",
+    "send_love_custom_label": "Au andika mwenyewe",
+    "send_love_custom_placeholder": "Kitu kifupi na cha upendo...",
+    "send_love_char_count": "{{count}}/140",
+    "send_love_send": "Tuma",
+    "send_love_sending": "Inatuma...",
+    "send_love_success": "Imetumwa 💛",
+    "send_love_error_limit": "Umeshatuma upendo wa kutosha kwake leo — jaribu tena kesho.",
+    "send_love_error_invalid": "Andika kitu kati ya herufi 1 na 140.",
+    "send_love_error_not_member": "Hamko tena pamoja kwenye mzunguko.",
+    "send_love_error_generic": "Imeshindwa kutuma. Tafadhali jaribu tena.",
+    "feed_title": "Uchangamsho wa hivi karibuni",
+    "feed_empty": "Bado hakuna uchangamsho — tuma wa kwanza.",
+    "feed_from": "Kutoka {{name}}",
+    "feed_to": "Kwa {{name}}",
+    "shared_letters_title": "Barua zilizoshirikiwa",
+    "shared_letters_read": "Soma barua",
+    "shared_letters_from": "Barua ya {{name}}",
+    "presets": {
+      "thinking_of_you": "Ninakufikiria leo 💛",
+      "proud_of_you": "Ninajivunia wewe, siku zote",
+      "one_gentle_step": "Hatua moja kwa upole",
+      "sending_warmth": "Ninakutumia joto leo",
+      "you_are_doing_great": "Unafanya vizuri zaidi ya unavyofikiri",
+      "here_for_you": "Niko hapa kwa ajili yako, siku zote",
+      "small_steps_count": "Hatua ndogo bado zinahesabika",
+      "holding_you_gently": "Nakushikilia kwa upole leo"
+    }
   }
 }

@@ -26,7 +26,7 @@ import { JournalCard } from "@/components/anchor/journal-card"
 import { StreakMilestoneModal } from "@/components/anchor/streak-milestone-modal"
 import { getLastSeenLetterWeek } from "@/lib/letters"
 import { CircleInviteNudge } from "@/components/circle/circle-invite-nudge"
-import { listPendingReceivedInvites } from "@/lib/circle"
+import { listPendingReceivedInvites, listReceivedEncouragements } from "@/lib/circle"
 
 const ANCHOR_MILESTONES_CELEBRATED_KEY = "anchor_streak_milestones_celebrated"
 
@@ -89,6 +89,7 @@ export function HomePage() {
   const [streakMilestone, setStreakMilestone] = useState<number | null>(null)
   const [hasUnreadLetter, setHasUnreadLetter] = useState(false)
   const [hasPendingCircleInvite, setHasPendingCircleInvite] = useState(false)
+  const [hasUnreadEncouragement, setHasUnreadEncouragement] = useState(false)
 
   const [checkInDone, setCheckInDone] = useState(false)
 
@@ -144,6 +145,21 @@ export function HomePage() {
     listPendingReceivedInvites(user.id)
       .then((invites) => {
         if (!cancelled) setHasPendingCircleInvite(invites.length > 0)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [user])
+
+  // Same badge-dot pattern — the /circle page itself marks encouragements
+  // read as soon as it's opened, so this only ever reflects "not yet seen".
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    listReceivedEncouragements()
+      .then((received) => {
+        if (!cancelled) setHasUnreadEncouragement(received.some((e) => !e.read_at))
       })
       .catch(() => {})
     return () => {
@@ -468,6 +484,19 @@ export function HomePage() {
             >
               <Mail className="h-5 w-5" />
               {hasUnreadLetter && (
+                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-accent" />
+              )}
+            </Button>
+          </Link>
+          <Link to="/circle">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={t("circle.page_title")}
+            >
+              <Heart className="h-5 w-5" />
+              {hasUnreadEncouragement && (
                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-accent" />
               )}
             </Button>

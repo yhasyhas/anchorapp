@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase"
 import { formatWeekRange } from "@/lib/letters"
 import { shareLetter } from "@/lib/letter-share"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Share2, Loader2 } from "lucide-react"
+import { ArrowLeft, Share2, Heart, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import type { WeeklyLetter } from "@/types"
 
@@ -17,6 +17,7 @@ export function LetterDetailPage() {
   const [letter, setLetter] = useState<WeeklyLetter | null>(null)
   const [loading, setLoading] = useState(true)
   const [sharing, setSharing] = useState(false)
+  const [togglingCircleShare, setTogglingCircleShare] = useState(false)
 
   useEffect(() => {
     if (user && weekStart) loadLetter(weekStart)
@@ -57,6 +58,28 @@ export function LetterDetailPage() {
       else if (result === "failed") toast.error(t("letters.share_failed"))
     } finally {
       setSharing(false)
+    }
+  }
+
+  // Explicit, reversible, one letter at a time — never automatic. Direct
+  // update on her own row (RLS: auth.uid() = user_id), no RPC needed.
+  async function handleToggleCircleShare() {
+    if (!letter || togglingCircleShare) return
+    const next = !letter.shared_with_circle
+    setTogglingCircleShare(true)
+    try {
+      const { error } = await supabase
+        .from("weekly_letters")
+        .update({ shared_with_circle: next })
+        .eq("id", letter.id)
+      if (error) throw error
+      setLetter({ ...letter, shared_with_circle: next })
+      toast.success(t(next ? "letters.share_with_circle_success" : "letters.unshare_with_circle_success"))
+    } catch (err) {
+      console.error("Failed to toggle circle sharing:", err)
+      toast.error(t("letters.error_load"))
+    } finally {
+      setTogglingCircleShare(false)
     }
   }
 
@@ -115,6 +138,19 @@ export function LetterDetailPage() {
 
         <p className="mt-10 text-right font-heading text-base italic text-primary">{t("letters.signature")}</p>
       </div>
+
+      <Button
+        variant={letter.shared_with_circle ? "outline" : "default"}
+        className="w-full gap-1.5"
+        onClick={handleToggleCircleShare}
+        disabled={togglingCircleShare}
+      >
+        {togglingCircleShare ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" />}
+        {letter.shared_with_circle ? t("letters.shared_with_circle_off") : t("letters.share_with_circle")}
+      </Button>
+      {letter.shared_with_circle && (
+        <p className="text-center text-xs text-muted-foreground">{t("letters.shared_with_circle_on")}</p>
+      )}
     </div>
   )
 }

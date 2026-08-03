@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { Switch } from "@/components/ui/switch"
+import { Separator } from "@/components/ui/separator"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,7 +45,7 @@ const ERROR_KEY: Record<string, string> = {
 
 export function CircleSection() {
   const { t } = useTranslation()
-  const { user } = useAuth()
+  const { user, profile, updateProfile } = useAuth()
   const [memberships, setMemberships] = useState<CircleMembership[]>([])
   const [emailInvites, setEmailInvites] = useState<CircleInvite[]>([])
   const [names, setNames] = useState<Record<string, string>>({})
@@ -159,6 +161,19 @@ export function CircleSection() {
           <p className="text-sm font-medium">{t("settings.circle_title")}</p>
         </div>
         <p className="text-xs text-muted-foreground leading-relaxed">{t("settings.circle_subtitle")}</p>
+
+        <Separator />
+
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-0.5">
+            <p className="text-sm text-foreground">{t("settings.circle_share_presence")}</p>
+            <p className="text-xs text-muted-foreground">{t("settings.circle_share_presence_desc")}</p>
+          </div>
+          <Switch
+            checked={profile?.share_presence_enabled ?? true}
+            onCheckedChange={(checked) => updateProfile({ share_presence_enabled: checked })}
+          />
+        </div>
 
         {pendingReceived.map((m) => (
           <div key={m.id} className="space-y-3 rounded-lg bg-sage-light/60 p-4">

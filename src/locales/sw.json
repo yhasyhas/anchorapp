@@ -205,6 +205,24 @@
     "circle_share_presence": "Shiriki uwepo wangu na mzunguko wangu",
     "circle_share_presence_desc": "Ruhusu mzunguko wako kuona, siku unazojitokeza, ujumbe rahisi \"amejitokeza leo 🌱\" — kamwe si ulichofanya."
   },
+  "soft_mode": {
+    "proposal_title": "Siku hizi zinahisi nzito. Unataka nikupunguzie mambo kwa muda? 💜",
+    "proposal_accept": "Ndiyo, punguza",
+    "proposal_dismiss": "Sio sasa",
+    "exit_title": "Unahisi mwepesi kidogo? Unataka mwendo wako kamili urudi? 🌱",
+    "exit_accept": "Ndiyo, niko tayari",
+    "exit_dismiss": "Bado",
+    "welcome_back": "Karibu tena kwenye mwendo wako",
+    "badge_label": "Hali ya upole 💜 — kwenda taratibu",
+    "modal_title": "Hali ya upole",
+    "modal_explanation": "Mambo yanapohisi mazito, Anchor hujipunguzia mwenyewe — nanga moja badala ya tatu, swali moja la kujiangalia badala ya matatu, na ukumbusho wa upole zaidi. Chochote ulichoandika hakipotei kamwe, na unaweza kufanya zaidi wakati wowote ukitaka.",
+    "modal_exit_button": "Rudi kwenye mwendo kamili",
+    "one_thing_title": "Kitu kimoja tu leo. Hicho kinatosha.",
+    "add_more": "+ Ongeza nanga zaidi leo",
+    "checkin_notice": "Swali moja tu usiku huu — hilo linatosha.",
+    "settings_title": "Hali ya upole",
+    "settings_enable_desc": "Ikiwa imewashwa, Anchor hujipunguzia mwenyewe — nanga moja, swali moja la kujiangalia, ukumbusho wa upole zaidi. Washa au zima wakati wowote."
+  },
   "auth": {
     "login": "Ingia",
     "register": "Tengeneza Akaunti",

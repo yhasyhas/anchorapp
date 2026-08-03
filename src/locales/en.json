@@ -205,6 +205,24 @@
     "circle_share_presence": "Share my presence with my circle",
     "circle_share_presence_desc": "Let your circle see, on days you show up, a simple \"showed up today 🌱\" — never what you did."
   },
+  "soft_mode": {
+    "proposal_title": "These days feel heavy. Want me to lighten things for a while? 💜",
+    "proposal_accept": "Yes, lighten it",
+    "proposal_dismiss": "Not now",
+    "exit_title": "Feeling a bit lighter? Want your full rhythm back? 🌱",
+    "exit_accept": "Yes, I'm ready",
+    "exit_dismiss": "Not yet",
+    "welcome_back": "Welcome back to your rhythm",
+    "badge_label": "Soft mode 💜 — going gently",
+    "modal_title": "Soft mode",
+    "modal_explanation": "When things feel heavy, Anchor lightens itself — one small anchor instead of three, one check-in question instead of three, and gentler reminders. Nothing you've written is ever lost, and you can always do more if you want to.",
+    "modal_exit_button": "Return to full rhythm",
+    "one_thing_title": "Just one thing today. That's enough.",
+    "add_more": "+ Add more anchors today",
+    "checkin_notice": "Just one question tonight — that's enough.",
+    "settings_title": "Soft mode",
+    "settings_enable_desc": "When on, Anchor lightens itself — one anchor, one check-in question, gentler reminders. Turn it on or off anytime."
+  },
   "auth": {
     "login": "Log in",
     "register": "Create Account",

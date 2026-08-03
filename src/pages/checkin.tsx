@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
 import { addToSyncQueue, isOnline, setLocalData, getLocalData } from "@/lib/offline-sync"
-import { getDailyQuestions } from "@/lib/checkin-questions"
+import { getDailyQuestions, getSoftModeQuestion } from "@/lib/checkin-questions"
 import { transcribeAudio } from "@/lib/transcribe"
 import { generateFollowUpQuestion, type FollowUpEntry } from "@/lib/ai-service"
 import { getQuickReplyChips } from "@/lib/checkin-chips"
@@ -484,11 +484,16 @@ export function CheckInPage() {
     }
   }, [])
 
+  const softModeActive = profile?.soft_mode ?? false
   const [q1, q2] = dailyQuestions
   const q2Display = personalQuestion ?? q2
   const isEvening = isCheckInTime()
   const hoursUntilEvening = Math.max(0, 19 - new Date().getHours())
   const lang: "en" | "sw" = i18n.language === "sw" ? "sw" : "en"
+  // Soft mode: 1 question instead of 3 — the AI follow-up if one was
+  // generated, otherwise a fixed gentle fallback (never the rotating pool,
+  // which includes heavier prompts). Reuses the Reflection-1 card/field.
+  const softQuestion = personalQuestion ?? getSoftModeQuestion(lang)
   const chipsWhatMatters = getQuickReplyChips(
     "what_matters",
     recentCheckIns.map((c) => c.what_matters).filter((t): t is string => !!t),
@@ -539,6 +544,9 @@ export function CheckInPage() {
           <h1 className="font-heading text-2xl font-bold">{t("checkin.title")}</h1>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">{t("checkin.subtitle")}</p>
+        {softModeActive && (
+          <p className="mt-1 text-xs italic text-muted-foreground">{t("soft_mode.checkin_notice")}</p>
+        )}
       </div>
 
       {/* Evening Mood Selector */}
@@ -586,12 +594,19 @@ export function CheckInPage() {
         <CardContent className="p-5">
           <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span>&#x1F33F;</span>
-              <p className="text-sm font-medium text-foreground">{q1}</p>
+              <span>{softModeActive && personalQuestion ? "✨" : "\u{1F33F}"}</span>
+              <p className="text-sm font-medium text-foreground">{softModeActive ? softQuestion : q1}</p>
             </div>
-            <Badge variant="secondary" className="text-[10px]">
-              {t("checkin.reflection")} 1
-            </Badge>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {softModeActive && personalQuestion && (
+                <Badge className="border-0 bg-primary/10 text-[10px] text-primary">
+                  {t("checkin.personalized_badge")} ✨
+                </Badge>
+              )}
+              <Badge variant="secondary" className="text-[10px]">
+                {t("checkin.reflection")} 1
+              </Badge>
+            </div>
           </div>
           <Textarea
             value={checkIn.what_matters ?? ""}
@@ -627,82 +642,86 @@ export function CheckInPage() {
         </CardContent>
       </Card>
 
-      {/* Reflection 2 */}
-      <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
-        <CardContent className="p-5">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span>{personalQuestion ? "✨" : "☁️"}</span>
-              <p className="text-sm font-medium text-foreground">{q2Display}</p>
-            </div>
-            <div className="flex shrink-0 items-center gap-1.5">
-              {personalQuestion && (
-                <Badge className="border-0 bg-primary/10 text-[10px] text-primary">
-                  {t("checkin.personalized_badge")} ✨
-                </Badge>
+      {!softModeActive && (
+        <>
+          {/* Reflection 2 */}
+          <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+            <CardContent className="p-5">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span>{personalQuestion ? "✨" : "☁️"}</span>
+                  <p className="text-sm font-medium text-foreground">{q2Display}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {personalQuestion && (
+                    <Badge className="border-0 bg-primary/10 text-[10px] text-primary">
+                      {t("checkin.personalized_badge")} ✨
+                    </Badge>
+                  )}
+                  <Badge variant="secondary" className="text-[10px]">
+                    {t("checkin.reflection")} 2
+                  </Badge>
+                </div>
+              </div>
+              <Textarea
+                value={checkIn.what_avoiding ?? ""}
+                onChange={(e) => updateField("what_avoiding", e.target.value)}
+                placeholder="..."
+                className="min-h-[80px] border-0 bg-muted/50 shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
+              />
+              {chipsWhatAvoiding.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {chipsWhatAvoiding.map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => updateField("what_avoiding", chip)}
+                      className="rounded-full bg-muted px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-sage-light"
+                    >
+                      {chip}
+                    </button>
+                  ))}
+                </div>
               )}
-              <Badge variant="secondary" className="text-[10px]">
-                {t("checkin.reflection")} 2
-              </Badge>
-            </div>
-          </div>
-          <Textarea
-            value={checkIn.what_avoiding ?? ""}
-            onChange={(e) => updateField("what_avoiding", e.target.value)}
-            placeholder="..."
-            className="min-h-[80px] border-0 bg-muted/50 shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
-          />
-          {chipsWhatAvoiding.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {chipsWhatAvoiding.map((chip) => (
-                <button
-                  key={chip}
-                  type="button"
-                  onClick={() => updateField("what_avoiding", chip)}
-                  className="rounded-full bg-muted px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-sage-light"
-                >
-                  {chip}
-                </button>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
 
-      {/* Reflection 3 */}
-      <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
-        <CardContent className="p-5">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span>&#x1F338;</span>
-              <p className="text-sm font-medium text-foreground">{t("checkin.what_felt_real")}</p>
-            </div>
-            <Badge variant="secondary" className="text-[10px]">
-              {t("checkin.reflection")} 3
-            </Badge>
-          </div>
-          <Textarea
-            value={checkIn.what_felt_real ?? ""}
-            onChange={(e) => updateField("what_felt_real", e.target.value)}
-            placeholder="..."
-            className="min-h-[80px] border-0 bg-muted/50 shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
-          />
-          {chipsWhatFeltReal.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {chipsWhatFeltReal.map((chip) => (
-                <button
-                  key={chip}
-                  type="button"
-                  onClick={() => updateField("what_felt_real", chip)}
-                  className="rounded-full bg-muted px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-sage-light"
-                >
-                  {chip}
-                </button>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          {/* Reflection 3 */}
+          <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+            <CardContent className="p-5">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span>&#x1F338;</span>
+                  <p className="text-sm font-medium text-foreground">{t("checkin.what_felt_real")}</p>
+                </div>
+                <Badge variant="secondary" className="text-[10px]">
+                  {t("checkin.reflection")} 3
+                </Badge>
+              </div>
+              <Textarea
+                value={checkIn.what_felt_real ?? ""}
+                onChange={(e) => updateField("what_felt_real", e.target.value)}
+                placeholder="..."
+                className="min-h-[80px] border-0 bg-muted/50 shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
+              />
+              {chipsWhatFeltReal.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {chipsWhatFeltReal.map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => updateField("what_felt_real", chip)}
+                      className="rounded-full bg-muted px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-sage-light"
+                    >
+                      {chip}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       {/* Voice Note Section */}
       <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">

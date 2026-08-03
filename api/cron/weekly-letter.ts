@@ -169,6 +169,7 @@ interface ProfileRow {
   timezone: string
   ai_checkins_enabled: boolean
   tone: Tone
+  soft_mode: boolean
 }
 
 interface MoodLogRow {
@@ -357,8 +358,9 @@ async function generateLetterWithGroq(params: {
   gratitudeSnippet: string | null
   tone: Tone
   groqApiKey: string
+  softMode: boolean
 }): Promise<string> {
-  const { firstName, highlights, checkInSnippet, gratitudeSnippet, tone, groqApiKey } = params
+  const { firstName, highlights, checkInSnippet, gratitudeSnippet, tone, groqApiKey, softMode } = params
 
   const intentionLabel = translateIntention(highlights.dominantIntention, "en")
   const moodSummary = Object.entries(highlights.moodCounts)
@@ -399,7 +401,11 @@ Rules:
 - End on a note of quiet pride — she should feel seen, not evaluated.
 - Write in English.
 - Return ONLY the letter body text. No title, no quotation marks, no
-  signature line (the app adds "— your Anchor" separately).`,
+  signature line (the app adds "— your Anchor" separately).${
+    softMode
+      ? "\n- She has been in a gentler period recently (Soft Mode): keep the tone especially soft, and a little shorter than usual."
+      : ""
+  }`,
         },
         { role: "user", content: contextLines.join("\n") },
       ],
@@ -468,19 +474,21 @@ async function buildLetterText(params: {
   gratitudeSnippet: string | null
   tone: Tone
   groqApiKey: string | undefined
+  softMode: boolean
 }): Promise<string> {
-  const { language, firstName, highlights, checkInSnippet, gratitudeSnippet, tone, groqApiKey } = params
+  const { language, firstName, highlights, checkInSnippet, gratitudeSnippet, tone, groqApiKey, softMode } = params
 
   if (language === "sw" || !groqApiKey) {
     // Static fallback never references check-in text or gratitudes — it
     // doesn't need either snippet, only the AI path does. Swahili's static
-    // template also doesn't vary by tone (same fluency reasoning above) —
-    // tone only reaches the letter for English users, who go through Groq below.
+    // template also doesn't vary by tone or soft mode (same fluency reasoning
+    // above) — tone/soft-mode adaptation only reaches the letter for English
+    // users, who go through Groq below.
     return buildStaticLetter(language, firstName, highlights)
   }
 
   try {
-    return await generateLetterWithGroq({ firstName, highlights, checkInSnippet, gratitudeSnippet, tone, groqApiKey })
+    return await generateLetterWithGroq({ firstName, highlights, checkInSnippet, gratitudeSnippet, tone, groqApiKey, softMode })
   } catch {
     return buildStaticLetter(language, firstName, highlights)
   }
@@ -583,8 +591,9 @@ async function generateStoryWithGroq(params: {
   gratitudeSnippet: string | null
   tone: Tone
   groqApiKey: string
+  softMode: boolean
 }): Promise<string> {
-  const { firstName, stats, checkInSnippet, gratitudeSnippet, tone, groqApiKey } = params
+  const { firstName, stats, checkInSnippet, gratitudeSnippet, tone, groqApiKey, softMode } = params
 
   const weekLines = stats.weeks.map((w, i) => {
     const label = WEEK_LABELS_EN[i]
@@ -634,7 +643,11 @@ Rules:
 - End the third paragraph on a note of quiet pride about who she's becoming.
 - About 180-260 words total.
 - Write in English.
-- Return ONLY the story text, paragraphs separated by a blank line. No title, no signature line.`,
+- Return ONLY the story text, paragraphs separated by a blank line. No title, no signature line.${
+    softMode
+      ? "\n- She has been in a gentler period recently (Soft Mode): keep the tone especially soft, and a little shorter than usual."
+      : ""
+  }`,
         },
         { role: "user", content: contextLines.join("\n") },
       ],
@@ -688,15 +701,16 @@ async function buildStoryText(params: {
   gratitudeSnippet: string | null
   tone: Tone
   groqApiKey: string | undefined
+  softMode: boolean
 }): Promise<string> {
-  const { language, firstName, stats, checkInSnippet, gratitudeSnippet, tone, groqApiKey } = params
+  const { language, firstName, stats, checkInSnippet, gratitudeSnippet, tone, groqApiKey, softMode } = params
 
   if (language === "sw" || !groqApiKey) {
     return buildStaticStory(language, firstName, stats)
   }
 
   try {
-    return await generateStoryWithGroq({ firstName, stats, checkInSnippet, gratitudeSnippet, tone, groqApiKey })
+    return await generateStoryWithGroq({ firstName, stats, checkInSnippet, gratitudeSnippet, tone, groqApiKey, softMode })
   } catch {
     return buildStaticStory(language, firstName, stats)
   }
@@ -723,7 +737,7 @@ export async function GET(request: Request): Promise<Response> {
   const rest: RestConfig = { url: SUPABASE_URL, serviceRoleKey: SERVICE_ROLE_KEY }
   const now = new Date()
 
-  const profiles = await restGet<ProfileRow>(rest, "profiles?select=id,full_name,preferred_language,timezone,ai_checkins_enabled,tone")
+  const profiles = await restGet<ProfileRow>(rest, "profiles?select=id,full_name,preferred_language,timezone,ai_checkins_enabled,tone,soft_mode")
   if (profiles.length === 0) {
     return jsonResponse({ processed: 0, lettersGenerated: 0, storiesGenerated: 0 }, 200)
   }
@@ -824,6 +838,7 @@ export async function GET(request: Request): Promise<Response> {
             gratitudeSnippet,
             tone: normalizeTone(profile.tone),
             groqApiKey: GROQ_API_KEY,
+            softMode: profile.soft_mode,
           })
           try {
             await restInsert(rest, "weekly_letters", {
@@ -866,6 +881,7 @@ export async function GET(request: Request): Promise<Response> {
             gratitudeSnippet,
             tone: normalizeTone(profile.tone),
             groqApiKey: GROQ_API_KEY,
+            softMode: profile.soft_mode,
           })
           try {
             await restInsert(rest, "progress_stories", {

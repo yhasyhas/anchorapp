@@ -1,5 +1,5 @@
 import { isOnline } from "@/lib/offline-sync"
-import { calculateBestStreakFromDates, calculateBestAnchorStreakWithGrace } from "@/lib/streaks"
+import { calculateBestStreakFromDates, calculateBestAnchorStreakWithGrace, isAnchorDayComplete } from "@/lib/streaks"
 import { supabase } from "@/lib/supabase"
 import { getUserLocalData, setUserLocalData } from "@/lib/user-storage"
 import i18n from "@/lib/i18n"
@@ -320,9 +320,7 @@ function buildPatternDataDev(moods: MoodLog[], anchors: DailyAnchor[], checkIns?
   const bestMoodStreak = calculateBestStreakFromDates(
     moods.filter((m) => m.mood === "great" || m.mood === "okay").map((m) => m.date)
   )
-  const bestAnchorStreak = calculateBestAnchorStreakWithGrace(
-    anchors.filter((a) => a.future_completed && a.mindbody_completed && a.life_completed).map((a) => a.date)
-  )
+  const bestAnchorStreak = calculateBestAnchorStreakWithGrace(anchors.filter(isAnchorDayComplete).map((a) => a.date))
 
   const snippets = checkIns
     ?.filter((c) => c.what_matters || c.what_felt_real || c.voice_transcript)
@@ -359,7 +357,10 @@ export async function generateCompanionMessage(
   // Set only once, right after onboarding's optional "what brings you here" screen — see
   // src/components/onboarding/onboarding-modal.tsx and src/pages/home.tsx, which consumes
   // (reads + clears) the local cache so this only ever enriches the very first message.
-  firstIntention?: string | null
+  firstIntention?: string | null,
+  // Soft Mode: additive on top of her chosen tone, not an override — see
+  // CLAUDE.md's Soft Mode feature. Asks for an extra-gentle, extra-short message.
+  softMode = false
 ): Promise<string> {
   if (!isOnline()) {
     return language === "sw"
@@ -369,7 +370,7 @@ export async function generateCompanionMessage(
 
   // Respect du consentement : IA désactivée = message local uniquement, aucun appel réseau
   if (!aiEnabled) {
-    return getLocalCompanionFallback(yesterdayMood?.mood, language, tone)
+    return getLocalCompanionFallback(yesterdayMood?.mood, language, tone, softMode)
   }
 
   // 🚀 PROD : appel Edge Function
@@ -389,6 +390,7 @@ export async function generateCompanionMessage(
           language,
           tone,
           firstIntention: firstIntention || null,
+          softMode,
         }),
       })
 
@@ -397,12 +399,12 @@ export async function generateCompanionMessage(
       return json.message
     } catch {
       // Fallback local si l'IA est down
-      return getLocalCompanionFallback(yesterdayMood?.mood, language, tone)
+      return getLocalCompanionFallback(yesterdayMood?.mood, language, tone, softMode)
     }
   }
 
   // 💻 DEV : fallback local
-  return getLocalCompanionFallback(yesterdayMood?.mood, language, tone)
+  return getLocalCompanionFallback(yesterdayMood?.mood, language, tone, softMode)
 }
 
 // Style only, same 3 tones as the AI path (see TONE_INSTRUCTIONS in api/insights.ts) — kept
@@ -447,8 +449,25 @@ const LOCAL_COMPANION_FALLBACK: Record<Tone, Record<"en" | "sw", { heavy: string
   },
 }
 
-function getLocalCompanionFallback(mood: string | undefined, language: "en" | "sw", tone: Tone): string {
-  const lines = LOCAL_COMPANION_FALLBACK[tone][language]
+// Soft Mode's local/offline fallback — tone-agnostic (soft mode asks for
+// extra-gentle regardless of her chosen tone) and shorter than the tables
+// above, same "handful of hand-written correct lines" reasoning as the rest
+// of this file's local fallbacks.
+const LOCAL_COMPANION_SOFT_FALLBACK: Record<"en" | "sw", { heavy: string; good: string; neutral: string }> = {
+  en: {
+    heavy: "Still here with you. Just one small thing today, if that.",
+    good: "Glad it felt a little lighter. No rush today either.",
+    neutral: "Good morning. Go gently today.",
+  },
+  sw: {
+    heavy: "Bado niko nawe. Kitu kimoja kidogo leo, kama hicho.",
+    good: "Nimefurahi ilihisi nyepesi kidogo. Bila haraka leo pia.",
+    neutral: "Habari za asubuhi. Nenda kwa upole leo.",
+  },
+}
+
+function getLocalCompanionFallback(mood: string | undefined, language: "en" | "sw", tone: Tone, softMode = false): string {
+  const lines = softMode ? LOCAL_COMPANION_SOFT_FALLBACK[language] : LOCAL_COMPANION_FALLBACK[tone][language]
   if (mood === "low" || mood === "stressed") return lines.heavy
   if (mood === "great" || mood === "okay") return lines.good
   return lines.neutral

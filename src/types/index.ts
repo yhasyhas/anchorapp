@@ -10,6 +10,8 @@ export interface Profile {
   tone: Tone
   onboarded_at: string | null
   share_presence_enabled: boolean
+  soft_mode: boolean
+  soft_mode_since: string | null
   created_at: string
 }
 
@@ -25,6 +27,10 @@ export interface DailyAnchor {
   life_completed: boolean
   daily_intention: string
   anchors_locked_at: string | null
+  // True when this day's row was saved while soft mode was active — see
+  // isAnchorDayComplete in src/lib/streaks.ts for how this changes what
+  // counts as a "complete" anchor day for streak purposes.
+  soft_mode_day: boolean
   created_at: string
 }
 

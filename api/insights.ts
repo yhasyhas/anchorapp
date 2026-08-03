@@ -170,6 +170,9 @@ function validateCompanionBody(body: any): string | null {
   if (body.firstIntention !== undefined && body.firstIntention !== null && typeof body.firstIntention !== "string") {
     return "invalid firstIntention"
   }
+  if (body.softMode !== undefined && typeof body.softMode !== "boolean") {
+    return "invalid softMode"
+  }
   return null
 }
 
@@ -390,7 +393,7 @@ async function handleInsights(body: any, apiKey: string) {
 }
 
 async function handleCompanion(body: any, apiKey: string) {
-  const { yesterdayMood, yesterdayCheckIn, todayIntention, language = "en", firstIntention } = body
+  const { yesterdayMood, yesterdayCheckIn, todayIntention, language = "en", firstIntention, softMode } = body
   const tone = normalizeTone(body.tone)
 
   const userLines = [
@@ -419,15 +422,19 @@ async function handleCompanion(body: any, apiKey: string) {
       messages: [
         {
           role: "system",
-          content: `You are Anchor, a gentle morning companion. Write ONE short, warm sentence (max 15 words) to greet the user this morning.
+          content: `You are Anchor, a gentle morning companion. Write ONE short, warm sentence (max ${softMode ? 10 : 15} words) to greet the user this morning.
 
 Rules:
 - ${TONE_INSTRUCTIONS[tone]}
 - If they carried something heavy, be extra gentle
 - If they had a good day, celebrate it subtly
 - Suggest one tiny intention for today
-- Max 15 words
-- Respond in ${language === "sw" ? "Swahili" : "English"}
+- Max ${softMode ? 10 : 15} words
+- Respond in ${language === "sw" ? "Swahili" : "English"}${
+            softMode
+              ? "\n- She is currently in a tender period (Soft Mode): be extra soft, and keep it even shorter than usual."
+              : ""
+          }
 
 Examples:
 - "Yesterday you chose Peace — let it carry you gently through today."
@@ -800,6 +807,15 @@ function calculateBestAnchorStreakWithGrace(dates: string[]): number {
   return best
 }
 
+// Soft mode day: 1 of 3 anchors done is a complete day. Same predicate as
+// isAnchorDayComplete in src/lib/streaks.ts, duplicated here (this Edge
+// Function is bundled separately, same reasoning as calculateBestAnchorStreakWithGrace above).
+function isAnchorDayComplete(a: any): boolean {
+  return a.soft_mode_day
+    ? a.future_completed || a.mindbody_completed || a.life_completed
+    : a.future_completed && a.mindbody_completed && a.life_completed
+}
+
 function buildPatternData(moods: any[], anchors: any[], checkIns?: any[]) {
   const moodDist: Record<string, number> = {}
   moods.forEach((m: any) => {
@@ -826,9 +842,7 @@ function buildPatternData(moods: any[], anchors: any[], checkIns?: any[]) {
   const bestMoodStreak = calculateBestStreakFromDates(
     moods.filter((m: any) => m.mood === "great" || m.mood === "okay").map((m: any) => m.date)
   )
-  const bestAnchorStreak = calculateBestAnchorStreakWithGrace(
-    anchors.filter((a: any) => a.future_completed && a.mindbody_completed && a.life_completed).map((a: any) => a.date)
-  )
+  const bestAnchorStreak = calculateBestAnchorStreakWithGrace(anchors.filter(isAnchorDayComplete).map((a: any) => a.date))
 
   const snippets = checkIns
     ?.filter((c: any) => c.what_matters || c.what_felt_real || c.voice_transcript)

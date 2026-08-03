@@ -40,6 +40,9 @@ import { GratitudeDropCard } from "@/components/anchor/gratitude-drop-card"
 import { GratitudeReminderCard } from "@/components/anchor/gratitude-reminder-card"
 import { JarOpeningModal } from "@/components/anchor/jar-opening-modal"
 import { JarIcon } from "@/components/anchor/jar-icon"
+import { isThirdConsecutiveLowMoodDay, isAbsenceReturn, hasTwoConsecutiveGoodDaysEndingYesterday } from "@/lib/soft-mode"
+import { SoftModeNudgeCard } from "@/components/anchor/soft-mode-nudge-card"
+import { SoftModeBadge } from "@/components/anchor/soft-mode-badge"
 
 const ANCHOR_MILESTONES_CELEBRATED_KEY = "anchor_streak_milestones_celebrated"
 
@@ -67,7 +70,8 @@ function getDayModeKey(userId: string): string {
 
 export function HomePage() {
   const { t, i18n } = useTranslation()
-  const { user, profile } = useAuth()
+  const { user, profile, updateProfile } = useAuth()
+  const softModeActive = profile?.soft_mode ?? false
   const [selectedMood, setSelectedMood] = useState<MoodType | null>(null)
   const [anchor, setAnchor] = useState<DailyAnchor>({
     id: "",
@@ -81,6 +85,7 @@ export function HomePage() {
     life_completed: false,
     daily_intention: "",
     anchors_locked_at: null,
+    soft_mode_day: false,
     created_at: "",
   })
 
@@ -114,6 +119,14 @@ export function HomePage() {
 
   const [jarModalOpen, setJarModalOpen] = useState(false)
   const [jarGratitudes, setJarGratitudes] = useState<Gratitude[]>([])
+
+  const [showSoftEnterNudge, setShowSoftEnterNudge] = useState(false)
+  const [showSoftExitNudge, setShowSoftExitNudge] = useState(false)
+  // Not persisted — a fresh visit always starts with the lightweight
+  // single-anchor picker; "add more" only lasts for the current session,
+  // which is fine since it never hides tasks she already filled in.
+  const [softExpanded, setSoftExpanded] = useState(false)
+  const [softCategory, setSoftCategory] = useState<"future" | "mindbody" | "life" | null>(null)
 
   useEffect(() => {
     if (user) {
@@ -293,6 +306,14 @@ export function HomePage() {
 
       setRecentMoods(moods)
       setRecentAnchors(anchors)
+
+      // Exit proposal: evaluated each morning, before today's mood is
+      // necessarily logged — 2 lighter days in a row while soft mode is
+      // already active. Same daily-dismissal pattern as the jar prompt.
+      if (profile?.soft_mode && hasTwoConsecutiveGoodDaysEndingYesterday(moods)) {
+        const dismissedKey = `anchor_soft_exit_dismissed_${user.id}_${todayStr()}`
+        if (!localStorage.getItem(dismissedKey)) setShowSoftExitNudge(true)
+      }
       setRecentCheckInMoods((monthCheckIns as { date: string; evening_mood: string | null }[]) || [])
       setMoveSuggestions((moveSuggestionsData as MoveSuggestion[]) || [])
       setStreaks(calculateStreaks(moods, anchors))
@@ -323,7 +344,8 @@ export function HomePage() {
         todayAnchor?.daily_intention ?? "",
         i18n.language as "en" | "sw",
         profile?.tone ?? "gentle",
-        firstIntention
+        firstIntention,
+        profile?.soft_mode ?? false
       )
       setCompanionMsg(msg)
     } catch (err: any) {
@@ -365,6 +387,14 @@ export function HomePage() {
       toast.error(t("home.error_save_mood"))
     }
 
+    // Soft Mode entry proposal — never automatic, just a gentle offer (see
+    // SoftModeNudgeCard): 3 consecutive heavy days, or a return after a 4+
+    // day absence, and she hasn't already been offered (or dismissed) today.
+    if (!softModeActive && (isThirdConsecutiveLowMoodDay(mood, recentMoods) || isAbsenceReturn(recentMoods, mood))) {
+      const dismissedKey = `anchor_soft_enter_dismissed_${user.id}_${todayStr()}`
+      if (!localStorage.getItem(dismissedKey)) setShowSoftEnterNudge(true)
+    }
+
     // Gratitude jar reveal offer — never automatic (see JarOpeningModal),
     // just the trigger check: today's mood is the 2nd consecutive
     // low/stressed day, and she hasn't already been offered today.
@@ -387,9 +417,37 @@ export function HomePage() {
     }
   }
 
+  async function acceptSoftMode() {
+    await updateProfile({ soft_mode: true, soft_mode_since: new Date().toISOString() })
+    setShowSoftEnterNudge(false)
+  }
+
+  function dismissSoftEnterNudge() {
+    if (user) localStorage.setItem(`anchor_soft_enter_dismissed_${user.id}_${todayStr()}`, "true")
+    setShowSoftEnterNudge(false)
+  }
+
+  // Shared by both the automatic exit nudge and the badge's own "Return to
+  // full rhythm" button, and by the Settings toggle indirectly (that one
+  // calls updateProfile itself, same fields) — always a sober confirmation,
+  // never framed as a "cure" (this isn't a medical app).
+  async function exitSoftMode() {
+    await updateProfile({ soft_mode: false, soft_mode_since: null })
+    setShowSoftExitNudge(false)
+    toast.success(t("soft_mode.welcome_back"))
+  }
+
+  function dismissSoftExitNudge() {
+    if (user) localStorage.setItem(`anchor_soft_exit_dismissed_${user.id}_${todayStr()}`, "true")
+    setShowSoftExitNudge(false)
+  }
+
   async function saveAnchor(updates: Partial<DailyAnchor>) {
     if (!user) return
     const finalUpdates = { ...updates }
+    if (softModeActive) {
+      finalUpdates.soft_mode_day = true
+    }
 
     if (dayMode === "planning") {
       if (updates.future_task !== undefined && updates.future_task !== anchor.future_task && anchor.future_completed) {
@@ -485,6 +543,48 @@ export function HomePage() {
   const allAnchorsDone = anchor.future_completed && anchor.mindbody_completed && anchor.life_completed
   const hasAnyAnchorText = anchor.future_task || anchor.mindbody_task || anchor.life_task
 
+  // Shared shape for both the soft-mode single-anchor picker and the
+  // tracking list below — lets tracking mode filter down to "just the
+  // categories she actually filled" without duplicating the 3 cards' worth
+  // of JSX for the soft-mode case.
+  const anchorDefs = [
+    {
+      key: "future" as const,
+      icon: "\u{1F331}",
+      borderColor: "var(--sage)",
+      title: t("anchors.future"),
+      subtitle: t("anchors.future_sub"),
+      task: anchor.future_task,
+      completed: anchor.future_completed,
+      onTaskChange: (v: string) => saveAnchor({ future_task: v }),
+      onCheckChange: (v: boolean) => saveAnchor({ future_completed: v }),
+    },
+    {
+      key: "mindbody" as const,
+      icon: "\u{1F9E0}",
+      borderColor: "var(--rose-accent)",
+      title: t("anchors.mindbody"),
+      subtitle: t("anchors.mindbody_sub"),
+      task: anchor.mindbody_task,
+      completed: anchor.mindbody_completed,
+      onTaskChange: (v: string) => saveAnchor({ mindbody_task: v }),
+      onCheckChange: (v: boolean) => saveAnchor({ mindbody_completed: v }),
+    },
+    {
+      key: "life" as const,
+      icon: "\u{1F30D}",
+      borderColor: "var(--lavender)",
+      title: t("anchors.life"),
+      subtitle: t("anchors.life_sub"),
+      task: anchor.life_task,
+      completed: anchor.life_completed,
+      onTaskChange: (v: string) => saveAnchor({ life_task: v }),
+      onCheckChange: (v: boolean) => saveAnchor({ life_completed: v }),
+    },
+  ]
+  const filledAnchorDefs = anchorDefs.filter((d) => d.task)
+  const softAllFilledDone = filledAnchorDefs.length > 0 && filledAnchorDefs.every((d) => d.completed)
+
   const moodDone = selectedMood !== null
   const anchorsDone = allAnchorsDone
   const cycleComplete = moodDone && anchorsDone && checkInDone
@@ -538,6 +638,11 @@ export function HomePage() {
             {t(getGreetingKey())}{firstName ? `, ${firstName}` : ""} &#x1F33B;
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">{t("home.subtitle")}</p>
+          {softModeActive && (
+            <div className="mt-2">
+              <SoftModeBadge onExit={exitSoftMode} />
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <Link to="/letters">
@@ -592,6 +697,13 @@ export function HomePage() {
       </div>
 
       <CircleInviteNudge />
+
+      {showSoftEnterNudge && (
+        <SoftModeNudgeCard variant="enter" onAccept={acceptSoftMode} onDismiss={dismissSoftEnterNudge} />
+      )}
+      {showSoftExitNudge && (
+        <SoftModeNudgeCard variant="exit" onAccept={exitSoftMode} onDismiss={dismissSoftExitNudge} />
+      )}
 
       {/* Companion */}
       <Card className="border-0 bg-gradient-to-br from-sage-light/60 to-lavender/30 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
@@ -763,19 +875,23 @@ export function HomePage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="font-heading text-lg font-semibold">{t("home.anchors_title")} &#x2693;</h2>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button className="text-muted-foreground hover:text-foreground transition-colors">
-                    <Info className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="text-xs">{t("home.why_three")}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <h2 className="font-heading text-lg font-semibold">
+              {softModeActive && !softExpanded ? t("soft_mode.one_thing_title") : <>{t("home.anchors_title")} &#x2693;</>}
+            </h2>
+            {(!softModeActive || softExpanded) && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button className="text-muted-foreground hover:text-foreground transition-colors">
+                      <Info className="h-4 w-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">{t("home.why_three")}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
 
           {dayMode === "planning" && hasAnyAnchorText && (
@@ -794,30 +910,41 @@ export function HomePage() {
 
         {dayMode === "planning" && (
           <div className="space-y-3">
-            <PlanningAnchorCard
-              borderColor="var(--sage)"
-              icon="&#x1F331;"
-              title={t("anchors.future")}
-              subtitle={t("anchors.future_sub")}
-              task={anchor.future_task}
-              onTaskChange={(v) => saveAnchor({ future_task: v })}
-            />
-            <PlanningAnchorCard
-              borderColor="var(--rose-accent)"
-              icon="&#x1F9E0;"
-              title={t("anchors.mindbody")}
-              subtitle={t("anchors.mindbody_sub")}
-              task={anchor.mindbody_task}
-              onTaskChange={(v) => saveAnchor({ mindbody_task: v })}
-            />
-            <PlanningAnchorCard
-              borderColor="var(--lavender)"
-              icon="&#x1F30D;"
-              title={t("anchors.life")}
-              subtitle={t("anchors.life_sub")}
-              task={anchor.life_task}
-              onTaskChange={(v) => saveAnchor({ life_task: v })}
-            />
+            {softModeActive && !softExpanded ? (
+              <SoftAnchorPicker
+                defs={anchorDefs}
+                selected={softCategory ?? anchorDefs.find((d) => d.task)?.key ?? null}
+                onSelect={setSoftCategory}
+                onExpand={() => setSoftExpanded(true)}
+              />
+            ) : (
+              <>
+                <PlanningAnchorCard
+                  borderColor="var(--sage)"
+                  icon="&#x1F331;"
+                  title={t("anchors.future")}
+                  subtitle={t("anchors.future_sub")}
+                  task={anchor.future_task}
+                  onTaskChange={(v) => saveAnchor({ future_task: v })}
+                />
+                <PlanningAnchorCard
+                  borderColor="var(--rose-accent)"
+                  icon="&#x1F9E0;"
+                  title={t("anchors.mindbody")}
+                  subtitle={t("anchors.mindbody_sub")}
+                  task={anchor.mindbody_task}
+                  onTaskChange={(v) => saveAnchor({ mindbody_task: v })}
+                />
+                <PlanningAnchorCard
+                  borderColor="var(--lavender)"
+                  icon="&#x1F30D;"
+                  title={t("anchors.life")}
+                  subtitle={t("anchors.life_sub")}
+                  task={anchor.life_task}
+                  onTaskChange={(v) => saveAnchor({ life_task: v })}
+                />
+              </>
+            )}
 
             {hasAnyAnchorText && (
               <Button onClick={attemptLockDay} className="w-full" size="lg">
@@ -830,38 +957,21 @@ export function HomePage() {
 
         {dayMode === "tracking" && (
           <div className="space-y-3">
-            <TrackingAnchorCard
-              borderColor="var(--sage)"
-              icon="&#x1F331;"
-              title={t("anchors.future")}
-              subtitle={t("anchors.future_sub")}
-              task={anchor.future_task}
-              completed={anchor.future_completed}
-              onCheckChange={(v) => saveAnchor({ future_completed: v })}
-              lockedAt={anchor.anchors_locked_at}
-            />
-            <TrackingAnchorCard
-              borderColor="var(--rose-accent)"
-              icon="&#x1F9E0;"
-              title={t("anchors.mindbody")}
-              subtitle={t("anchors.mindbody_sub")}
-              task={anchor.mindbody_task}
-              completed={anchor.mindbody_completed}
-              onCheckChange={(v) => saveAnchor({ mindbody_completed: v })}
-              lockedAt={anchor.anchors_locked_at}
-            />
-            <TrackingAnchorCard
-              borderColor="var(--lavender)"
-              icon="&#x1F30D;"
-              title={t("anchors.life")}
-              subtitle={t("anchors.life_sub")}
-              task={anchor.life_task}
-              completed={anchor.life_completed}
-              onCheckChange={(v) => saveAnchor({ life_completed: v })}
-              lockedAt={anchor.anchors_locked_at}
-            />
+            {(softModeActive ? filledAnchorDefs : anchorDefs).map((d) => (
+              <TrackingAnchorCard
+                key={d.key}
+                borderColor={d.borderColor}
+                icon={d.icon}
+                title={d.title}
+                subtitle={d.subtitle}
+                task={d.task}
+                completed={d.completed}
+                onCheckChange={d.onCheckChange}
+                lockedAt={anchor.anchors_locked_at}
+              />
+            ))}
 
-            {allAnchorsDone && (
+            {(softModeActive ? softAllFilledDone : allAnchorsDone) && (
               <div className="rounded-xl bg-sage-light/60 p-4 text-center">
                 <p className="text-sm font-medium text-primary">
                   🎉 {t("home.all_anchors_done")}
@@ -983,6 +1093,71 @@ function PlanningAnchorCard({ borderColor, icon, title, subtitle, task, onTaskCh
           placeholder={t("home.anchor_placeholder")}
           className="border-0 bg-muted/50 px-3 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
         />
+      </CardContent>
+    </Card>
+  )
+}
+
+/* ─── Soft Mode: single-anchor picker ─── */
+interface SoftAnchorDef {
+  key: "future" | "mindbody" | "life"
+  icon: string
+  borderColor: string
+  title: string
+  subtitle: string
+  task: string
+  onTaskChange: (value: string) => void
+}
+
+interface SoftAnchorPickerProps {
+  defs: SoftAnchorDef[]
+  selected: SoftAnchorDef["key"] | null
+  onSelect: (key: SoftAnchorDef["key"]) => void
+  onExpand: () => void
+}
+
+// Soft mode's lightweight planning view: chips to choose which ONE of the 3
+// categories to fill today, plus a single input for it. "+ Add more anchors
+// today" hands off to the normal 3-card view (see home.tsx's softExpanded
+// state) — soft mode proposes doing less, it never locks out the full ritual.
+function SoftAnchorPicker({ defs, selected, onSelect, onExpand }: SoftAnchorPickerProps) {
+  const { t } = useTranslation()
+  const chosen = defs.find((d) => d.key === selected) ?? null
+
+  return (
+    <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+      <CardContent className="p-5 space-y-4">
+        <div className="flex gap-2">
+          {defs.map((d) => (
+            <button
+              key={d.key}
+              onClick={() => onSelect(d.key)}
+              className={`flex-1 rounded-full px-3 py-2 text-xs font-medium transition-all duration-200 ${
+                selected === d.key
+                  ? "bg-primary text-primary-foreground shadow-md scale-105"
+                  : "bg-muted text-foreground hover:bg-accent hover:scale-105"
+              }`}
+            >
+              {d.icon} {d.title}
+            </button>
+          ))}
+        </div>
+        {chosen && (
+          <Input
+            value={chosen.task}
+            onChange={(e) => chosen.onTaskChange(e.target.value)}
+            placeholder={t("home.anchor_placeholder")}
+            className="border-0 bg-muted/50 px-3 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
+          />
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onExpand}
+          className="px-0 text-xs text-primary hover:bg-transparent hover:underline"
+        >
+          {t("soft_mode.add_more")}
+        </Button>
       </CardContent>
     </Card>
   )

@@ -132,10 +132,10 @@ function pick<T>(arr: T[]): T {
 // trust it. Static fallbacks are already well within budget; this only ever
 // touches AI output.
 const MAX_WORDS = 16
-function capWords(text: string): string {
+function capWords(text: string, maxWords: number = MAX_WORDS): string {
   const words = text.split(/\s+/)
-  if (words.length <= MAX_WORDS) return text
-  return words.slice(0, MAX_WORDS).join(" ").replace(/[,;:]$/, "") + "…"
+  if (words.length <= maxWords) return text
+  return words.slice(0, maxWords).join(" ").replace(/[,;:]$/, "") + "…"
 }
 
 // Local wall-clock date/hour/minute for a given IANA timezone, no external deps.
@@ -226,6 +226,7 @@ interface ProfileRow {
   preferred_language: Language
   timezone: string
   tone: Tone
+  soft_mode: boolean
 }
 
 interface PrefsRow {
@@ -299,8 +300,9 @@ async function buildMessage(params: {
   yesterdayMood: string | null
   hasIntention: boolean
   groqApiKey: string | undefined
+  softMode: boolean
 }): Promise<{ title: string; body: string }> {
-  const { slot, language, tone, firstName, moodStreak, yesterdayMood, hasIntention, groqApiKey } = params
+  const { slot, language, tone, firstName, moodStreak, yesterdayMood, hasIntention, groqApiKey, softMode } = params
   const title = TITLES[slot][language]
 
   // Poor context (brand-new or long-dormant user, nothing to personalize
@@ -320,13 +322,13 @@ async function buildMessage(params: {
     return { title, body: pick(STATIC_FALLBACKS[slot][language]) }
   }
 
-  const cacheKey = `${slot}:${language}:${tone}:${streakBucket(moodStreak)}:${hasIntention ? 1 : 0}:${yesterdayMood || "none"}`
+  const cacheKey = `${slot}:${language}:${tone}:${streakBucket(moodStreak)}:${hasIntention ? 1 : 0}:${yesterdayMood || "none"}:${softMode ? 1 : 0}`
   const cached = messageCache.get(cacheKey)
   if (cached) return { title, body: cached.body }
 
   try {
-    const raw = await generateWithGroq({ slot, language, tone, firstName, moodStreak, yesterdayMood, hasIntention, groqApiKey })
-    const result = { title, body: capWords(raw) }
+    const raw = await generateWithGroq({ slot, language, tone, firstName, moodStreak, yesterdayMood, hasIntention, groqApiKey, softMode })
+    const result = { title, body: capWords(raw, softMode ? 10 : MAX_WORDS) }
     messageCache.set(cacheKey, result)
     return result
   } catch {
@@ -353,8 +355,9 @@ async function generateWithGroq(params: {
   yesterdayMood: string | null
   hasIntention: boolean
   groqApiKey: string
+  softMode: boolean
 }): Promise<string> {
-  const { slot, language, tone, firstName, moodStreak, yesterdayMood, hasIntention, groqApiKey } = params
+  const { slot, language, tone, firstName, moodStreak, yesterdayMood, hasIntention, groqApiKey, softMode } = params
 
   const contextLines = [
     `Name: ${firstName || "friend"}`,
@@ -374,7 +377,7 @@ async function generateWithGroq(params: {
           content: `You are Anchor, a gentle wellness companion sending a short push notification.
 
 Rules:
-- ONE sentence, max 15 words.
+- ONE sentence, max ${softMode ? 10 : 15} words.
 - Tone: ${TONE_INSTRUCTIONS[tone]}.
 - Never guilt-trip, never say "you should" or "you haven't". Supportive, not demanding.
 - Weave in the given context ONLY if it fits naturally in one short sentence — otherwise keep it simple and warm.
@@ -383,6 +386,7 @@ Rules:
   general ("your anchors", "today") rather than naming anything specific.
 - Respond in ${language === "sw" ? "Swahili" : "English"}.
 - Return ONLY the sentence, no quotes, no explanation.
+${softMode ? "- She is currently in a tender period (Soft Mode): be extra soft, and keep it even shorter than usual." : ""}
 
 ${slotInstruction(slot)}`,
         },
@@ -441,7 +445,7 @@ export async function GET(request: Request): Promise<Response> {
 
   const profiles = await restGet<ProfileRow>(
     rest,
-    `profiles?id=in.(${idList})&select=id,full_name,preferred_language,timezone,tone`
+    `profiles?id=in.(${idList})&select=id,full_name,preferred_language,timezone,tone,soft_mode`
   )
   const profileById = new Map(profiles.map((p) => [p.id, p]))
   const prefsByUser = new Map(prefsRows.map((p) => [p.user_id, p]))
@@ -499,6 +503,13 @@ export async function GET(request: Request): Promise<Response> {
       const slotEnabled =
         slot.key === "morning" ? prefs.morning_enabled : slot.key === "midday" ? prefs.midday_enabled : prefs.evening_enabled
       if (!slotEnabled) {
+        skipped++
+        return
+      }
+
+      // Soft mode: at most 1 reminder a day (the morning one, most relevant)
+      // and never a check-in nudge — see CLAUDE.md's Soft Mode feature.
+      if (profile.soft_mode && slot.key !== "morning") {
         skipped++
         return
       }
@@ -577,6 +588,7 @@ export async function GET(request: Request): Promise<Response> {
         yesterdayMood,
         hasIntention: !!todayAnchor?.daily_intention,
         groqApiKey: GROQ_API_KEY,
+        softMode: profile.soft_mode,
       })
 
       try {

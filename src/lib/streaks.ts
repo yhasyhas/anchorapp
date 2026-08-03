@@ -158,16 +158,24 @@ export function dominantIntentionForStreak(streakDates: string[], anchors: Daily
   return top ? top[0] : null
 }
 
+// A day counts as a complete anchor day for streak purposes: normally all 3
+// anchors must be done, but on a soft_mode_day (see the daily_anchors column
+// and CLAUDE.md's Soft Mode feature) just 1 of the 3 is enough — soft mode
+// proposes doing less, and the streak must honor that rather than break it.
+export function isAnchorDayComplete(a: DailyAnchor): boolean {
+  return a.soft_mode_day
+    ? a.future_completed || a.mindbody_completed || a.life_completed
+    : a.future_completed && a.mindbody_completed && a.life_completed
+}
+
 export function calculateStreaks(moods: MoodLog[], anchors: DailyAnchor[]): StreakData {
   const today = localDateStr()
 
   // ✅ Toute humeur logguée compte : great, okay, meh, low, stressed
   const moodDates = new Set(moods.filter((m) => m.mood && m.date <= today).map((m) => m.date))
-  // ✅ Les 3 ancres doivent être complétées
+  // ✅ Les 3 ancres doivent être complétées (ou 1/3 un jour de soft mode)
   const anchorDates = new Set(
-    anchors
-      .filter((a) => a.future_completed && a.mindbody_completed && a.life_completed && a.date <= today)
-      .map((a) => a.date)
+    anchors.filter((a) => isAnchorDayComplete(a) && a.date <= today).map((a) => a.date)
   )
 
   const moodRun = currentStreakRun(moodDates, false)

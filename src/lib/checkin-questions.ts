@@ -33,6 +33,19 @@ const pools = {
   ],
 }
 
+// Soft Mode's single check-in question, when there's no AI follow-up to use
+// instead (see generateFollowUpQuestion in src/lib/ai-service.ts) — a fixed
+// hand-picked gentle prompt, deliberately NOT drawn from the rotating pool
+// above, which includes heavier questions ("What are you holding too tightly?").
+const SOFT_QUESTION = {
+  en: "Where did you find a little peace today?",
+  sw: "Uliipata wapi amani kidogo leo?",
+}
+
+export function getSoftModeQuestion(lang: "en" | "sw" = "en"): string {
+  return SOFT_QUESTION[lang] ?? SOFT_QUESTION.en
+}
+
 export function getDailyQuestions(
   userId: string,
   date: string,

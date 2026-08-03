@@ -1,8 +1,8 @@
 import { Outlet, NavLink, useLocation } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { Home, BarChart3, Heart, Footprints, CloudOff } from "lucide-react"
+import { Home, BarChart3, Heart, Footprints, CloudOff, RefreshCw } from "lucide-react"
 import { useEffect, useState } from "react"
-import { isOnline, processSyncQueue } from "@/lib/offline-sync"
+import { isOnline, processSyncQueue, getPendingSyncCount, SYNC_QUEUE_CHANGED_EVENT } from "@/lib/offline-sync"
 import { useAuth } from "@/lib/auth-context"
 import { FocusModeModal } from "@/components/anchor/focus-mode-modal"
 import { InstallPrompt } from "@/components/pwa/install-prompt"
@@ -20,6 +20,16 @@ export function AppLayout() {
   const location = useLocation()
   const [online, setOnline] = useState(isOnline())
   const [showFocus, setShowFocus] = useState(false)
+  const [pendingCount, setPendingCount] = useState(0)
+  const [retrying, setRetrying] = useState(false)
+
+  useEffect(() => {
+    if (!user) return
+    const refreshPendingCount = () => setPendingCount(getPendingSyncCount(user.id))
+    refreshPendingCount()
+    window.addEventListener(SYNC_QUEUE_CHANGED_EVENT, refreshPendingCount)
+    return () => window.removeEventListener(SYNC_QUEUE_CHANGED_EVENT, refreshPendingCount)
+  }, [user])
 
   useEffect(() => {
     if (!user) return
@@ -41,17 +51,45 @@ export function AppLayout() {
     processSyncQueue(user.id)
   }, [location, user])
 
+  // Manual retry — for when a device comes back online but processSyncQueue's
+  // automatic pass (on the 'online' event / route change) already ran and
+  // still left items behind (e.g. a transient server error), so she isn't
+  // stuck waiting for another route change to try again.
+  async function handleRetrySync() {
+    if (!user || retrying) return
+    setRetrying(true)
+    try {
+      await processSyncQueue(user.id)
+    } finally {
+      setRetrying(false)
+    }
+  }
+
   return (
     <div className="flex min-h-svh flex-col bg-background">
       <InstallPrompt />
 
-      {/* Offline Banner - Style doux */}
-      {!online && (
+      {/* Offline / pending-sync banner - Style doux */}
+      {(!online || pendingCount > 0) && (
         <div className="flex items-center justify-center gap-2 bg-lavender/40 px-4 py-2.5 text-center backdrop-blur-sm animate-in slide-in-from-top">
-          <CloudOff className="h-4 w-4 text-muted-foreground" />
+          <CloudOff className="h-4 w-4 shrink-0 text-muted-foreground" />
           <span className="text-sm text-muted-foreground font-medium">
-            {t("offline.banner")}
+            {!online
+              ? pendingCount > 0
+                ? t("offline.banner_with_pending", { count: pendingCount })
+                : t("offline.banner")
+              : t("offline.pending_sync", { count: pendingCount })}
           </span>
+          {online && pendingCount > 0 && (
+            <button
+              onClick={handleRetrySync}
+              disabled={retrying}
+              className="flex shrink-0 items-center gap-1 text-sm font-semibold text-primary underline underline-offset-4 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${retrying ? "animate-spin" : ""}`} />
+              {retrying ? t("offline.retrying") : t("offline.retry")}
+            </button>
+          )}
         </div>
       )}
 

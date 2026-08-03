@@ -50,6 +50,10 @@ export interface CheckIn {
   evening_release: string
   evening_mood: string | null  // ← AJOUTÉ
   evening_mood_note: string
+  // NULL = not yet attempted today (by any device), '' = attempted and
+  // resolved to "no personalization", non-empty = the resolved question.
+  // See supabase/migrations/20260803170000_add_check_in_personal_question.sql
+  personal_question: string | null
   created_at: string
 }
 

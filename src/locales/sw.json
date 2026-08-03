@@ -227,7 +227,11 @@
     "request_new_link": "Omba kiunga kipya"
   },
   "offline": {
-    "banner": "Huna mtandao. Mabadiliko yamehifadhiwa."
+    "banner": "Huna mtandao. Mabadiliko yamehifadhiwa.",
+    "banner_with_pending": "Huna mtandao. Mabadiliko {{count}} yamehifadhiwa, yanasubiri kusawazishwa.",
+    "pending_sync": "Mabadiliko {{count}} bado hayajasawazishwa.",
+    "retry": "Jaribu tena sasa",
+    "retrying": "Inasawazisha..."
   },
   "pwa": {
     "install_title": "Ongeza Anchor kwenye skrini yako ya nyumbani",

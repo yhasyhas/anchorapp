@@ -227,7 +227,11 @@
     "request_new_link": "Request new link"
   },
   "offline": {
-    "banner": "You're offline. Changes saved locally."
+    "banner": "You're offline. Changes saved locally.",
+    "banner_with_pending": "You're offline. {{count}} change(s) saved locally, waiting to sync.",
+    "pending_sync": "{{count}} change(s) haven't synced yet.",
+    "retry": "Retry now",
+    "retrying": "Syncing..."
   },
   "pwa": {
     "install_title": "Add Anchor to your home screen",

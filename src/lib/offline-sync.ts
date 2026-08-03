@@ -19,6 +19,17 @@ export function isOnline(): boolean {
   return navigator.onLine
 }
 
+// Custom event name for "the pending queue length may have changed" —
+// dispatched on every write/flush below so UI (see app-layout.tsx's retry
+// banner) can stay in sync without polling localStorage. A plain
+// window.dispatchEvent is enough here; there's only ever one tab/window
+// worth of UI listening to this in practice.
+export const SYNC_QUEUE_CHANGED_EVENT = "anchor-sync-queue-changed"
+
+function notifyQueueChanged() {
+  window.dispatchEvent(new CustomEvent(SYNC_QUEUE_CHANGED_EVENT))
+}
+
 // À appeler une fois la session utilisateur connue. Rattache les écritures en attente de
 // l'ancienne clé globale (pré-scoping) à cet utilisateur — best-effort, ces entrées
 // portent déjà leur propre user_id, donc RLS refusera silencieusement celles qui
@@ -33,6 +44,7 @@ export function migrateLegacySyncQueue(userId: string) {
     if (!Array.isArray(legacyItems) || legacyItems.length === 0) return
     const queue = getSyncQueue(userId)
     localStorage.setItem(userKey(QUEUE_KEY_BASE, userId), JSON.stringify([...queue, ...legacyItems]))
+    notifyQueueChanged()
   } catch {
     // Clé legacy corrompue — rien à récupérer
   }
@@ -42,6 +54,7 @@ export function addToSyncQueue(userId: string, item: SyncItem) {
   const queue = getSyncQueue(userId)
   queue.push(item)
   localStorage.setItem(userKey(QUEUE_KEY_BASE, userId), JSON.stringify(queue))
+  notifyQueueChanged()
 }
 
 export function getSyncQueue(userId: string): SyncItem[] {
@@ -49,8 +62,17 @@ export function getSyncQueue(userId: string): SyncItem[] {
   return raw ? JSON.parse(raw) : []
 }
 
+// How many writes on THIS device haven't reached Supabase yet — surfaced in
+// app-layout.tsx's banner so a stuck queue (e.g. she switched devices before
+// this one ever reconnected) is visible and manually retryable, rather than
+// failing silently forever.
+export function getPendingSyncCount(userId: string): number {
+  return getSyncQueue(userId).length
+}
+
 export function clearSyncQueue(userId: string) {
   localStorage.setItem(userKey(QUEUE_KEY_BASE, userId), JSON.stringify([]))
+  notifyQueueChanged()
 }
 
 export async function processSyncQueue(userId: string) {
@@ -82,6 +104,7 @@ export async function processSyncQueue(userId: string) {
   }
 
   localStorage.setItem(userKey(QUEUE_KEY_BASE, userId), JSON.stringify(failed))
+  notifyQueueChanged()
 }
 
 export function getLocalData<T>(key: string): T | null {

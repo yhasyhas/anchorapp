@@ -124,8 +124,13 @@ export function CheckInPage() {
   useEffect(() => {
     if (user) {
       loadDailyQuestions()
-      loadCheckIn()
-      loadPersonalizedQuestion()
+      // Chained, not parallel: loadPersonalizedQuestion needs to know whether
+      // today's row already has a resolved personal_question (set by this
+      // device earlier, or by another device entirely) before deciding
+      // whether to generate one — same reasoning as home.tsx chaining
+      // loadContextData off loadTodayData's resolved value rather than
+      // reading React state, which wouldn't have committed yet.
+      loadCheckIn().then((loaded) => loadPersonalizedQuestion(loaded))
     }
   }, [user])
 
@@ -143,15 +148,15 @@ export function CheckInPage() {
     }
   }
 
-  // Generated once per day and cached — see the personal_q key below — never
-  // regenerated just because the page was reopened. Also fetches the same
-  // 7-day window the quick-reply chips render from, regardless of whether a
-  // personalized question ends up existing for today.
-  async function loadPersonalizedQuestion() {
+  // Resolved server-side now (check_ins.personal_question), not a per-device
+  // localStorage cache — a null/undefined column means "not yet attempted by
+  // ANY device today"; an empty string means "attempted, resolved to no
+  // personalization"; either way, once one device resolves it, every other
+  // device sees the same answer instead of each generating its own. Also
+  // fetches the same 7-day window the quick-reply chips render from,
+  // regardless of whether a personalized question ends up existing for today.
+  async function loadPersonalizedQuestion(existingCheckIn?: Partial<CheckIn>) {
     if (!user) return
-    const key = `anchor_checkin_personal_q_${user.id}_${todayStr()}`
-    const cached = getLocalData<{ question: string | null }>(key)
-    if (cached) setPersonalQuestion(cached.question)
 
     try {
       const since = daysAgoStr(6)
@@ -171,12 +176,23 @@ export function CheckInPage() {
 
       setRecentCheckIns((checkIns as Partial<CheckIn>[]) || [])
 
-      // The question itself is already resolved for today — only the chips
-      // above needed this fetch.
-      if (cached) return
+      const existing = existingCheckIn?.personal_question
+      if (existing !== undefined && existing !== null) {
+        setPersonalQuestion(existing || null)
+        return
+      }
+
+      if (!isOnline()) {
+        // Don't persist a "no personalization" result just because THIS
+        // device is offline — leave the column untouched so an online
+        // attempt (this device later, or another device) can still resolve
+        // it for real today.
+        setPersonalQuestion(null)
+        return
+      }
 
       if (!profile?.ai_enabled || !profile?.ai_checkins_enabled) {
-        setLocalData(key, { question: null })
+        await persistPersonalQuestion(null)
         return
       }
 
@@ -186,7 +202,7 @@ export function CheckInPage() {
         (anchors as Partial<DailyAnchor>[]) || []
       )
       if (entries.length === 0) {
-        setLocalData(key, { question: null })
+        await persistPersonalQuestion(null)
         return
       }
 
@@ -197,19 +213,36 @@ export function CheckInPage() {
         i18n.language as "en" | "sw",
         profile?.tone ?? "gentle"
       )
-      setLocalData(key, { question })
-      setPersonalQuestion(question)
+      await persistPersonalQuestion(question)
     } catch (err) {
       console.error("Failed to load personalized question:", err)
-      if (!cached) {
-        setLocalData(key, { question: null })
-        setPersonalQuestion(null)
-      }
+      setPersonalQuestion(null)
     }
   }
 
-  async function loadCheckIn() {
+  // Single-column upsert — only ever sets user_id/date/personal_question, so
+  // it can run before (or after) the full reflection save without touching
+  // any other field either way. Same established pattern as
+  // src/pages/move.tsx's addToAnchor.
+  async function persistPersonalQuestion(question: string | null) {
+    setPersonalQuestion(question)
     if (!user) return
+    try {
+      const { error } = await supabase
+        .from("check_ins")
+        .upsert({ user_id: user.id, date: todayStr(), personal_question: question ?? "" }, { onConflict: "user_id,date" })
+      if (error) throw error
+    } catch (err) {
+      console.error("Failed to persist personalized question:", err)
+      // Best-effort — worst case this device (or another) just re-attempts
+      // next time today's check-in loads; saved reflection answers are never
+      // affected by this.
+    }
+  }
+
+  async function loadCheckIn(): Promise<Partial<CheckIn> | undefined> {
+    if (!user) return undefined
+    let resolved: Partial<CheckIn> | undefined
     try {
       const localKey = `checkin_${user.id}_${todayStr()}`
       const cached = getLocalData<Partial<CheckIn>>(localKey)
@@ -228,18 +261,22 @@ export function CheckInPage() {
           setCheckIn(data)
           setLocalData(localKey, data)
           if (data.voice_note_url) loadSignedAudioUrl(data.voice_note_url)
+          resolved = data
         } else if (cached) {
           setCheckIn(cached)
           if (cached.voice_note_url) loadSignedAudioUrl(cached.voice_note_url)
+          resolved = cached
         }
       } else if (cached) {
         setCheckIn(cached)
         if (cached.voice_note_url) loadSignedAudioUrl(cached.voice_note_url)
+        resolved = cached
       }
     } catch (err: any) {
       console.error("Failed to load check-in:", err)
       toast.error(t("checkin.error_load"))
     }
+    return resolved
   }
 
   // voice-notes is a private bucket (see the migration) — playback always

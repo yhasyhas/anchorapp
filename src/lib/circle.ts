@@ -28,6 +28,20 @@ export async function listMemberships(): Promise<CircleMembership[]> {
   return (data ?? []) as CircleMembership[]
 }
 
+// Pending invites the caller RECEIVED (someone else invited her) — a single
+// targeted query rather than listMemberships() + client-side filtering, so
+// call sites that only need this (the home screen badge/nudge) don't pull
+// every membership row just to check for one thing.
+export async function listPendingReceivedInvites(userId: string): Promise<CircleMembership[]> {
+  const { data, error } = await supabase
+    .from("circle_memberships")
+    .select("*")
+    .eq("status", "pending")
+    .neq("invited_by", userId)
+  if (error) throw toCircleError(error)
+  return (data ?? []) as CircleMembership[]
+}
+
 // Email invites still awaiting signup (invite-by-email branch, no account
 // existed yet at invite time). RLS already scopes this to the caller's own
 // sent invites.

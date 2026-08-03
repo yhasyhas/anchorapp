@@ -25,6 +25,8 @@ import { PushNudge } from "@/components/anchor/push-nudge"
 import { JournalCard } from "@/components/anchor/journal-card"
 import { StreakMilestoneModal } from "@/components/anchor/streak-milestone-modal"
 import { getLastSeenLetterWeek } from "@/lib/letters"
+import { CircleInviteNudge } from "@/components/circle/circle-invite-nudge"
+import { listPendingReceivedInvites } from "@/lib/circle"
 
 const ANCHOR_MILESTONES_CELEBRATED_KEY = "anchor_streak_milestones_celebrated"
 
@@ -86,6 +88,7 @@ export function HomePage() {
   const [showConfetti, setShowConfetti] = useState(false)
   const [streakMilestone, setStreakMilestone] = useState<number | null>(null)
   const [hasUnreadLetter, setHasUnreadLetter] = useState(false)
+  const [hasPendingCircleInvite, setHasPendingCircleInvite] = useState(false)
 
   const [checkInDone, setCheckInDone] = useState(false)
 
@@ -130,6 +133,22 @@ export function HomePage() {
 
   useEffect(() => {
     if (user) checkUnreadLetter()
+  }, [user])
+
+  // Drives only the Settings icon's badge dot — the nudge card itself
+  // (CircleInviteNudge, rendered below) does its own independent fetch of
+  // the same data, same pattern as PushNudge fetching its own push state.
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    listPendingReceivedInvites(user.id)
+      .then((invites) => {
+        if (!cancelled) setHasPendingCircleInvite(invites.length > 0)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
   }, [user])
 
   async function checkUnreadLetter() {
@@ -454,12 +473,21 @@ export function HomePage() {
             </Button>
           </Link>
           <Link to="/settings">
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground transition-colors">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative text-muted-foreground hover:text-foreground transition-colors"
+            >
               <Settings className="h-5 w-5" />
+              {hasPendingCircleInvite && (
+                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-accent" />
+              )}
             </Button>
           </Link>
         </div>
       </div>
+
+      <CircleInviteNudge />
 
       {/* Companion */}
       <Card className="border-0 bg-gradient-to-br from-sage-light/60 to-lavender/30 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">

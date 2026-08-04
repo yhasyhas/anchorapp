@@ -36,17 +36,14 @@ interface SlotDef {
 // bucket at whatever moment the cron actually fires — this is genuinely
 // timezone-aware per user via profiles.timezone, not hardcoded to Nairobi.
 //
-// BUT: the ideal design (a single cron every ~15 min, catching every
-// timezone's exact local slot) needs Vercel Pro — Hobby plans only allow
-// cron jobs that fire once per day (see vercel.json, which currently has 3
-// fixed-UTC-time entries: 06:00 / 12:00 / 16:30 UTC, i.e. exactly 9:00 /
-// 15:00 / 19:30 in Africa/Nairobi, the app's default and current userbase).
-// On Hobby, only users whose local time matches one of those 3 fixed UTC
-// moments (in practice, Africa/Nairobi) get correctly-timed reminders — a
-// user in a different timezone simply won't have a cron firing at their
-// 9am. If/when the userbase spans more timezones, either upgrade to Pro and
-// switch vercel.json back to a single `*/15 * * * *` entry, or add more
-// fixed-time cron entries for the other timezones you need to cover.
+// This endpoint is invoked every 15 minutes by a Supabase pg_cron job (see
+// supabase/migrations/20260804170000_schedule_reminders_cron.sql), not by
+// Vercel's native Cron Jobs — those are capped at once-per-day invocation
+// on the Hobby plan, which isn't frequent enough to catch every timezone's
+// exact local slot. pg_cron sidesteps that limit entirely for free, so a
+// user in Beijing gets her "morning" reminder at her own 9am local, same as
+// a user in Nairobi. vercel.json only still declares the weekly-letter
+// cron, which fires once a week and is well within Hobby's daily cap.
 const SLOTS: SlotDef[] = [
   { key: "morning", hour: 9, minute: 0 },
   { key: "midday", hour: 15, minute: 0 },

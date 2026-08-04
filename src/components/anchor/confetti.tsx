@@ -1,8 +1,11 @@
 import { useEffect } from "react"
+import { usePrefersReducedMotion } from "@/hooks/use-reduced-motion"
 
 export function ConfettiBurst({ active }: { active: boolean }) {
+  const reducedMotion = usePrefersReducedMotion()
+
   useEffect(() => {
-    if (!active) return
+    if (!active || reducedMotion) return
 
     const container = document.createElement("div")
     container.style.position = "fixed"
@@ -58,7 +61,7 @@ export function ConfettiBurst({ active }: { active: boolean }) {
       clearTimeout(timer)
       container.remove()
     }
-  }, [active])
+  }, [active, reducedMotion])
 
   return null
 }

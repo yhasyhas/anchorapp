@@ -213,7 +213,18 @@
     "circle_accept_success": "Sasa uko kwenye mzunguko wake 💜",
     "circle_decline_success": "Sawa — hatapata arifa.",
     "circle_share_presence": "Shiriki uwepo wangu na mzunguko wangu",
-    "circle_share_presence_desc": "Ruhusu mzunguko wako kuona, siku unazojitokeza, ujumbe rahisi \"amejitokeza leo 🌱\" — kamwe si ulichofanya."
+    "circle_share_presence_desc": "Ruhusu mzunguko wako kuona, siku unazojitokeza, ujumbe rahisi \"amejitokeza leo 🌱\" — kamwe si ulichofanya.",
+    "danger_title": "Eneo la hatari",
+    "danger_delete_button": "Futa akaunti yangu",
+    "danger_delete_desc": "Inafuta kabisa akaunti yako na kila kitu ndani yake — hisia, nanga, kujiangalia, shukrani, jarida, barua, muhtasari wa Wrapped, na maelezo ya sauti. Haiwezi kutenduliwa.",
+    "danger_delete_title": "Futa akaunti yako?",
+    "danger_delete_confirm_desc": "Hii inafuta kila kitu kabisa, sasa hivi, kwenye kila kifaa. Hakuna njia ya kurejesha baada ya hapo.",
+    "danger_delete_confirm_label": "Andika {{email}} kuthibitisha",
+    "danger_delete_cancel": "Ghairi",
+    "danger_delete_confirm_action": "Futa kabisa",
+    "danger_delete_deleting": "Inafuta...",
+    "danger_delete_success": "Akaunti yako imefutwa.",
+    "danger_delete_error": "Imeshindikana kufuta akaunti yako. Tafadhali jaribu tena."
   },
   "soft_mode": {
     "proposal_title": "Siku hizi zinahisi nzito. Unataka nikupunguzie mambo kwa muda? 💜",

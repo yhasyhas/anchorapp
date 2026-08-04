@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { usePrefersReducedMotion } from "@/hooks/use-reduced-motion"
 
 interface Particle {
   id: number
@@ -9,9 +10,10 @@ interface Particle {
 
 export function EveningReleaseAnimation({ active }: { active: boolean }) {
   const [particles, setParticles] = useState<Particle[]>([])
+  const reducedMotion = usePrefersReducedMotion()
 
   useEffect(() => {
-    if (active) {
+    if (active && !reducedMotion) {
       const newParticles = Array.from({ length: 12 }, (_, i) => ({
         id: Date.now() + i,
         x: Math.random() * 100,
@@ -22,7 +24,7 @@ export function EveningReleaseAnimation({ active }: { active: boolean }) {
       const timer = setTimeout(() => setParticles([]), 3000)
       return () => clearTimeout(timer)
     }
-  }, [active])
+  }, [active, reducedMotion])
 
   if (!active && particles.length === 0) return null
 

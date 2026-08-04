@@ -14,6 +14,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
   updateProfile: (updates: Partial<Profile>) => Promise<void>
+  deleteAccount: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -136,8 +137,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data) setProfile(data)
   }
 
+  // Permanently deletes the account server-side (api/delete-account.ts),
+  // which cascade-deletes every row across every table via each table's
+  // `user_id REFERENCES auth.users(id) ON DELETE CASCADE`, plus her voice
+  // notes in Storage. Throws on failure so the caller (Settings' danger
+  // zone) can show an error instead of silently signing her out of an
+  // account that still exists.
+  async function deleteAccount() {
+    if (!session) throw new Error("not_authenticated")
+
+    const response = await fetch("/api/delete-account", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.error || `delete_failed_${response.status}`)
+    }
+
+    await supabase.auth.signOut()
+    setProfile(null)
+  }
+
   return (
-    <AuthContext.Provider value={{ session, user, profile, loading, signIn, signUp, signOut, updateProfile }}>
+    <AuthContext.Provider
+      value={{ session, user, profile, loading, signIn, signUp, signOut, updateProfile, deleteAccount }}
+    >
       {children}
     </AuthContext.Provider>
   )

@@ -213,7 +213,18 @@
     "circle_accept_success": "You're in her circle now 💜",
     "circle_decline_success": "Okay — she won't be notified.",
     "circle_share_presence": "Share my presence with my circle",
-    "circle_share_presence_desc": "Let your circle see, on days you show up, a simple \"showed up today 🌱\" — never what you did."
+    "circle_share_presence_desc": "Let your circle see, on days you show up, a simple \"showed up today 🌱\" — never what you did.",
+    "danger_title": "Danger zone",
+    "danger_delete_button": "Delete my account",
+    "danger_delete_desc": "Permanently deletes your account and everything in it — moods, anchors, check-ins, gratitudes, journal, letters, Wrapped recaps, and voice notes. This cannot be undone.",
+    "danger_delete_title": "Delete your account?",
+    "danger_delete_confirm_desc": "This permanently erases everything, right now, for every device. There is no way to recover it afterward.",
+    "danger_delete_confirm_label": "Type {{email}} to confirm",
+    "danger_delete_cancel": "Cancel",
+    "danger_delete_confirm_action": "Delete permanently",
+    "danger_delete_deleting": "Deleting...",
+    "danger_delete_success": "Your account has been deleted.",
+    "danger_delete_error": "Could not delete your account. Please try again."
   },
   "soft_mode": {
     "proposal_title": "These days feel heavy. Want me to lighten things for a while? 💜",

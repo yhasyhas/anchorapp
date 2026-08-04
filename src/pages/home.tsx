@@ -1,10 +1,8 @@
-import { useEffect, useState, type ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useAuth } from "@/lib/auth-context"
-import { supabase } from "@/lib/supabase"
-import { addToSyncQueue, isOnline, setLocalData, getLocalData } from "@/lib/offline-sync"
-import { generateCompanionMessage, getWeekKey } from "@/lib/ai-service"
+import { getWeekKey } from "@/lib/ai-service"
 import {
   resolveMoveReason,
   pickFeaturedSuggestion,
@@ -12,18 +10,15 @@ import {
   filterVisibleMoveSuggestions,
 } from "@/lib/move-selection"
 import { MoveOfTheDayCard } from "@/components/anchor/move-of-the-day-card"
-import { calculateStreaks, reachedAnchorMilestone, MIN_STREAK_FOR_INTENTION, type StreakData } from "@/lib/streaks"
-import { getUserLocalData, setUserLocalData, removeUserLocalData } from "@/lib/user-storage"
+import { MIN_STREAK_FOR_INTENTION } from "@/lib/streaks"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Settings, Info, Heart, Flame, Anchor as AnchorIcon, Sparkles, Lock, Pencil, Sun, Moon, Mail, PartyPopper } from "lucide-react"
-import { toast } from "sonner"
-import { moodConfig, intentions, FIRST_INTENTION_KEY_BASE } from "@/lib/constants"
-import { todayStr, localDateStr, canCheckAnchors, getTimeUntilAnchorCheck } from "@/lib/utils"
-import type { DailyAnchor, MoodType, CheckIn, MoodLog, MoveSuggestion, Gratitude } from "@/types"
+import { moodConfig, intentions } from "@/lib/constants"
+import { canCheckAnchors, getTimeUntilAnchorCheck } from "@/lib/utils"
 import { OnboardingModal } from "@/components/onboarding/onboarding-modal"
 import { MorningRitual } from "@/components/anchor/morning-ritual"
 import { ConfettiBurst } from "@/components/anchor/confetti"
@@ -31,24 +26,19 @@ import { GentleNudgeModal } from "@/components/anchor/gentle-nudge-modal"
 import { PushNudge } from "@/components/anchor/push-nudge"
 import { JournalCard } from "@/components/anchor/journal-card"
 import { StreakMilestoneModal } from "@/components/anchor/streak-milestone-modal"
-import { getLastSeenLetterWeek } from "@/lib/letters"
 import { CircleInviteNudge } from "@/components/circle/circle-invite-nudge"
 import { SosWidget } from "@/components/anchor/sos-widget"
-import { listPendingReceivedInvites, listReceivedEncouragements } from "@/lib/circle"
-import { getAllGratitudesForReveal, isSecondConsecutiveLowMoodDay } from "@/lib/gratitude"
 import { GratitudeDropCard } from "@/components/anchor/gratitude-drop-card"
 import { GratitudeReminderCard } from "@/components/anchor/gratitude-reminder-card"
 import { JarOpeningModal } from "@/components/anchor/jar-opening-modal"
 import { JarIcon } from "@/components/anchor/jar-icon"
 import { SoftModeNudgeCard } from "@/components/anchor/soft-mode-nudge-card"
 import { SoftModeBadge } from "@/components/anchor/soft-mode-badge"
-import { ensureWrappedGenerated } from "@/lib/wrapped"
-import { isDailyFlagSet, setDailyFlag, DAILY_FLAGS } from "@/lib/local-flags"
 import { useSoftMode } from "@/hooks/use-soft-mode"
 import { useAnchorDefs } from "@/hooks/use-anchor-defs"
 import { useNudgeArbitration } from "@/hooks/use-nudge-arbitration"
-
-const ANCHOR_MILESTONES_CELEBRATED_KEY = "anchor_streak_milestones_celebrated"
+import { useDailyCycle } from "@/hooks/use-daily-cycle"
+import { useHomeBadges } from "@/hooks/use-home-badges"
 
 function intentionLabel(t: (key: string) => string, rawIntention: string | null): string | null {
   if (!rawIntention) return null
@@ -62,18 +52,8 @@ function getGreetingKey(): string {
   return "home.greeting_evening"
 }
 
-function yesterdayStr(): string {
-  const d = new Date()
-  d.setDate(d.getDate() - 1)
-  return localDateStr(d) // ← date locale, pas UTC (setDate() local + toISOString() UTC créaient un décalage)
-}
-
-function getDayModeKey(userId: string): string {
-  return `anchor_day_mode_${userId}_${todayStr()}`
-}
-
 export function HomePage() {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const { user, profile, updateProfile } = useAuth()
   const {
     softModeActive,
@@ -90,446 +70,19 @@ export function HomePage() {
     exitSoftMode,
     dismissExitNudge: dismissSoftExitNudge,
   } = useSoftMode(user, profile, updateProfile)
-  const [selectedMood, setSelectedMood] = useState<MoodType | null>(null)
-  const [anchor, setAnchor] = useState<DailyAnchor>({
-    id: "",
-    user_id: user?.id ?? "",
-    date: todayStr(),
-    future_task: "",
-    future_completed: false,
-    mindbody_task: "",
-    mindbody_completed: false,
-    life_task: "",
-    life_completed: false,
-    daily_intention: "",
-    anchors_locked_at: null,
-    soft_mode_day: false,
-    created_at: "",
-  })
 
-  const [dayMode, setDayMode] = useState<"planning" | "tracking">("planning")
-  const [recentMoods, setRecentMoods] = useState<MoodLog[]>([])
-  const [recentAnchors, setRecentAnchors] = useState<DailyAnchor[]>([])
-  const [recentCheckInMoods, setRecentCheckInMoods] = useState<{ date: string; evening_mood: string | null }[]>([])
-  const [moveSuggestions, setMoveSuggestions] = useState<MoveSuggestion[]>([])
-
-  const [streaks, setStreaks] = useState<StreakData>({
-    currentMoodStreak: 0,
-    currentAnchorStreak: 0,
-    bestMoodStreak: 0,
-    bestAnchorStreak: 0,
-    moodStreakIntention: null,
-    anchorStreakIntention: null,
-  })
-  const [companionMsg, setCompanionMsg] = useState<string>("")
-  const [loadingCompanion, setLoadingCompanion] = useState(true)
-  const [showConfetti, setShowConfetti] = useState(false)
-  const [streakMilestone, setStreakMilestone] = useState<number | null>(null)
-  const [hasUnreadLetter, setHasUnreadLetter] = useState(false)
-  const [hasPendingCircleInvite, setHasPendingCircleInvite] = useState(false)
-  const [hasUnreadEncouragement, setHasUnreadEncouragement] = useState(false)
-
-  const [checkInDone, setCheckInDone] = useState(false)
-
-  const [nudgeOpen, setNudgeOpen] = useState(false)
-  const [nudgeType, setNudgeType] = useState<"mood" | "intention">("mood")
-  const [pendingLock, setPendingLock] = useState(false)
-
-  const [jarModalOpen, setJarModalOpen] = useState(false)
-  const [jarGratitudes, setJarGratitudes] = useState<Gratitude[]>([])
-
-  useEffect(() => {
-    if (user) {
-      // loadContextData a besoin de daily_intention pour personnaliser le message du
-      // companion — on chaîne explicitement plutôt que de compter sur le state React
-      // (loadTodayData() est async et setAnchor() n'aurait pas encore appliqué sa mise à
-      // jour au moment où loadContextData lirait la valeur via une closure sur `anchor`).
-      loadTodayData().then((todayAnchor) => loadContextData(todayAnchor))
-    }
-  }, [user])
-
-  useEffect(() => {
-    if (dayMode === "tracking" && anchor.future_completed && anchor.mindbody_completed && anchor.life_completed) {
-      if (!isDailyFlagSet(DAILY_FLAGS.anchorsCelebrated, user?.id, todayStr())) {
-        setShowConfetti(true)
-        setDailyFlag(DAILY_FLAGS.anchorsCelebrated, user?.id, todayStr())
-        setTimeout(() => setShowConfetti(false), 2000)
-      }
-    }
-  }, [anchor.future_completed, anchor.mindbody_completed, anchor.life_completed, dayMode])
-
-  // Célébration de palier (7/14/21/30 jours d'anchor streak) — une seule fois par palier
-  // et par utilisatrice, mémorisé en localStorage (même pattern que le cache IA).
-  useEffect(() => {
-    if (!user) return
-    const milestone = reachedAnchorMilestone(streaks.currentAnchorStreak)
-    if (!milestone) return
-
-    const celebrated = getUserLocalData<number[]>(ANCHOR_MILESTONES_CELEBRATED_KEY, user.id) || []
-    if (celebrated.includes(milestone)) return
-
-    setStreakMilestone(milestone)
-    setUserLocalData(ANCHOR_MILESTONES_CELEBRATED_KEY, user.id, [...celebrated, milestone])
-  }, [streaks.currentAnchorStreak, user])
-
-  useEffect(() => {
-    if (user) checkUnreadLetter()
-  }, [user])
-
-  // Fire-and-forget, same "nothing to show for it unless it finds something"
-  // pattern as checkUnreadLetter above — generates last month's Wrapped the
-  // first time she opens the app in a new month (see src/lib/wrapped.ts).
-  useEffect(() => {
-    if (user) ensureWrappedGenerated(user, profile)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user])
-
-  // Drives only the Settings icon's badge dot — the nudge card itself
-  // (CircleInviteNudge, rendered below) does its own independent fetch of
-  // the same data, same pattern as PushNudge fetching its own push state.
-  useEffect(() => {
-    if (!user) return
-    let cancelled = false
-    listPendingReceivedInvites(user.id)
-      .then((invites) => {
-        if (!cancelled) setHasPendingCircleInvite(invites.length > 0)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [user])
-
-  // Same badge-dot pattern — the /circle page itself marks encouragements
-  // read as soon as it's opened, so this only ever reflects "not yet seen".
-  useEffect(() => {
-    if (!user) return
-    let cancelled = false
-    listReceivedEncouragements()
-      .then((received) => {
-        if (!cancelled) setHasUnreadEncouragement(received.some((e) => !e.read_at))
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [user])
-
-  async function checkUnreadLetter() {
-    if (!user) return
-    try {
-      const { data } = await supabase
-        .from("weekly_letters")
-        .select("week_start")
-        .eq("user_id", user.id)
-        .order("week_start", { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      const latest = data?.week_start
-      if (!latest) return
-      const lastSeen = getLastSeenLetterWeek(user.id)
-      setHasUnreadLetter(!lastSeen || latest > lastSeen)
-    } catch {
-      // Badge is a nice-to-have — not worth surfacing an error toast for.
-    }
-  }
-
-  async function loadTodayData(): Promise<DailyAnchor | undefined> {
-    if (!user) return undefined
-    let resolvedAnchor: DailyAnchor | undefined
-    try {
-      const localKey = `anchor_${user.id}_${todayStr()}`
-      const cached = getLocalData<DailyAnchor>(localKey)
-      const modeKey = getDayModeKey(user.id)
-      const savedMode = getLocalData<"planning" | "tracking">(modeKey)
-
-      if (isOnline()) {
-        const { data, error } = await supabase
-          .from("daily_anchors")
-          .select("*")
-          .eq("user_id", user.id)
-          .eq("date", todayStr())
-          .maybeSingle()
-
-        if (error) throw error
-
-        if (data) {
-          setAnchor(data)
-          setLocalData(localKey, data)
-          if (savedMode) {
-            setDayMode(savedMode)
-          } else if (data.anchors_locked_at || data.future_completed || data.mindbody_completed || data.life_completed) {
-            // anchors_locked_at is the server-side source of truth for "day
-            // started" — checked first so a second device picks up a lock
-            // made elsewhere even before any task has been checked off
-            // there (savedMode only exists on the device that did the
-            // locking; this is what makes a fresh device catch up).
-            setDayMode("tracking")
-          }
-          resolvedAnchor = data
-        } else if (cached) {
-          setAnchor(cached)
-          if (savedMode) {
-            setDayMode(savedMode)
-          } else if (cached.anchors_locked_at) {
-            setDayMode("tracking")
-          }
-          resolvedAnchor = cached
-        }
-
-        const { data: moodData, error: moodError } = await supabase
-          .from("mood_logs")
-          .select("mood")
-          .eq("user_id", user.id)
-          .eq("date", todayStr())
-          .maybeSingle()
-
-        if (moodError) throw moodError
-        if (moodData) setSelectedMood(moodData.mood as MoodType)
-      } else if (cached) {
-        setAnchor(cached)
-        const savedMode = getLocalData<"planning" | "tracking">(modeKey)
-        if (savedMode) {
-          setDayMode(savedMode)
-        } else if (cached.anchors_locked_at) {
-          setDayMode("tracking")
-        }
-        resolvedAnchor = cached
-      }
-    } catch (err: any) {
-      console.error("Failed to load today's data:", err)
-      toast.error(t("home.error_load_daily"))
-    }
-    return resolvedAnchor
-  }
-
-  async function loadContextData(todayAnchor?: DailyAnchor) {
-    if (!user) return
-    try {
-      const thirtyAgo = new Date()
-      thirtyAgo.setDate(thirtyAgo.getDate() - 30)
-      const since = localDateStr(thirtyAgo)
-
-      const [{ data: monthMoods }, { data: monthAnchors }, { data: monthCheckIns }, { data: moveSuggestionsData }] = await Promise.all([
-        supabase.from("mood_logs").select("*").eq("user_id", user.id).gte("date", since),
-        supabase.from("daily_anchors").select("*").eq("user_id", user.id).gte("date", since),
-        supabase.from("check_ins").select("date, evening_mood").eq("user_id", user.id).gte("date", since),
-        supabase.from("move_suggestions").select("*").eq("user_id", user.id),
-      ])
-
-      const moods = (monthMoods || []) as MoodLog[]
-      const anchors = (monthAnchors || []) as DailyAnchor[]
-
-      setRecentMoods(moods)
-      setRecentAnchors(anchors)
-
-      // Exit proposal: evaluated each morning, before today's mood is
-      // necessarily logged — 2 lighter days in a row while soft mode is
-      // already active. Same daily-dismissal pattern as the jar prompt.
-      checkSoftExitTrigger(moods)
-      setRecentCheckInMoods((monthCheckIns as { date: string; evening_mood: string | null }[]) || [])
-      setMoveSuggestions((moveSuggestionsData as MoveSuggestion[]) || [])
-      setStreaks(calculateStreaks(moods, anchors))
-
-      const { data: todayCheckIn } = await supabase
-        .from("check_ins")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("date", todayStr())
-        .maybeSingle()
-
-      setCheckInDone(!!todayCheckIn)
-
-      const [{ data: yCheckIn }, { data: yMood }] = await Promise.all([
-        supabase.from("check_ins").select("what_matters, what_felt_real").eq("user_id", user.id).eq("date", yesterdayStr()).maybeSingle(),
-        supabase.from("mood_logs").select("mood").eq("user_id", user.id).eq("date", yesterdayStr()).maybeSingle(),
-      ])
-
-      // Consumed once: only the very first companion message after onboarding's optional
-      // "what brings you here" screen gets enriched by it (see onboarding-modal.tsx).
-      const firstIntention = getUserLocalData<string>(FIRST_INTENTION_KEY_BASE, user.id)
-      if (firstIntention) removeUserLocalData(FIRST_INTENTION_KEY_BASE, user.id)
-
-      const msg = await generateCompanionMessage(
-        profile?.ai_enabled ?? false,
-        yCheckIn as CheckIn | null,
-        yMood as MoodLog | null,
-        todayAnchor?.daily_intention ?? "",
-        i18n.language as "en" | "sw",
-        profile?.tone ?? "gentle",
-        firstIntention,
-        profile?.soft_mode ?? false
-      )
-      setCompanionMsg(msg)
-    } catch (err: any) {
-      console.error("Failed to load context:", err)
-      setCompanionMsg(t("companion.default_message"))
-    } finally {
-      setLoadingCompanion(false)
-    }
-  }
-
-  function refreshStreaks(updatedMoods?: MoodLog[], updatedAnchors?: DailyAnchor[]) {
-    const m = updatedMoods || recentMoods
-    const a = updatedAnchors || recentAnchors
-    if (m.length || a.length) {
-      setStreaks(calculateStreaks(m, a))
-    }
-  }
-
-  async function handleMoodSelect(mood: MoodType) {
-    if (!user) return
-    setSelectedMood(mood)
-    if (navigator.vibrate) navigator.vibrate(50)
-
-    const record = { user_id: user.id, date: todayStr(), mood }
-    const updatedMoods = recentMoods.filter((m) => m.date !== todayStr())
-    updatedMoods.push(record as MoodLog)
-    setRecentMoods(updatedMoods)
-    refreshStreaks(updatedMoods, undefined)
-
-    try {
-      if (isOnline()) {
-        const { error } = await supabase.from("mood_logs").upsert(record, { onConflict: "user_id,date" })
-        if (error) throw error
-      } else {
-        addToSyncQueue(user.id, { table: "mood_logs", action: "upsert", data: record, conflictKey: "user_id,date" })
-      }
-    } catch (err: any) {
-      console.error("Failed to save mood:", err)
-      toast.error(t("home.error_save_mood"))
-    }
-
-    // Soft Mode entry proposal — never automatic, just a gentle offer (see
-    // SoftModeNudgeCard): 3 consecutive heavy days, or a return after a 4+
-    // day absence, and she hasn't already been offered (or dismissed) today.
-    checkSoftEnterTrigger(mood, recentMoods)
-
-    // Gratitude jar reveal offer — never automatic (see JarOpeningModal),
-    // just the trigger check: today's mood is the 2nd consecutive
-    // low/stressed day, and she hasn't already been offered today.
-    if (isSecondConsecutiveLowMoodDay(mood, recentMoods)) {
-      if (!isDailyFlagSet(DAILY_FLAGS.jarPromptShown, user.id, todayStr())) {
-        setDailyFlag(DAILY_FLAGS.jarPromptShown, user.id, todayStr())
-        openJarPrompt()
-      }
-    }
-  }
-
-  async function openJarPrompt() {
-    try {
-      const all = await getAllGratitudesForReveal()
-      setJarGratitudes(all)
-      setJarModalOpen(true)
-    } catch (err) {
-      console.error("Failed to load jar for reveal:", err)
-    }
-  }
-
-  async function saveAnchor(updates: Partial<DailyAnchor>) {
-    if (!user) return
-    const finalUpdates = { ...updates }
-    if (softModeActive) {
-      finalUpdates.soft_mode_day = true
-    }
-
-    if (dayMode === "planning") {
-      if (updates.future_task !== undefined && updates.future_task !== anchor.future_task && anchor.future_completed) {
-        finalUpdates.future_completed = false
-      }
-      if (updates.mindbody_task !== undefined && updates.mindbody_task !== anchor.mindbody_task && anchor.mindbody_completed) {
-        finalUpdates.mindbody_completed = false
-      }
-      if (updates.life_task !== undefined && updates.life_task !== anchor.life_task && anchor.life_completed) {
-        finalUpdates.life_completed = false
-      }
-    }
-
-    const updated = { ...anchor, ...finalUpdates, user_id: user.id, date: todayStr() }
-    setAnchor(updated)
-
-    const localKey = `anchor_${user.id}_${todayStr()}`
-    setLocalData(localKey, updated)
-
-    const updatedAnchors = recentAnchors.filter((a) => a.date !== todayStr())
-    updatedAnchors.push(updated)
-    setRecentAnchors(updatedAnchors)
-    refreshStreaks(undefined, updatedAnchors)
-
-    const { id: _id, created_at: _created, ...record } = updated
-
-    try {
-      if (isOnline()) {
-        const { error } = await supabase.from("daily_anchors").upsert(record, { onConflict: "user_id,date" })
-        if (error) throw error
-      } else {
-        addToSyncQueue(user.id, { table: "daily_anchors", action: "upsert", data: record, conflictKey: "user_id,date" })
-      }
-    } catch (err: any) {
-      console.error("Failed to save anchor:", err)
-    }
-  }
-
-  function attemptLockDay() {
-    if (!user) return
-    if (!anchor.future_task && !anchor.mindbody_task && !anchor.life_task) {
-      toast.error(t("home.error_min_anchor"))
-      return
-    }
-
-    if (!selectedMood) {
-      setNudgeType("mood")
-      setNudgeOpen(true)
-      setPendingLock(true)
-      return
-    }
-
-    if (!anchor.daily_intention) {
-      setNudgeType("intention")
-      setNudgeOpen(true)
-      setPendingLock(true)
-      return
-    }
-
-    doLockDay()
-  }
-
-  function doLockDay() {
-    if (!user) return
-    setDayMode("tracking")
-    setLocalData(getDayModeKey(user.id), "tracking")
-    // Le verrou vit en base (daily_anchors.anchors_locked_at) via saveAnchor, avec le
-    // même fallback offline (sync queue) que le reste des champs de l'ancre.
-    saveAnchor({ anchors_locked_at: new Date().toISOString() })
-    toast.success(t("home.day_locked_toast"))
-    setPendingLock(false)
-  }
-
-  function handleNudgeChoose() {
-    setNudgeOpen(false)
-    setPendingLock(false)
-  }
-
-  function handleNudgeContinue() {
-    setNudgeOpen(false)
-    if (pendingLock) {
-      doLockDay()
-    }
-  }
-
-  function unlockDay() {
-    if (!user) return
-    setDayMode("planning")
-    setLocalData(getDayModeKey(user.id), "planning")
-  }
+  const cycle = useDailyCycle(user, profile, softModeActive, checkSoftEnterTrigger, checkSoftExitTrigger)
+  const { hasUnreadLetter, hasPendingCircleInvite, hasUnreadEncouragement } = useHomeBadges(user, profile)
 
   const firstName = profile?.full_name?.split(" ")[0] ?? ""
-  const { anchorDefs, filledAnchorDefs, softAllFilledDone, allAnchorsDone, hasAnyAnchorText } = useAnchorDefs(anchor, saveAnchor)
+  const { anchorDefs, filledAnchorDefs, softAllFilledDone, allAnchorsDone, hasAnyAnchorText } = useAnchorDefs(
+    cycle.anchor,
+    cycle.saveAnchor
+  )
 
-  const moodDone = selectedMood !== null
+  const moodDone = cycle.selectedMood !== null
   const anchorsDone = allAnchorsDone
-  const cycleComplete = moodDone && anchorsDone && checkInDone
+  const cycleComplete = moodDone && anchorsDone && cycle.checkInDone
 
   const showWrappedTeaser = new Date().getDate() >= 28
   const { activeNudge, setGratitudeNudgeWants, setPushNudgeWants } = useNudgeArbitration(
@@ -539,46 +92,52 @@ export function HomePage() {
   )
 
   // "Move of the day" — same shared selection logic as src/pages/move.tsx
-  // (src/lib/move-selection.ts), fed from state this page already loads
+  // (src/lib/move-selection.ts), fed from state useDailyCycle already loads
   // (recentMoods, recentAnchors, streaks) plus the two lightweight fetches
-  // added to loadContextData above. Only shown before the day is locked in.
+  // bundled into its loadContextData. Only shown before the day is locked in.
   const moveWeekKey = getWeekKey()
-  const visibleMoveSuggestions = filterVisibleMoveSuggestions(moveSuggestions, moveWeekKey)
-  const moveReason = resolveMoveReason({ recentMoods, currentAnchorStreak: streaks.currentAnchorStreak })
+  const visibleMoveSuggestions = filterVisibleMoveSuggestions(cycle.moveSuggestions, moveWeekKey)
+  const moveReason = resolveMoveReason({ recentMoods: cycle.recentMoods, currentAnchorStreak: cycle.streaks.currentAnchorStreak })
   const featuredMovePick = moveReason === "absence" ? null : pickFeaturedSuggestion(visibleMoveSuggestions, moveReason)
   const featuredMoveTitle = moveReason === "absence" ? t("move.absence_fallback") : featuredMovePick?.title
   const featuredMoveCategory = moveReason === "absence" ? "physical" : featuredMovePick?.category ?? "physical"
   const featuredMoveIsAi = featuredMovePick?.generated_by === "ai"
-  const moveCorrelationHint = featuredMoveTitle ? getMoveMoodCorrelation(featuredMoveTitle, recentAnchors, recentCheckInMoods) : null
-  const moveCtaTarget: "life" | "mindbody" | undefined = !anchor.life_task ? "life" : !anchor.mindbody_task ? "mindbody" : undefined
+  const moveCorrelationHint = featuredMoveTitle
+    ? getMoveMoodCorrelation(featuredMoveTitle, cycle.recentAnchors, cycle.recentCheckInMoods)
+    : null
+  const moveCtaTarget: "life" | "mindbody" | undefined = !cycle.anchor.life_task
+    ? "life"
+    : !cycle.anchor.mindbody_task
+      ? "mindbody"
+      : undefined
 
   function handleAddMoveToAnchor(target: "life" | "mindbody") {
     if (!featuredMoveTitle) return
-    if (target === "life") saveAnchor({ life_task: featuredMoveTitle })
-    else saveAnchor({ mindbody_task: featuredMoveTitle })
+    if (target === "life") cycle.saveAnchor({ life_task: featuredMoveTitle })
+    else cycle.saveAnchor({ mindbody_task: featuredMoveTitle })
   }
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
-      <ConfettiBurst active={showConfetti} />
+      <ConfettiBurst active={cycle.showConfetti} />
       <OnboardingModal />
       <MorningRitual onComplete={() => {}} />
 
       <GentleNudgeModal
-        open={nudgeOpen}
-        onClose={() => setNudgeOpen(false)}
-        onChoose={handleNudgeChoose}
-        onContinue={handleNudgeContinue}
-        type={nudgeType}
+        open={cycle.nudgeOpen}
+        onClose={cycle.dismissNudgeModal}
+        onChoose={cycle.handleNudgeChoose}
+        onContinue={cycle.handleNudgeContinue}
+        type={cycle.nudgeType}
       />
 
       <StreakMilestoneModal
-        milestone={streakMilestone}
-        intentionLabel={intentionLabel(t, streaks.anchorStreakIntention)}
-        onClose={() => setStreakMilestone(null)}
+        milestone={cycle.streakMilestone}
+        intentionLabel={intentionLabel(t, cycle.streaks.anchorStreakIntention)}
+        onClose={cycle.dismissStreakMilestone}
       />
 
-      <JarOpeningModal open={jarModalOpen} onClose={() => setJarModalOpen(false)} gratitudes={jarGratitudes} />
+      <JarOpeningModal open={cycle.jarModalOpen} onClose={cycle.closeJarModal} gratitudes={cycle.jarGratitudes} />
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -670,7 +229,7 @@ export function HomePage() {
         <SoftModeNudgeCard variant="exit" onAccept={exitSoftMode} onDismiss={dismissSoftExitNudge} />
       )}
       <GratitudeReminderCard
-        todayMood={selectedMood}
+        todayMood={cycle.selectedMood}
         onVisibilityChange={setGratitudeNudgeWants}
         suppressed={activeNudge !== null && activeNudge !== "gratitude"}
       />
@@ -692,17 +251,17 @@ export function HomePage() {
             </div>
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-0.5">
-                {loadingCompanion ? t("companion.loading") : t("companion.title")}
+                {cycle.loadingCompanion ? t("companion.loading") : t("companion.title")}
               </p>
               <p className="text-sm text-foreground/90 leading-relaxed font-medium">
-                {companionMsg || t("companion.default_message")}
+                {cycle.companionMsg || t("companion.default_message")}
               </p>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {featuredMoveTitle && !anchor.anchors_locked_at && (
+      {featuredMoveTitle && !cycle.anchor.anchors_locked_at && (
         <MoveOfTheDayCard
           title={featuredMoveTitle}
           category={featuredMoveCategory}
@@ -753,11 +312,11 @@ export function HomePage() {
 
             <div className="flex flex-col items-center gap-1.5">
               <div className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-500 ${
-                checkInDone ? "bg-lavender text-white dark:text-background shadow-md scale-110" : "bg-muted text-muted-foreground"
+                cycle.checkInDone ? "bg-lavender text-white dark:text-background shadow-md scale-110" : "bg-muted text-muted-foreground"
               }`}>
                 <Moon className="h-4 w-4" />
               </div>
-              <span className={`text-[10px] font-medium ${checkInDone ? "text-lavender" : "text-muted-foreground"}`}>
+              <span className={`text-[10px] font-medium ${cycle.checkInDone ? "text-lavender" : "text-muted-foreground"}`}>
                 {t("daily_cycle.checkin")}
               </span>
             </div>
@@ -783,14 +342,14 @@ export function HomePage() {
           above it (celebrated state: warmer card, dominant intention of the streak
           period). Stacked full-width instead of side-by-side once either card celebrates,
           so the sentence has room to breathe. */}
-      <div className={(streaks.currentMoodStreak >= MIN_STREAK_FOR_INTENTION || streaks.currentAnchorStreak >= MIN_STREAK_FOR_INTENTION) ? "space-y-3" : "flex gap-3"}>
+      <div className={(cycle.streaks.currentMoodStreak >= MIN_STREAK_FOR_INTENTION || cycle.streaks.currentAnchorStreak >= MIN_STREAK_FOR_INTENTION) ? "space-y-3" : "flex gap-3"}>
         <StreakCard
           icon={<Flame className="h-4 w-4" />}
           label={t("streaks.mood")}
           emoji="🔥"
-          current={streaks.currentMoodStreak}
-          best={streaks.bestMoodStreak}
-          intention={streaks.moodStreakIntention}
+          current={cycle.streaks.currentMoodStreak}
+          best={cycle.streaks.bestMoodStreak}
+          intention={cycle.streaks.moodStreakIntention}
           activeBg="bg-peach/30"
           activeText="text-peach"
           celebratedBg="bg-gradient-to-br from-peach/40 to-rose-accent/20"
@@ -799,9 +358,9 @@ export function HomePage() {
           icon={<AnchorIcon className="h-4 w-4" />}
           label={t("streaks.anchors")}
           emoji="⚓"
-          current={streaks.currentAnchorStreak}
-          best={streaks.bestAnchorStreak}
-          intention={streaks.anchorStreakIntention}
+          current={cycle.streaks.currentAnchorStreak}
+          best={cycle.streaks.bestAnchorStreak}
+          intention={cycle.streaks.anchorStreakIntention}
           activeBg="bg-sage-light/60"
           activeText="text-primary"
           celebratedBg="bg-gradient-to-br from-sage-light/70 to-lavender/25"
@@ -813,9 +372,9 @@ export function HomePage() {
         {moodConfig.map(({ key, emoji, color }) => (
           <button
             key={key}
-            onClick={() => handleMoodSelect(key)}
+            onClick={() => cycle.handleMoodSelect(key)}
             className={`flex flex-1 flex-col items-center gap-1 rounded-xl p-3 transition-all duration-300 ${
-              selectedMood === key
+              cycle.selectedMood === key
                 ? "ring-2 ring-primary ring-offset-2 scale-110 shadow-md"
                 : "hover:scale-105 hover:shadow-sm"
             }`}
@@ -835,9 +394,9 @@ export function HomePage() {
             {intentions.map((intention) => (
               <button
                 key={intention}
-                onClick={() => saveAnchor({ daily_intention: intention })}
+                onClick={() => cycle.saveAnchor({ daily_intention: intention })}
                 className={`rounded-full px-4 py-1.5 text-sm transition-all duration-200 ${
-                  anchor.daily_intention === intention
+                  cycle.anchor.daily_intention === intention
                     ? "bg-primary text-primary-foreground shadow-md scale-105"
                     : "bg-muted text-foreground hover:bg-accent hover:scale-105"
                 }`}
@@ -872,21 +431,21 @@ export function HomePage() {
             )}
           </div>
 
-          {dayMode === "planning" && hasAnyAnchorText && (
-            <Button size="sm" onClick={attemptLockDay} className="gap-1.5 text-xs">
+          {cycle.dayMode === "planning" && hasAnyAnchorText && (
+            <Button size="sm" onClick={cycle.attemptLockDay} className="gap-1.5 text-xs">
               <Lock className="h-3.5 w-3.5" />
               {t("home.start_my_day")}
             </Button>
           )}
-          {dayMode === "tracking" && (
-            <Button variant="ghost" size="sm" onClick={unlockDay} className="gap-1.5 text-xs text-muted-foreground">
+          {cycle.dayMode === "tracking" && (
+            <Button variant="ghost" size="sm" onClick={cycle.unlockDay} className="gap-1.5 text-xs text-muted-foreground">
               <Pencil className="h-3.5 w-3.5" />
               {t("home.edit")}
             </Button>
           )}
         </div>
 
-        {dayMode === "planning" && (
+        {cycle.dayMode === "planning" && (
           <div className="space-y-3">
             {softModeActive && !softExpanded ? (
               <SoftAnchorPicker
@@ -902,30 +461,30 @@ export function HomePage() {
                   icon="&#x1F331;"
                   title={t("anchors.future")}
                   subtitle={t("anchors.future_sub")}
-                  task={anchor.future_task}
-                  onTaskChange={(v) => saveAnchor({ future_task: v })}
+                  task={cycle.anchor.future_task}
+                  onTaskChange={(v) => cycle.saveAnchor({ future_task: v })}
                 />
                 <PlanningAnchorCard
                   borderColor="var(--rose-accent)"
                   icon="&#x1F9E0;"
                   title={t("anchors.mindbody")}
                   subtitle={t("anchors.mindbody_sub")}
-                  task={anchor.mindbody_task}
-                  onTaskChange={(v) => saveAnchor({ mindbody_task: v })}
+                  task={cycle.anchor.mindbody_task}
+                  onTaskChange={(v) => cycle.saveAnchor({ mindbody_task: v })}
                 />
                 <PlanningAnchorCard
                   borderColor="var(--lavender)"
                   icon="&#x1F30D;"
                   title={t("anchors.life")}
                   subtitle={t("anchors.life_sub")}
-                  task={anchor.life_task}
-                  onTaskChange={(v) => saveAnchor({ life_task: v })}
+                  task={cycle.anchor.life_task}
+                  onTaskChange={(v) => cycle.saveAnchor({ life_task: v })}
                 />
               </>
             )}
 
             {hasAnyAnchorText && (
-              <Button onClick={attemptLockDay} className="w-full" size="lg">
+              <Button onClick={cycle.attemptLockDay} className="w-full" size="lg">
                 <Lock className="mr-2 h-4 w-4" />
                 {t("home.lock_anchors_cta")}
               </Button>
@@ -933,7 +492,7 @@ export function HomePage() {
           </div>
         )}
 
-        {dayMode === "tracking" && (
+        {cycle.dayMode === "tracking" && (
           <div className="space-y-3">
             {(softModeActive ? filledAnchorDefs : anchorDefs).map((d) => (
               <TrackingAnchorCard
@@ -945,7 +504,7 @@ export function HomePage() {
                 task={d.task}
                 completed={d.completed}
                 onCheckChange={d.onCheckChange}
-                lockedAt={anchor.anchors_locked_at}
+                lockedAt={cycle.anchor.anchors_locked_at}
               />
             ))}
 

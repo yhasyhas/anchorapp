@@ -1,11 +1,12 @@
 import { Outlet, NavLink, useLocation } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Home, BarChart3, Heart, Footprints, CloudOff, RefreshCw } from "lucide-react"
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { isOnline, processSyncQueue, getPendingSyncCount, SYNC_QUEUE_CHANGED_EVENT } from "@/lib/offline-sync"
 import { useAuth } from "@/lib/auth-context"
 import { FocusModeModal } from "@/components/anchor/focus-mode-modal"
 import { InstallPrompt } from "@/components/pwa/install-prompt"
+import { Spinner } from "@/components/ui/spinner"
 
 const navItems = [
   { path: "/", icon: Home, labelKey: "home.title" },
@@ -94,7 +95,20 @@ export function AppLayout() {
       )}
 
       <main className="flex-1 overflow-y-auto px-6 pb-24 pt-6">
-        <Outlet />
+        {/* Own Suspense boundary (rather than relying on App.tsx's top-level
+            one) so switching tabs shows a small inline spinner in the
+            content area only — the tab bar, offline banner, and focus
+            button below stay mounted and visible instead of the whole
+            screen flashing to a full-screen spinner on every navigation. */}
+        <Suspense
+          fallback={
+            <div className="flex justify-center py-16">
+              <Spinner className="h-6 w-6 text-primary" />
+            </div>
+          }
+        >
+          <Outlet />
+        </Suspense>
       </main>
 
       {/* Tab Bar */}

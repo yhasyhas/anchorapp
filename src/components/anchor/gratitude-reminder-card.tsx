@@ -20,9 +20,18 @@ interface GratitudeReminderCardProps {
   // "never on a negative mood" rule), but the check is duplicated here too
   // as a hard safety net rather than trusting the render condition alone.
   todayMood: MoodType | null
+  // Home arbitrates a single nudge slot across several self-contained nudge
+  // components (see the priority order in home.tsx) — this reports "I have
+  // something to show" without forcing a render, so Home can decide whether
+  // this one actually wins the slot this visit.
+  onVisibilityChange?: (visible: boolean) => void
+  // Renders nothing even when internally visible — used when a
+  // higher-priority nudge won the slot instead. The component stays
+  // mounted either way, so its own effects/fetches keep running.
+  suppressed?: boolean
 }
 
-export function GratitudeReminderCard({ todayMood }: GratitudeReminderCardProps) {
+export function GratitudeReminderCard({ todayMood, onVisibilityChange, suppressed }: GratitudeReminderCardProps) {
   const { t } = useTranslation()
   const { user } = useAuth()
   const [visible, setVisible] = useState(false)
@@ -51,7 +60,12 @@ export function GratitudeReminderCard({ todayMood }: GratitudeReminderCardProps)
     }
   }, [user, todayMood])
 
-  if (!visible) return null
+  useEffect(() => {
+    onVisibilityChange?.(visible)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible])
+
+  if (!visible || suppressed) return null
 
   return (
     <div className="rounded-xl bg-secondary p-4 shadow-[0_2px_10px_rgba(0,0,0,0.04)] animate-in fade-in slide-in-from-bottom-2">

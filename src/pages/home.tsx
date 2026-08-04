@@ -40,10 +40,13 @@ import { GratitudeDropCard } from "@/components/anchor/gratitude-drop-card"
 import { GratitudeReminderCard } from "@/components/anchor/gratitude-reminder-card"
 import { JarOpeningModal } from "@/components/anchor/jar-opening-modal"
 import { JarIcon } from "@/components/anchor/jar-icon"
-import { isThirdConsecutiveLowMoodDay, isAbsenceReturn, hasTwoConsecutiveGoodDaysEndingYesterday } from "@/lib/soft-mode"
 import { SoftModeNudgeCard } from "@/components/anchor/soft-mode-nudge-card"
 import { SoftModeBadge } from "@/components/anchor/soft-mode-badge"
 import { ensureWrappedGenerated } from "@/lib/wrapped"
+import { isDailyFlagSet, setDailyFlag, DAILY_FLAGS } from "@/lib/local-flags"
+import { useSoftMode } from "@/hooks/use-soft-mode"
+import { useAnchorDefs } from "@/hooks/use-anchor-defs"
+import { useNudgeArbitration } from "@/hooks/use-nudge-arbitration"
 
 const ANCHOR_MILESTONES_CELEBRATED_KEY = "anchor_streak_milestones_celebrated"
 
@@ -72,7 +75,21 @@ function getDayModeKey(userId: string): string {
 export function HomePage() {
   const { t, i18n } = useTranslation()
   const { user, profile, updateProfile } = useAuth()
-  const softModeActive = profile?.soft_mode ?? false
+  const {
+    softModeActive,
+    showEnterNudge: showSoftEnterNudge,
+    showExitNudge: showSoftExitNudge,
+    softExpanded,
+    setSoftExpanded,
+    softCategory,
+    setSoftCategory,
+    checkEnterTrigger: checkSoftEnterTrigger,
+    checkExitTrigger: checkSoftExitTrigger,
+    acceptSoftMode,
+    dismissEnterNudge: dismissSoftEnterNudge,
+    exitSoftMode,
+    dismissExitNudge: dismissSoftExitNudge,
+  } = useSoftMode(user, profile, updateProfile)
   const [selectedMood, setSelectedMood] = useState<MoodType | null>(null)
   const [anchor, setAnchor] = useState<DailyAnchor>({
     id: "",
@@ -121,14 +138,6 @@ export function HomePage() {
   const [jarModalOpen, setJarModalOpen] = useState(false)
   const [jarGratitudes, setJarGratitudes] = useState<Gratitude[]>([])
 
-  const [showSoftEnterNudge, setShowSoftEnterNudge] = useState(false)
-  const [showSoftExitNudge, setShowSoftExitNudge] = useState(false)
-  // Not persisted — a fresh visit always starts with the lightweight
-  // single-anchor picker; "add more" only lasts for the current session,
-  // which is fine since it never hides tasks she already filled in.
-  const [softExpanded, setSoftExpanded] = useState(false)
-  const [softCategory, setSoftCategory] = useState<"future" | "mindbody" | "life" | null>(null)
-
   useEffect(() => {
     if (user) {
       // loadContextData a besoin de daily_intention pour personnaliser le message du
@@ -141,10 +150,9 @@ export function HomePage() {
 
   useEffect(() => {
     if (dayMode === "tracking" && anchor.future_completed && anchor.mindbody_completed && anchor.life_completed) {
-      const celebratedKey = `anchor_celebrated_${user?.id}_${todayStr()}`
-      if (!localStorage.getItem(celebratedKey)) {
+      if (!isDailyFlagSet(DAILY_FLAGS.anchorsCelebrated, user?.id, todayStr())) {
         setShowConfetti(true)
-        localStorage.setItem(celebratedKey, "true")
+        setDailyFlag(DAILY_FLAGS.anchorsCelebrated, user?.id, todayStr())
         setTimeout(() => setShowConfetti(false), 2000)
       }
     }
@@ -319,10 +327,7 @@ export function HomePage() {
       // Exit proposal: evaluated each morning, before today's mood is
       // necessarily logged — 2 lighter days in a row while soft mode is
       // already active. Same daily-dismissal pattern as the jar prompt.
-      if (profile?.soft_mode && hasTwoConsecutiveGoodDaysEndingYesterday(moods)) {
-        const dismissedKey = `anchor_soft_exit_dismissed_${user.id}_${todayStr()}`
-        if (!localStorage.getItem(dismissedKey)) setShowSoftExitNudge(true)
-      }
+      checkSoftExitTrigger(moods)
       setRecentCheckInMoods((monthCheckIns as { date: string; evening_mood: string | null }[]) || [])
       setMoveSuggestions((moveSuggestionsData as MoveSuggestion[]) || [])
       setStreaks(calculateStreaks(moods, anchors))
@@ -399,18 +404,14 @@ export function HomePage() {
     // Soft Mode entry proposal — never automatic, just a gentle offer (see
     // SoftModeNudgeCard): 3 consecutive heavy days, or a return after a 4+
     // day absence, and she hasn't already been offered (or dismissed) today.
-    if (!softModeActive && (isThirdConsecutiveLowMoodDay(mood, recentMoods) || isAbsenceReturn(recentMoods, mood))) {
-      const dismissedKey = `anchor_soft_enter_dismissed_${user.id}_${todayStr()}`
-      if (!localStorage.getItem(dismissedKey)) setShowSoftEnterNudge(true)
-    }
+    checkSoftEnterTrigger(mood, recentMoods)
 
     // Gratitude jar reveal offer — never automatic (see JarOpeningModal),
     // just the trigger check: today's mood is the 2nd consecutive
     // low/stressed day, and she hasn't already been offered today.
     if (isSecondConsecutiveLowMoodDay(mood, recentMoods)) {
-      const shownKey = `anchor_jar_prompt_shown_${user.id}_${todayStr()}`
-      if (!localStorage.getItem(shownKey)) {
-        localStorage.setItem(shownKey, "true")
+      if (!isDailyFlagSet(DAILY_FLAGS.jarPromptShown, user.id, todayStr())) {
+        setDailyFlag(DAILY_FLAGS.jarPromptShown, user.id, todayStr())
         openJarPrompt()
       }
     }
@@ -424,31 +425,6 @@ export function HomePage() {
     } catch (err) {
       console.error("Failed to load jar for reveal:", err)
     }
-  }
-
-  async function acceptSoftMode() {
-    await updateProfile({ soft_mode: true, soft_mode_since: new Date().toISOString() })
-    setShowSoftEnterNudge(false)
-  }
-
-  function dismissSoftEnterNudge() {
-    if (user) localStorage.setItem(`anchor_soft_enter_dismissed_${user.id}_${todayStr()}`, "true")
-    setShowSoftEnterNudge(false)
-  }
-
-  // Shared by both the automatic exit nudge and the badge's own "Return to
-  // full rhythm" button, and by the Settings toggle indirectly (that one
-  // calls updateProfile itself, same fields) — always a sober confirmation,
-  // never framed as a "cure" (this isn't a medical app).
-  async function exitSoftMode() {
-    await updateProfile({ soft_mode: false, soft_mode_since: null })
-    setShowSoftExitNudge(false)
-    toast.success(t("soft_mode.welcome_back"))
-  }
-
-  function dismissSoftExitNudge() {
-    if (user) localStorage.setItem(`anchor_soft_exit_dismissed_${user.id}_${todayStr()}`, "true")
-    setShowSoftExitNudge(false)
   }
 
   async function saveAnchor(updates: Partial<DailyAnchor>) {
@@ -549,54 +525,18 @@ export function HomePage() {
   }
 
   const firstName = profile?.full_name?.split(" ")[0] ?? ""
-  const allAnchorsDone = anchor.future_completed && anchor.mindbody_completed && anchor.life_completed
-  const hasAnyAnchorText = anchor.future_task || anchor.mindbody_task || anchor.life_task
-
-  // Shared shape for both the soft-mode single-anchor picker and the
-  // tracking list below — lets tracking mode filter down to "just the
-  // categories she actually filled" without duplicating the 3 cards' worth
-  // of JSX for the soft-mode case.
-  const anchorDefs = [
-    {
-      key: "future" as const,
-      icon: "\u{1F331}",
-      borderColor: "var(--sage)",
-      title: t("anchors.future"),
-      subtitle: t("anchors.future_sub"),
-      task: anchor.future_task,
-      completed: anchor.future_completed,
-      onTaskChange: (v: string) => saveAnchor({ future_task: v }),
-      onCheckChange: (v: boolean) => saveAnchor({ future_completed: v }),
-    },
-    {
-      key: "mindbody" as const,
-      icon: "\u{1F9E0}",
-      borderColor: "var(--rose-accent)",
-      title: t("anchors.mindbody"),
-      subtitle: t("anchors.mindbody_sub"),
-      task: anchor.mindbody_task,
-      completed: anchor.mindbody_completed,
-      onTaskChange: (v: string) => saveAnchor({ mindbody_task: v }),
-      onCheckChange: (v: boolean) => saveAnchor({ mindbody_completed: v }),
-    },
-    {
-      key: "life" as const,
-      icon: "\u{1F30D}",
-      borderColor: "var(--lavender)",
-      title: t("anchors.life"),
-      subtitle: t("anchors.life_sub"),
-      task: anchor.life_task,
-      completed: anchor.life_completed,
-      onTaskChange: (v: string) => saveAnchor({ life_task: v }),
-      onCheckChange: (v: boolean) => saveAnchor({ life_completed: v }),
-    },
-  ]
-  const filledAnchorDefs = anchorDefs.filter((d) => d.task)
-  const softAllFilledDone = filledAnchorDefs.length > 0 && filledAnchorDefs.every((d) => d.completed)
+  const { anchorDefs, filledAnchorDefs, softAllFilledDone, allAnchorsDone, hasAnyAnchorText } = useAnchorDefs(anchor, saveAnchor)
 
   const moodDone = selectedMood !== null
   const anchorsDone = allAnchorsDone
   const cycleComplete = moodDone && anchorsDone && checkInDone
+
+  const showWrappedTeaser = new Date().getDate() >= 28
+  const { activeNudge, setGratitudeNudgeWants, setPushNudgeWants } = useNudgeArbitration(
+    showSoftEnterNudge,
+    showSoftExitNudge,
+    showWrappedTeaser
+  )
 
   // "Move of the day" — same shared selection logic as src/pages/move.tsx
   // (src/lib/move-selection.ts), fed from state this page already loads
@@ -705,6 +645,7 @@ export function HomePage() {
               variant="ghost"
               size="icon"
               className="relative text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={t("settings.title")}
             >
               <Settings className="h-5 w-5" />
               {hasPendingCircleInvite && (
@@ -717,11 +658,29 @@ export function HomePage() {
 
       <CircleInviteNudge />
 
-      {showSoftEnterNudge && (
+      {/* Single nudge slot — at most one of these renders per visit, see
+          the activeNudge priority order above. GratitudeReminderCard and
+          PushNudge stay mounted even when suppressed so their own
+          eligibility checks keep running (and can win the slot on a later
+          render once Soft Mode / higher-priority nudges clear). */}
+      {activeNudge === "soft_enter" && (
         <SoftModeNudgeCard variant="enter" onAccept={acceptSoftMode} onDismiss={dismissSoftEnterNudge} />
       )}
-      {showSoftExitNudge && (
+      {activeNudge === "soft_exit" && (
         <SoftModeNudgeCard variant="exit" onAccept={exitSoftMode} onDismiss={dismissSoftExitNudge} />
+      )}
+      <GratitudeReminderCard
+        todayMood={selectedMood}
+        onVisibilityChange={setGratitudeNudgeWants}
+        suppressed={activeNudge !== null && activeNudge !== "gratitude"}
+      />
+      <PushNudge
+        active={cycleComplete}
+        onVisibilityChange={setPushNudgeWants}
+        suppressed={activeNudge !== null && activeNudge !== "push"}
+      />
+      {activeNudge === "wrapped_teaser" && (
+        <p className="text-center text-xs italic text-muted-foreground">{t("wrapped.teaser")}</p>
       )}
 
       {/* Companion */}
@@ -742,12 +701,6 @@ export function HomePage() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Micro-tease for the upcoming Wrapped — pure date check, self-resolving once
-          the month rolls over and generation (ensureWrappedGenerated above) takes over. */}
-      {new Date().getDate() >= 28 && (
-        <p className="text-center text-xs italic text-muted-foreground">{t("wrapped.teaser")}</p>
-      )}
 
       {featuredMoveTitle && !anchor.anchors_locked_at && (
         <MoveOfTheDayCard
@@ -1018,10 +971,6 @@ export function HomePage() {
       </Card>
 
       <SosWidget />
-
-      <GratitudeReminderCard todayMood={selectedMood} />
-
-      <PushNudge active={cycleComplete} />
     </div>
   )
 }

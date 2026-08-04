@@ -95,6 +95,16 @@ export interface AiInsight {
   created_at: string
 }
 
+// Archived AI-generated Patterns insights — see insight_log migration and
+// logInsightHistory in src/lib/ai-service.ts.
+export interface InsightLogEntry {
+  id: string
+  week_key: string
+  text: string
+  category: string
+  created_at: string
+}
+
 export interface JournalEntry {
   id: string
   user_id: string
@@ -109,6 +119,9 @@ export interface NotificationPreferences {
   morning_enabled: boolean
   midday_enabled: boolean
   evening_enabled: boolean
+  quiet_hours_enabled: boolean
+  quiet_hours_start: number
+  quiet_hours_end: number
   updated_at: string
 }
 

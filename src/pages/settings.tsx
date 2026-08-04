@@ -85,7 +85,7 @@ export function SettingsPage() {
     <div className="min-h-svh bg-background px-6 py-6">
       <div className="mx-auto max-w-lg space-y-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
+          <Button variant="ghost" size="icon" onClick={() => navigate("/")} aria-label={t("settings.back")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="font-heading text-2xl font-bold">{t("settings.title")}</h1>

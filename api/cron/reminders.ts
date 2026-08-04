@@ -132,7 +132,9 @@ function pick<T>(arr: T[]): T {
 // trust it. Static fallbacks are already well within budget; this only ever
 // touches AI output.
 const MAX_WORDS = 16
-function capWords(text: string, maxWords: number = MAX_WORDS): string {
+// Exported for scripts/check-duplicated-logic.ts, which checks this against
+// the near-identical copy in api/cron/weekly-letter.ts — purely additive.
+export function capWords(text: string, maxWords: number = MAX_WORDS): string {
   const words = text.split(/\s+/)
   if (words.length <= maxWords) return text
   return words.slice(0, maxWords).join(" ").replace(/[,;:]$/, "") + "…"
@@ -234,6 +236,16 @@ interface PrefsRow {
   morning_enabled: boolean
   midday_enabled: boolean
   evening_enabled: boolean
+  quiet_hours_enabled: boolean
+  quiet_hours_start: number
+  quiet_hours_end: number
+}
+
+// Quiet hours: a do-not-disturb window layered on top of the 3 fixed slots
+// below — start > end means the window wraps midnight (e.g. 21 -> 8).
+function isQuietHour(hour: number, start: number, end: number): boolean {
+  if (start === end) return false
+  return start < end ? hour >= start && hour < end : hour >= start || hour < end
 }
 
 interface MoodLogRow {
@@ -434,7 +446,7 @@ export async function GET(request: Request): Promise<Response> {
 
   const prefsRows = await restGet<PrefsRow>(
     rest,
-    "notification_preferences?reminders_enabled=eq.true&select=user_id,morning_enabled,midday_enabled,evening_enabled"
+    "notification_preferences?reminders_enabled=eq.true&select=user_id,morning_enabled,midday_enabled,evening_enabled,quiet_hours_enabled,quiet_hours_start,quiet_hours_end"
   )
   if (prefsRows.length === 0) {
     return jsonResponse({ processed: 0, sent: 0 }, 200)
@@ -510,6 +522,15 @@ export async function GET(request: Request): Promise<Response> {
       // Soft mode: at most 1 reminder a day (the morning one, most relevant)
       // and never a check-in nudge — see CLAUDE.md's Soft Mode feature.
       if (profile.soft_mode && slot.key !== "morning") {
+        skipped++
+        return
+      }
+
+      // Quiet hours: the slot's own fixed hour (9/15/19) already represents
+      // her local morning/midday/evening by construction (dueToday only
+      // included her if her local time matched that slot's window), so no
+      // separate per-user hour lookup is needed here.
+      if (prefs.quiet_hours_enabled && isQuietHour(slot.hour, prefs.quiet_hours_start, prefs.quiet_hours_end)) {
         skipped++
         return
       }

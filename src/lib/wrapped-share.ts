@@ -2,9 +2,9 @@
 // same technique as src/lib/letter-share.ts (this app's other share-image
 // surface): a canvas draw is small, fully controllable, and independent of
 // live DOM layout, so no image-generation dependency (html2canvas etc.) is
-// needed. Helpers are deliberately duplicated rather than imported, same
-// per-module convention as letter-share.ts / src/lib/pdf/canvas-cards.ts.
+// needed.
 import type { WrappedCard } from "@/lib/wrapped"
+import { wrapText, loadCanvasFonts } from "@/lib/canvas-utils"
 
 const CARD_WIDTH = 1080
 const CARD_HEIGHT = 1920 // 9:16 — Stories/Reels portrait format
@@ -18,42 +18,13 @@ const COLORS = {
   lavenderWash: "rgba(212, 197, 232, 0.35)",
 }
 
-async function ensureFontsLoaded(): Promise<void> {
-  try {
-    await Promise.all([
-      document.fonts.load("italic 700 60px 'Playfair Display'"),
-      document.fonts.load("700 200px 'Playfair Display'"),
-      document.fonts.load("italic 400 40px 'Playfair Display'"),
-      document.fonts.load("600 30px 'Inter'"),
-      document.fonts.load("400 32px 'Inter'"),
-    ])
-  } catch {
-    // Best effort — canvas falls back to the system serif/sans if the webfont
-    // hasn't finished loading in time, still perfectly readable.
-  }
-}
-
-function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
-  const lines: string[] = []
-  for (const paragraph of text.split("\n")) {
-    if (paragraph.trim() === "") {
-      lines.push("")
-      continue
-    }
-    let current = ""
-    for (const word of paragraph.split(/\s+/)) {
-      const attempt = current ? `${current} ${word}` : word
-      if (current && ctx.measureText(attempt).width > maxWidth) {
-        lines.push(current)
-        current = word
-      } else {
-        current = attempt
-      }
-    }
-    if (current) lines.push(current)
-  }
-  return lines
-}
+const WRAPPED_FONT_SPECS = [
+  "italic 700 60px 'Playfair Display'",
+  "700 200px 'Playfair Display'",
+  "italic 400 40px 'Playfair Display'",
+  "600 30px 'Inter'",
+  "400 32px 'Inter'",
+]
 
 function drawWrappedLines(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number): void {
   const lines = wrapText(ctx, text, maxWidth)
@@ -153,7 +124,7 @@ function drawSentenceCard(ctx: CanvasRenderingContext2D, card: WrappedCard): voi
 }
 
 async function renderWrappedCard(card: WrappedCard): Promise<HTMLCanvasElement> {
-  await ensureFontsLoaded()
+  await loadCanvasFonts(WRAPPED_FONT_SPECS)
 
   const canvas = document.createElement("canvas")
   canvas.width = CARD_WIDTH

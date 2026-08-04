@@ -336,7 +336,9 @@ function buildHighlights(params: {
 // Backstop for the word-count target: manual review of the reminders prompt
 // (see api/cron/reminders.ts) showed the model doesn't reliably count its
 // own words — trim deterministically rather than trust the instruction.
-function capWords(text: string, maxWords: number): string {
+// Exported for scripts/check-duplicated-logic.ts, which checks this against
+// the near-identical copy in api/cron/reminders.ts — purely additive.
+export function capWords(text: string, maxWords: number): string {
   const words = text.split(/\s+/)
   if (words.length <= maxWords) return text
   return words.slice(0, maxWords).join(" ").replace(/[,;:]$/, "") + "…"

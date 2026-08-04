@@ -13,9 +13,13 @@ interface PushNudgeProps {
   // The daily cycle (mood + anchors + check-in) just completed — a moment of
   // trust earned, not the first launch, which is when we ask about reminders.
   active: boolean
+  // Same single-nudge-slot arbitration as GratitudeReminderCard — see the
+  // priority order in home.tsx.
+  onVisibilityChange?: (visible: boolean) => void
+  suppressed?: boolean
 }
 
-export function PushNudge({ active }: PushNudgeProps) {
+export function PushNudge({ active, onVisibilityChange, suppressed }: PushNudgeProps) {
   const { t } = useTranslation()
   const { user } = useAuth()
   const [visible, setVisible] = useState(false)
@@ -32,6 +36,11 @@ export function PushNudge({ active }: PushNudgeProps) {
       cancelled = true
     }
   }, [active, user])
+
+  useEffect(() => {
+    onVisibilityChange?.(visible)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible])
 
   function dismiss() {
     if (user) setUserLocalData(NUDGE_KEY_BASE, user.id, "1")
@@ -57,7 +66,7 @@ export function PushNudge({ active }: PushNudgeProps) {
     }
   }
 
-  if (!visible) return null
+  if (!visible || suppressed) return null
 
   return (
     <div className="rounded-xl bg-secondary p-4 shadow-[0_2px_10px_rgba(0,0,0,0.04)] animate-in fade-in slide-in-from-bottom-2">

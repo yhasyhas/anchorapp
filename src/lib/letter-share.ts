@@ -4,6 +4,7 @@
 // self-contained rather than a plain text share. No image-generation
 // dependency is added for this: a canvas draw is small and fully
 // controllable, and this is the only place in the app that needs one.
+import { roundRect, wrapText, loadCanvasFonts } from "@/lib/canvas-utils"
 
 export interface LetterShareOptions {
   letterText: string
@@ -32,54 +33,15 @@ const COLORS = {
   shadow: "rgba(61, 61, 61, 0.14)",
 }
 
-async function ensureFontsLoaded(): Promise<void> {
-  try {
-    await Promise.all([
-      document.fonts.load("italic 400 40px 'Playfair Display'"),
-      document.fonts.load("italic 600 34px 'Playfair Display'"),
-      document.fonts.load("600 26px 'Inter'"),
-      document.fonts.load("400 24px 'Inter'"),
-    ])
-  } catch {
-    // Best effort — canvas falls back to the system serif/sans if the
-    // webfont hasn't finished loading in time, still perfectly readable.
-  }
-}
-
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
-  ctx.beginPath()
-  ctx.moveTo(x + r, y)
-  ctx.arcTo(x + w, y, x + w, y + h, r)
-  ctx.arcTo(x + w, y + h, x, y + h, r)
-  ctx.arcTo(x, y + h, x, y, r)
-  ctx.arcTo(x, y, x + w, y, r)
-  ctx.closePath()
-}
-
-function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
-  const lines: string[] = []
-  for (const paragraph of text.split("\n")) {
-    if (paragraph.trim() === "") {
-      lines.push("")
-      continue
-    }
-    let current = ""
-    for (const word of paragraph.split(/\s+/)) {
-      const attempt = current ? `${current} ${word}` : word
-      if (current && ctx.measureText(attempt).width > maxWidth) {
-        lines.push(current)
-        current = word
-      } else {
-        current = attempt
-      }
-    }
-    if (current) lines.push(current)
-  }
-  return lines
-}
+const LETTER_FONT_SPECS = [
+  "italic 400 40px 'Playfair Display'",
+  "italic 600 34px 'Playfair Display'",
+  "600 26px 'Inter'",
+  "400 24px 'Inter'",
+]
 
 async function renderLetterCard(opts: LetterShareOptions): Promise<HTMLCanvasElement> {
-  await ensureFontsLoaded()
+  await loadCanvasFonts(LETTER_FONT_SPECS)
 
   const canvas = document.createElement("canvas")
   canvas.width = CARD_WIDTH

@@ -891,7 +891,11 @@ function dayIndex(dateStr: string): number {
 
 // Meilleur streak : reconstruit une timeline calendaire continue en comparant les dates
 // consécutives triées — un jour sans ligne (trou dans le calendrier) casse le streak
-function calculateBestStreakFromDates(dates: string[]): number {
+// Exported (not just used internally) so scripts/check-duplicated-logic.ts
+// can run this side by side with the canonical src/lib/streaks.ts version —
+// purely additive, doesn't change how Vercel bundles/invokes this Edge
+// Function (only the default `handler` export matters there).
+export function calculateBestStreakFromDates(dates: string[]): number {
   if (dates.length === 0) return 0
   const sorted = [...new Set(dates)].sort()
   let best = 1
@@ -912,7 +916,7 @@ function calculateBestStreakFromDates(dates: string[]): number {
 // calculateBestStreakFromDates ci-dessus) car cette Edge Function est bundlée séparément
 // du reste de l'app — pour ne pas annoncer à l'IA un anchor streak plus court que celui
 // affiché sur Home.
-function calculateBestAnchorStreakWithGrace(dates: string[]): number {
+export function calculateBestAnchorStreakWithGrace(dates: string[]): number {
   if (dates.length === 0) return 0
   const sorted = [...new Set(dates)].sort()
   let noGrace = 1
@@ -942,7 +946,7 @@ function calculateBestAnchorStreakWithGrace(dates: string[]): number {
 // Soft mode day: 1 of 3 anchors done is a complete day. Same predicate as
 // isAnchorDayComplete in src/lib/streaks.ts, duplicated here (this Edge
 // Function is bundled separately, same reasoning as calculateBestAnchorStreakWithGrace above).
-function isAnchorDayComplete(a: any): boolean {
+export function isAnchorDayComplete(a: any): boolean {
   return a.soft_mode_day
     ? a.future_completed || a.mindbody_completed || a.life_completed
     : a.future_completed && a.mindbody_completed && a.life_completed

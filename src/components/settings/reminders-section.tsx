@@ -14,6 +14,9 @@ interface Prefs {
   morning_enabled: boolean
   midday_enabled: boolean
   evening_enabled: boolean
+  quiet_hours_enabled: boolean
+  quiet_hours_start: number
+  quiet_hours_end: number
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -21,7 +24,13 @@ const DEFAULT_PREFS: Prefs = {
   morning_enabled: true,
   midday_enabled: true,
   evening_enabled: true,
+  quiet_hours_enabled: false,
+  quiet_hours_start: 21,
+  quiet_hours_end: 8,
 }
+
+// 0-23 — simple hour labels, no need for a full time-picker component here.
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, h) => h)
 
 export function RemindersSection() {
   const { t } = useTranslation()
@@ -40,7 +49,9 @@ export function RemindersSection() {
         getPushState(),
         supabase
           .from("notification_preferences")
-          .select("reminders_enabled, morning_enabled, midday_enabled, evening_enabled")
+          .select(
+            "reminders_enabled, morning_enabled, midday_enabled, evening_enabled, quiet_hours_enabled, quiet_hours_start, quiet_hours_end"
+          )
           .eq("user_id", user!.id)
           .maybeSingle(),
       ])
@@ -103,7 +114,14 @@ export function RemindersSection() {
     }
   }
 
-  function handleSubToggle(key: keyof Omit<Prefs, "reminders_enabled">, value: boolean) {
+  function handleSubToggle(
+    key: "morning_enabled" | "midday_enabled" | "evening_enabled" | "quiet_hours_enabled",
+    value: boolean
+  ) {
+    persistPrefs({ ...prefs, [key]: value })
+  }
+
+  function handleQuietHourChange(key: "quiet_hours_start" | "quiet_hours_end", value: number) {
     persistPrefs({ ...prefs, [key]: value })
   }
 
@@ -180,6 +198,52 @@ export function RemindersSection() {
                 onCheckedChange={(v) => handleSubToggle("evening_enabled", v)}
               />
             </div>
+
+            <Separator />
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <p className="text-sm text-foreground">{t("settings.quiet_hours")}</p>
+                <p className="text-xs text-muted-foreground">{t("settings.quiet_hours_desc")}</p>
+              </div>
+              <Switch
+                checked={prefs.quiet_hours_enabled}
+                onCheckedChange={(v) => handleSubToggle("quiet_hours_enabled", v)}
+              />
+            </div>
+
+            {prefs.quiet_hours_enabled && (
+              <div className="flex items-center justify-center gap-3 text-sm">
+                <label className="flex items-center gap-2 text-muted-foreground">
+                  {t("settings.quiet_hours_from")}
+                  <select
+                    value={prefs.quiet_hours_start}
+                    onChange={(e) => handleQuietHourChange("quiet_hours_start", Number(e.target.value))}
+                    className="rounded-lg border-0 bg-muted px-2 py-1.5 text-sm text-foreground"
+                  >
+                    {HOUR_OPTIONS.map((h) => (
+                      <option key={h} value={h}>
+                        {h}:00
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex items-center gap-2 text-muted-foreground">
+                  {t("settings.quiet_hours_to")}
+                  <select
+                    value={prefs.quiet_hours_end}
+                    onChange={(e) => handleQuietHourChange("quiet_hours_end", Number(e.target.value))}
+                    className="rounded-lg border-0 bg-muted px-2 py-1.5 text-sm text-foreground"
+                  >
+                    {HOUR_OPTIONS.map((h) => (
+                      <option key={h} value={h}>
+                        {h}:00
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
           </>
         )}
       </CardContent>

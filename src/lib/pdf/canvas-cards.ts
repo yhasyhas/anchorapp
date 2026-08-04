@@ -5,6 +5,7 @@
 // JPEGs; only the stats/chart page (src/lib/pdf/mini-chart.ts) is drawn as PDF vector text.
 import { CARD_PX_H, CARD_PX_W } from "./layout"
 import { PDF_COLORS } from "./palette"
+import { roundRect, wrapText, loadCanvasFonts } from "@/lib/canvas-utils"
 
 export interface RenderedCard {
   dataUrl: string
@@ -12,54 +13,17 @@ export interface RenderedCard {
   height: number
 }
 
-async function ensureFontsLoaded(): Promise<void> {
-  try {
-    await Promise.all([
-      document.fonts.load("italic 400 40px 'Playfair Display'"),
-      document.fonts.load("italic 600 40px 'Playfair Display'"),
-      document.fonts.load("700 40px 'Playfair Display'"),
-      document.fonts.load("400 40px 'Playfair Display'"),
-      document.fonts.load("400 24px 'Inter'"),
-      document.fonts.load("600 24px 'Inter'"),
-      document.fonts.load("700 24px 'Inter'"),
-    ])
-  } catch {
-    // Best effort — canvas falls back to the system serif/sans if a webfont hasn't
-    // finished loading yet, still perfectly readable.
-  }
-}
-
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
-  ctx.beginPath()
-  ctx.moveTo(x + r, y)
-  ctx.arcTo(x + w, y, x + w, y + h, r)
-  ctx.arcTo(x + w, y + h, x, y + h, r)
-  ctx.arcTo(x, y + h, x, y, r)
-  ctx.arcTo(x, y, x + w, y, r)
-  ctx.closePath()
-}
-
-function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
-  const lines: string[] = []
-  for (const paragraph of text.split("\n")) {
-    if (paragraph.trim() === "") {
-      lines.push("")
-      continue
-    }
-    let current = ""
-    for (const word of paragraph.split(/\s+/)) {
-      const attempt = current ? `${current} ${word}` : word
-      if (current && ctx.measureText(attempt).width > maxWidth) {
-        lines.push(current)
-        current = word
-      } else {
-        current = attempt
-      }
-    }
-    if (current) lines.push(current)
-  }
-  return lines
-}
+// Same fixed set for every card type below — none of them currently need a
+// different weight/size mix, so there's just the one shared list.
+const CARD_FONT_SPECS = [
+  "italic 400 40px 'Playfair Display'",
+  "italic 600 40px 'Playfair Display'",
+  "700 40px 'Playfair Display'",
+  "400 40px 'Playfair Display'",
+  "400 24px 'Inter'",
+  "600 24px 'Inter'",
+  "700 24px 'Inter'",
+]
 
 function newCanvas(): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
   const canvas = document.createElement("canvas")
@@ -110,7 +74,7 @@ export interface CoverCardOptions {
 }
 
 export async function renderCoverCard(opts: CoverCardOptions): Promise<RenderedCard> {
-  await ensureFontsLoaded()
+  await loadCanvasFonts(CARD_FONT_SPECS)
   const { canvas, ctx } = newCanvas()
   const margin = 56
   const { cardY, cardW, cardH } = paintBackgroundCard(
@@ -185,7 +149,7 @@ export interface LetterCardOptions {
 }
 
 export async function renderLetterCard(opts: LetterCardOptions): Promise<RenderedCard> {
-  await ensureFontsLoaded()
+  await loadCanvasFonts(CARD_FONT_SPECS)
   const { canvas, ctx } = newCanvas()
   const margin = 56
   const { cardX, cardY, cardW, cardH } = paintBackgroundCard(
@@ -256,7 +220,7 @@ export interface JournalCardOptions {
 }
 
 export async function renderJournalCard(opts: JournalCardOptions): Promise<RenderedCard> {
-  await ensureFontsLoaded()
+  await loadCanvasFonts(CARD_FONT_SPECS)
   const { canvas, ctx } = newCanvas()
   const margin = 56
   const { cardX, cardY, cardW, cardH } = paintBackgroundCard(
@@ -330,7 +294,7 @@ export interface StoryCardOptions {
 }
 
 export async function renderStoryCard(opts: StoryCardOptions): Promise<RenderedCard> {
-  await ensureFontsLoaded()
+  await loadCanvasFonts(CARD_FONT_SPECS)
   const { canvas, ctx } = newCanvas()
   const margin = 56
   const { cardX, cardY, cardW, cardH } = paintBackgroundCard(
@@ -385,7 +349,7 @@ export interface ClosingCardOptions {
 }
 
 export async function renderClosingCard(opts: ClosingCardOptions): Promise<RenderedCard> {
-  await ensureFontsLoaded()
+  await loadCanvasFonts(CARD_FONT_SPECS)
   const { canvas, ctx } = newCanvas()
   const margin = 56
   const { cardX, cardY, cardW, cardH } = paintBackgroundCard(

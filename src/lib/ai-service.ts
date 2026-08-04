@@ -683,6 +683,28 @@ export function cacheAiInsights(userId: string, insights: AiInsightResult[]) {
   setUserLocalData(AI_INSIGHTS_CACHE_BASE, userId, cache)
 }
 
+// Archives a freshly-generated AI batch to insight_log so it can be browsed
+// later (see the "Past insights" section in src/pages/patterns.tsx) — never
+// called for local rule-based insights (always live-recomputed, not a
+// meaningful snapshot) or for a cache hit (already logged when first generated).
+// Best-effort and fire-and-forget: a failure here must never affect the
+// insights she actually sees on Patterns.
+function logInsightHistory(userId: string, insights: AiInsightResult[]): void {
+  if (insights.length === 0) return
+  const rows = insights.map((ins) => ({
+    user_id: userId,
+    week_key: getWeekKey(),
+    text: ins.text,
+    category: ins.category,
+  }))
+  supabase
+    .from("insight_log")
+    .upsert(rows, { onConflict: "user_id,week_key,text" })
+    .then(({ error }) => {
+      if (error) console.warn("Failed to log insight history:", error)
+    })
+}
+
 export async function fetchInsightsWithFallback(
   userId: string,
   aiEnabled: boolean,
@@ -720,6 +742,7 @@ export async function fetchInsightsWithFallback(
   try {
     const aiInsights = await generateAiInsights(moods, anchors, checkInsForAi)
     cacheAiInsights(userId, aiInsights)
+    logInsightHistory(userId, aiInsights)
     return { insights: [...localInsights, ...aiInsights].slice(0, 4), source: "ai" }
   } catch (err) {
     console.warn("AI insights failed, falling back to local:", err)

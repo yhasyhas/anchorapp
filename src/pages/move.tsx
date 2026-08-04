@@ -286,7 +286,12 @@ export function MovePage() {
                 <span className="text-xl">{categoryIcons[featured.category] ?? "\u{1F333}"}</span>
                 <p className="text-base font-medium text-foreground">{featured.title}</p>
               </div>
-              <Button size="icon" className="h-9 w-9 shrink-0" onClick={() => openAnchorModal(featured.title)}>
+              <Button
+                size="icon"
+                className="h-9 w-9 shrink-0"
+                onClick={() => openAnchorModal(featured.title)}
+                aria-label={t("move.add_to_anchor")}
+              >
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
@@ -326,6 +331,7 @@ export function MovePage() {
                     size="icon"
                     className="h-8 w-8 text-primary"
                     onClick={() => openAnchorModal(suggestion.title)}
+                    aria-label={t("move.add_to_anchor")}
                   >
                     <Plus className="h-4 w-4" />
                   </Button>

@@ -8,12 +8,14 @@ import { localDateStr } from "@/lib/utils"
 import { formatWeekRange } from "@/lib/letters"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Sparkles, Brain, Loader2, BookOpen } from "lucide-react"
+import { Sparkles, Brain, Loader2, BookOpen, ChevronDown, ChevronUp } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts"
 import { EmptyState } from "@/components/ui/empty-state"
 import { toast } from "sonner"
-import type { MoodLog, DailyAnchor, CheckIn, JournalEntry, ProgressStory } from "@/types"
+import type { MoodLog, DailyAnchor, CheckIn, JournalEntry, ProgressStory, InsightLogEntry } from "@/types"
 import { todayStr } from "@/lib/utils"
+
+const INSIGHT_HISTORY_LIMIT = 30
 
 const dayKeys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
 
@@ -50,6 +52,10 @@ export function PatternsPage() {
   const [stories, setStories] = useState<ProgressStory[]>([])
   const [selectedStory, setSelectedStory] = useState<ProgressStory | null>(null)
   const [loadingStory, setLoadingStory] = useState(true)
+
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [insightHistory, setInsightHistory] = useState<InsightLogEntry[] | null>(null)
+  const [loadingHistory, setLoadingHistory] = useState(false)
 
   useEffect(() => {
     if (user) loadData()
@@ -153,6 +159,31 @@ export function PatternsPage() {
       toast.error(t("patterns.error_load"))
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Lazy — only fetched the first time she opens the section, same
+  // "collapsed by default" spirit as the rest of this page's secondary content.
+  async function handleToggleHistory() {
+    const opening = !historyOpen
+    setHistoryOpen(opening)
+    if (opening && insightHistory === null && user) {
+      setLoadingHistory(true)
+      try {
+        const { data, error } = await supabase
+          .from("insight_log")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(INSIGHT_HISTORY_LIMIT)
+        if (error) throw error
+        setInsightHistory((data as InsightLogEntry[]) || [])
+      } catch (err) {
+        console.error("Failed to load insight history:", err)
+        setInsightHistory([])
+      } finally {
+        setLoadingHistory(false)
+      }
     }
   }
 
@@ -431,6 +462,52 @@ export function PatternsPage() {
             </CardContent>
           </Card>
         )}
+      </div>
+
+      {/* Insights History — collapsed by default, same "secondary content"
+          weight as the rest of this page. Only ever contains AI-generated
+          insights (see logInsightHistory in src/lib/ai-service.ts). */}
+      <div className="space-y-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleToggleHistory}
+          className="gap-1.5 px-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
+        >
+          {historyOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          {t("patterns.insights_history_toggle")}
+        </Button>
+
+        {historyOpen &&
+          (loadingHistory ? (
+            <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-center gap-2 py-4">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">{t("patterns.loading")}</span>
+                </div>
+              </CardContent>
+            </Card>
+          ) : insightHistory && insightHistory.length > 0 ? (
+            <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+              <CardContent className="divide-y divide-border/60 p-0">
+                {insightHistory.map((entry) => (
+                  <div key={entry.id} className="flex items-start gap-3 p-4">
+                    <span className="mt-0.5 w-14 shrink-0 text-xs font-medium text-muted-foreground">
+                      {formatEntryDate(entry.created_at.slice(0, 10), i18n.language)}
+                    </span>
+                    <p className="text-sm text-foreground/85 leading-relaxed">{entry.text}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+              <CardContent className="p-5">
+                <EmptyState icon="cloud" titleKey="patterns.insights_history_empty" />
+              </CardContent>
+            </Card>
+          ))}
       </div>
 
       {/* Journal History */}

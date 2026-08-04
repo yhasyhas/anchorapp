@@ -764,6 +764,7 @@ export function CheckInPage() {
               <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-3">
                 <button
                   onClick={togglePlay}
+                  aria-label={isPlaying ? t("checkin.pause_voice_note") : t("checkin.play_voice_note")}
                   className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground hover:scale-105 transition-transform"
                 >
                   {isPlaying ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4 ml-0.5" />}
@@ -774,6 +775,7 @@ export function CheckInPage() {
                 </div>
                 <button
                   onClick={deleteVoiceNote}
+                  aria-label={t("checkin.delete_voice_note")}
                   className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
                 >
                   <Trash2 className="h-4 w-4" />

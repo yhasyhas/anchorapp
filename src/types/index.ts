@@ -63,11 +63,16 @@ export interface CheckIn {
   created_at: string
 }
 
+export type AnchorCategory = "future" | "mindbody" | "life"
+
 export interface MoveSuggestion {
   id: string
   user_id: string
   title: string
   category: "physical" | "social" | "mindful" | "novelty" | "creative" | "rest"
+  // Exactly one of the app's 3 daily anchor types this move is meant to
+  // fill — see supabase/migrations/20260806140000_add_anchor_category_to_move_suggestions.sql.
+  anchor_category: AnchorCategory
   is_custom: boolean
   // 'user' for customs, 'ai' for the weekly Groq-generated batch — the
   // hardcoded static pool is never a DB row at all.

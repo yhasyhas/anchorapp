@@ -764,6 +764,22 @@ interface MoveSuggestionOut {
   title: string
   category: string
   intensity: string
+  anchor_category: "future" | "mindbody" | "life"
+}
+
+// Rule-based, not asked of the model: keeps the mapping deterministic and
+// always valid, and matches both the migration's SQL backfill and the
+// custom-move creation form's smart default (see
+// supabase/migrations/20260806140000_add_anchor_category_to_move_suggestions.sql
+// and src/lib/move-selection.ts's defaultAnchorCategoryForActivity — same
+// mapping, duplicated here since this Edge Function is bundled separately).
+const ACTIVITY_TO_ANCHOR_CATEGORY: Record<string, "future" | "mindbody" | "life"> = {
+  physical: "mindbody",
+  mindful: "mindbody",
+  rest: "mindbody",
+  social: "life",
+  novelty: "life",
+  creative: "future",
 }
 
 // Weekly personalized batch for the Move page (src/pages/move.tsx). Payload
@@ -842,7 +858,12 @@ Rules:
           MOVE_INTENSITIES.includes(s.intensity)
       )
       .slice(0, 5)
-      .map((s: any) => ({ title: s.title.trim(), category: s.category, intensity: s.intensity }))
+      .map((s: any) => ({
+        title: s.title.trim(),
+        category: s.category,
+        intensity: s.intensity,
+        anchor_category: ACTIVITY_TO_ANCHOR_CATEGORY[s.category] ?? "mindbody",
+      }))
 
     return new Response(JSON.stringify({ suggestions }), {
       status: 200,

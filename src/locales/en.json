@@ -112,7 +112,8 @@
       "new_spot": "Sit somewhere new",
       "text_someone": "Text someone you trust",
       "playlist": "Listen to your favorite playlist",
-      "stretch": "Do a 10 min stretch"
+      "stretch": "Do a 10 min stretch",
+      "learn": "Learn one small new thing"
     },
     "category": {
       "physical": "Physical",
@@ -128,7 +129,16 @@
     "favorite": "Favorite",
     "home_card_title": "A little move for today",
     "home_card_cta": "Make it my Life anchor 🌍",
-    "home_card_cta_mindbody": "Make it my Mind/Body anchor 🧠"
+    "home_card_cta_mindbody": "Make it my Mind/Body anchor 🧠",
+    "anchor_category_label": "Which anchor is this for?",
+    "add_directly": "Add to today's anchor now",
+    "replace_confirm_title": "Replace your {{anchor}} anchor?",
+    "replace_confirm_body": "You already have: \"{{current}}\"",
+    "replace_confirm_cta": "Replace",
+    "cancel": "Cancel",
+    "suggestions_button": "Suggestions",
+    "picker_title": "{{anchor}} suggestions",
+    "picker_empty": "No suggestions yet — add your own on the Move tab."
   },
   "focus": {
     "title": "Focus Mode",

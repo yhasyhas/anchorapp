@@ -7,9 +7,15 @@ import {
   resolveMoveReason,
   pickFeaturedSuggestion,
   getMoveMoodCorrelation,
-  filterVisibleMoveSuggestions,
+  buildVisibleSuggestions,
+  materializeDefaultSuggestions,
+  filterByAnchorCategory,
+  excludeUsedTitles,
+  usedTitlesForToday,
+  getRecentlyUsedTitles,
 } from "@/lib/move-selection"
 import { MoveOfTheDayCard } from "@/components/anchor/move-of-the-day-card"
+import { MovePickerSheet } from "@/components/anchor/move-picker-sheet"
 import { MIN_STREAK_FOR_INTENTION } from "@/lib/streaks"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -39,6 +45,7 @@ import { useAnchorDefs } from "@/hooks/use-anchor-defs"
 import { useNudgeArbitration } from "@/hooks/use-nudge-arbitration"
 import { useDailyCycle } from "@/hooks/use-daily-cycle"
 import { useHomeBadges } from "@/hooks/use-home-badges"
+import type { AnchorCategory } from "@/types"
 
 function intentionLabel(t: (key: string) => string, rawIntention: string | null): string | null {
   if (!rawIntention) return null
@@ -91,30 +98,63 @@ export function HomePage() {
     showWrappedTeaser
   )
 
-  // "Move of the day" — same shared selection logic as src/pages/move.tsx
-  // (src/lib/move-selection.ts), fed from state useDailyCycle already loads
-  // (recentMoods, recentAnchors, streaks) plus the two lightweight fetches
-  // bundled into its loadContextData. Only shown before the day is locked in.
+  // "Move of the day" + planning picker — same shared selection logic as
+  // src/pages/move.tsx (src/lib/move-selection.ts), fed from state
+  // useDailyCycle already loads (recentMoods, recentAnchors, streaks,
+  // moveSuggestions). Only shown before the day is locked in.
   const moveWeekKey = getWeekKey()
-  const visibleMoveSuggestions = filterVisibleMoveSuggestions(cycle.moveSuggestions, moveWeekKey)
+  const defaultMoveSuggestions = materializeDefaultSuggestions(t)
+  const allVisibleMoveSuggestions = buildVisibleSuggestions(cycle.moveSuggestions, moveWeekKey, defaultMoveSuggestions)
   const moveReason = resolveMoveReason({ recentMoods: cycle.recentMoods, currentAnchorStreak: cycle.streaks.currentAnchorStreak })
-  const featuredMovePick = moveReason === "absence" ? null : pickFeaturedSuggestion(visibleMoveSuggestions, moveReason)
-  const featuredMoveTitle = moveReason === "absence" ? t("move.absence_fallback") : featuredMovePick?.title
-  const featuredMoveCategory = moveReason === "absence" ? "physical" : featuredMovePick?.category ?? "physical"
-  const featuredMoveIsAi = featuredMovePick?.generated_by === "ai"
-  const moveCorrelationHint = featuredMoveTitle
-    ? getMoveMoodCorrelation(featuredMoveTitle, cycle.recentAnchors, cycle.recentCheckInMoods)
-    : null
+
+  // Point 1b: a suggestion already sitting in one of today's 3 anchors must
+  // never be offered again for another. Point 1c: soft-prefer suggestions
+  // not used in the last 3 days, falling back to the full (still deduped)
+  // pool if that empties it out.
+  const usedTodayTitles = usedTitlesForToday(cycle.anchor)
+  const recentlyUsedTitles = getRecentlyUsedTitles(cycle.recentAnchors, 3)
+
+  function poolFor(anchorCategory: AnchorCategory) {
+    const categoryPool = filterByAnchorCategory(allVisibleMoveSuggestions, anchorCategory)
+    const deduped = excludeUsedTitles(categoryPool, usedTodayTitles)
+    const varied = excludeUsedTitles(deduped, recentlyUsedTitles)
+    return varied.length > 0 ? varied : deduped
+  }
+
+  // Point 1a: only ever pick from suggestions tagged with the SAME
+  // anchor_category as the field being targeted — this is what stops e.g. a
+  // "stretch" (mindbody) suggestion from ever landing on the Life card.
   const moveCtaTarget: "life" | "mindbody" | undefined = !cycle.anchor.life_task
     ? "life"
     : !cycle.anchor.mindbody_task
       ? "mindbody"
       : undefined
 
+  const featuredMovePick =
+    moveReason !== "absence" && moveCtaTarget ? pickFeaturedSuggestion(poolFor(moveCtaTarget), moveReason) : null
+  const featuredMoveTitle = moveReason === "absence" ? t("move.absence_fallback") : featuredMovePick?.title
+  const featuredMoveCategory = moveReason === "absence" ? "physical" : featuredMovePick?.category ?? "physical"
+  const featuredMoveIsAi = featuredMovePick?.generated_by === "ai"
+  const moveCorrelationHint = featuredMoveTitle
+    ? getMoveMoodCorrelation(featuredMoveTitle, cycle.recentAnchors, cycle.recentCheckInMoods)
+    : null
+
   function handleAddMoveToAnchor(target: "life" | "mindbody") {
     if (!featuredMoveTitle) return
     if (target === "life") cycle.saveAnchor({ life_task: featuredMoveTitle })
     else cycle.saveAnchor({ mindbody_task: featuredMoveTitle })
+  }
+
+  // Point 2: the 💡 picker on each planning anchor card, filtered to that
+  // card's category and using the same today/recent exclusion as the
+  // featured pick above.
+  const [pickerAnchor, setPickerAnchor] = useState<AnchorCategory | null>(null)
+  const pickerSuggestions = pickerAnchor ? poolFor(pickerAnchor) : []
+
+  function handlePickMove(title: string) {
+    if (!pickerAnchor) return
+    const field = pickerAnchor === "future" ? "future_task" : pickerAnchor === "mindbody" ? "mindbody_task" : "life_task"
+    cycle.saveAnchor({ [field]: title })
   }
 
   return (
@@ -138,6 +178,14 @@ export function HomePage() {
       />
 
       <JarOpeningModal open={cycle.jarModalOpen} onClose={cycle.closeJarModal} gratitudes={cycle.jarGratitudes} />
+
+      <MovePickerSheet
+        open={pickerAnchor !== null}
+        onOpenChange={(open) => !open && setPickerAnchor(null)}
+        anchorLabel={pickerAnchor ? t(`anchors.${pickerAnchor}`) : ""}
+        suggestions={pickerSuggestions}
+        onPick={handlePickMove}
+      />
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -463,6 +511,7 @@ export function HomePage() {
                   subtitle={t("anchors.future_sub")}
                   task={cycle.anchor.future_task}
                   onTaskChange={(v) => cycle.saveAnchor({ future_task: v })}
+                  onOpenSuggestions={() => setPickerAnchor("future")}
                 />
                 <PlanningAnchorCard
                   borderColor="var(--rose-accent)"
@@ -471,6 +520,7 @@ export function HomePage() {
                   subtitle={t("anchors.mindbody_sub")}
                   task={cycle.anchor.mindbody_task}
                   onTaskChange={(v) => cycle.saveAnchor({ mindbody_task: v })}
+                  onOpenSuggestions={() => setPickerAnchor("mindbody")}
                 />
                 <PlanningAnchorCard
                   borderColor="var(--lavender)"
@@ -479,6 +529,7 @@ export function HomePage() {
                   subtitle={t("anchors.life_sub")}
                   task={cycle.anchor.life_task}
                   onTaskChange={(v) => cycle.saveAnchor({ life_task: v })}
+                  onOpenSuggestions={() => setPickerAnchor("life")}
                 />
               </>
             )}
@@ -603,9 +654,10 @@ interface PlanningAnchorCardProps {
   subtitle: string
   task: string
   onTaskChange: (value: string) => void
+  onOpenSuggestions: () => void
 }
 
-function PlanningAnchorCard({ borderColor, icon, title, subtitle, task, onTaskChange }: PlanningAnchorCardProps) {
+function PlanningAnchorCard({ borderColor, icon, title, subtitle, task, onTaskChange, onOpenSuggestions }: PlanningAnchorCardProps) {
   const { t } = useTranslation()
   return (
     <Card
@@ -613,12 +665,21 @@ function PlanningAnchorCard({ borderColor, icon, title, subtitle, task, onTaskCh
       style={{ borderLeft: `4px solid ${borderColor}` }}
     >
       <CardContent className="p-5">
-        <div className="mb-3 flex items-center gap-2">
-          <span className="text-lg">{icon}</span>
-          <div>
-            <p className="text-sm font-semibold text-foreground">{title}</p>
-            <p className="text-xs text-muted-foreground">{subtitle}</p>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">{icon}</span>
+            <div>
+              <p className="text-sm font-semibold text-foreground">{title}</p>
+              <p className="text-xs text-muted-foreground">{subtitle}</p>
+            </div>
           </div>
+          <button
+            onClick={onOpenSuggestions}
+            className="shrink-0 rounded-full px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label={t("move.suggestions_button")}
+          >
+            &#x1F4A1; {t("move.suggestions_button")}
+          </button>
         </div>
         <Input
           value={task}

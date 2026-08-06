@@ -112,7 +112,8 @@
       "new_spot": "Kaa mahali papya",
       "text_someone": "Tuma ujumbe kwa mtu unayemwamini",
       "playlist": "Sikiliza orodha yako ya nyimbo unazozipenda",
-      "stretch": "Fanya unyoosho wa dakika 10"
+      "stretch": "Fanya unyoosho wa dakika 10",
+      "learn": "Jifunze jambo dogo jipya"
     },
     "category": {
       "physical": "Kimwili",
@@ -128,7 +129,16 @@
     "favorite": "Pendwa",
     "home_card_title": "Hatua ndogo kwa ajili ya leo",
     "home_card_cta": "Ifanye nanga yangu ya Maisha 🌍",
-    "home_card_cta_mindbody": "Ifanye nanga yangu ya Akili/Mwili 🧠"
+    "home_card_cta_mindbody": "Ifanye nanga yangu ya Akili/Mwili 🧠",
+    "anchor_category_label": "Hatua hii ni ya nanga gani?",
+    "add_directly": "Ongeza kwa nanga ya leo sasa",
+    "replace_confirm_title": "Badilisha nanga yako ya {{anchor}}?",
+    "replace_confirm_body": "Tayari una: \"{{current}}\"",
+    "replace_confirm_cta": "Badilisha",
+    "cancel": "Ghairi",
+    "suggestions_button": "Mapendekezo",
+    "picker_title": "Mapendekezo ya {{anchor}}",
+    "picker_empty": "Bado hakuna mapendekezo — ongeza yako mwenyewe kwenye kichupo cha Sogeza."
   },
   "focus": {
     "title": "Hali ya Kuzingatia",

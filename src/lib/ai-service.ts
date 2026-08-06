@@ -610,6 +610,7 @@ export interface GeneratedMoveSuggestion {
   title: string
   category: string
   intensity: string
+  anchor_category: "future" | "mindbody" | "life"
 }
 
 // Weekly personalized batch for the Move page — gated on aiEnabled alone
@@ -641,7 +642,12 @@ export async function generateMoveSuggestions(
     const json = await response.json()
     const suggestions = Array.isArray(json.suggestions) ? json.suggestions : []
     return suggestions.filter(
-      (s: any) => s && typeof s.title === "string" && typeof s.category === "string" && typeof s.intensity === "string"
+      (s: any) =>
+        s &&
+        typeof s.title === "string" &&
+        typeof s.category === "string" &&
+        typeof s.intensity === "string" &&
+        (s.anchor_category === "future" || s.anchor_category === "mindbody" || s.anchor_category === "life")
     )
   } catch {
     return []

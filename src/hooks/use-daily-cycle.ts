@@ -25,6 +25,10 @@ function getDayModeKey(userId: string): string {
   return `anchor_day_mode_${userId}_${todayStr()}`
 }
 
+function getMoveSuggestionsCacheKey(userId: string): string {
+  return `anchor_move_suggestions_${userId}`
+}
+
 export interface UseDailyCycleResult {
   anchor: DailyAnchor
   dayMode: "planning" | "tracking"
@@ -122,6 +126,7 @@ export function useDailyCycle(
       // (loadTodayData() est async et setAnchor() n'aurait pas encore appliqué sa mise à
       // jour au moment où loadContextData lirait la valeur via une closure sur `anchor`).
       loadTodayData().then((todayAnchor) => loadContextData(todayAnchor))
+      loadMoveSuggestions()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
@@ -219,6 +224,30 @@ export function useDailyCycle(
     return resolvedAnchor
   }
 
+  // Isolated from loadContextData's own try/catch (and its all-or-nothing
+  // Promise.all) so a network failure here can fall back to the last cached
+  // batch (read cache, same setLocalData/getLocalData pattern as today's
+  // anchor row) without also silently emptying moods/anchors/streaks —
+  // see Point 2's "offline, cached moves are still offered" requirement.
+  async function loadMoveSuggestions() {
+    if (!user) return
+    const cacheKey = getMoveSuggestionsCacheKey(user.id)
+    try {
+      if (isOnline()) {
+        const { data, error } = await supabase.from("move_suggestions").select("*").eq("user_id", user.id)
+        if (error) throw error
+        const rows = (data as MoveSuggestion[]) || []
+        setMoveSuggestions(rows)
+        setLocalData(cacheKey, rows)
+      } else {
+        setMoveSuggestions(getLocalData<MoveSuggestion[]>(cacheKey) || [])
+      }
+    } catch (err) {
+      console.error("Failed to load move suggestions:", err)
+      setMoveSuggestions(getLocalData<MoveSuggestion[]>(cacheKey) || [])
+    }
+  }
+
   async function loadContextData(todayAnchor?: DailyAnchor) {
     if (!user) return
     try {
@@ -226,11 +255,10 @@ export function useDailyCycle(
       thirtyAgo.setDate(thirtyAgo.getDate() - 30)
       const since = localDateStr(thirtyAgo)
 
-      const [{ data: monthMoods }, { data: monthAnchors }, { data: monthCheckIns }, { data: moveSuggestionsData }] = await Promise.all([
+      const [{ data: monthMoods }, { data: monthAnchors }, { data: monthCheckIns }] = await Promise.all([
         supabase.from("mood_logs").select("*").eq("user_id", user.id).gte("date", since),
         supabase.from("daily_anchors").select("*").eq("user_id", user.id).gte("date", since),
         supabase.from("check_ins").select("date, evening_mood").eq("user_id", user.id).gte("date", since),
-        supabase.from("move_suggestions").select("*").eq("user_id", user.id),
       ])
 
       const moods = (monthMoods || []) as MoodLog[]
@@ -244,7 +272,6 @@ export function useDailyCycle(
       // already active. Same daily-dismissal pattern as the jar prompt.
       checkSoftExitTrigger(moods)
       setRecentCheckInMoods((monthCheckIns as { date: string; evening_mood: string | null }[]) || [])
-      setMoveSuggestions((moveSuggestionsData as MoveSuggestion[]) || [])
       setStreaks(calculateStreaks(moods, anchors))
 
       const { data: todayCheckIn } = await supabase

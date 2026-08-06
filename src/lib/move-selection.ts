@@ -5,7 +5,7 @@
 
 import { MIN_STREAK_FOR_INTENTION } from "@/lib/streaks"
 import { localDateStr } from "@/lib/utils"
-import type { MoodLog, MoveSuggestion } from "@/types"
+import type { AnchorCategory, DailyAnchor, MoodLog, MoveSuggestion } from "@/types"
 
 export type MoveReason = "absence" | "low_mood" | "streak" | "neutral"
 
@@ -16,6 +16,129 @@ export type MoveReason = "absence" | "low_mood" | "streak" | "neutral"
 // "this week's suggestions" means.
 export function filterVisibleMoveSuggestions(suggestions: MoveSuggestion[], weekKey: string): MoveSuggestion[] {
   return suggestions.filter((s) => s.is_custom || s.is_favorite || (s.generated_by === "ai" && s.week_key === weekKey))
+}
+
+// Smart default when creating a custom move or backfilling AI/legacy rows
+// with no anchor_category of their own — same mapping as the migration's
+// SQL backfill (see supabase/migrations/20260806140000_add_anchor_category_to_move_suggestions.sql),
+// kept in one place so both stay in sync if the rule ever changes.
+const ACTIVITY_TO_ANCHOR_CATEGORY: Record<MoveSuggestion["category"], AnchorCategory> = {
+  physical: "mindbody",
+  mindful: "mindbody",
+  rest: "mindbody",
+  social: "life",
+  novelty: "life",
+  creative: "future",
+}
+
+export function defaultAnchorCategoryForActivity(activityCategory: MoveSuggestion["category"]): AnchorCategory {
+  return ACTIVITY_TO_ANCHOR_CATEGORY[activityCategory] ?? "mindbody"
+}
+
+// The hardcoded static pool — never stored as DB rows, rendered client-side
+// (see filterVisibleMoveSuggestions's own comment). Lives here (not in
+// src/pages/move.tsx) so src/pages/home.tsx's planning picker (Point 2) can
+// build the exact same combined list without duplicating this array.
+// One default per anchor_category minimum, so every planning card always
+// has at least one suggestion even fully offline / before any custom or AI
+// suggestion exists.
+const DEFAULT_SUGGESTIONS: {
+  titleKey: string
+  category: MoveSuggestion["category"]
+  anchor_category: AnchorCategory
+}[] = [
+  { titleKey: "move.default.walk", category: "physical", anchor_category: "mindbody" },
+  { titleKey: "move.default.stretch", category: "physical", anchor_category: "mindbody" },
+  { titleKey: "move.default.playlist", category: "mindful", anchor_category: "mindbody" },
+  { titleKey: "move.default.new_spot", category: "novelty", anchor_category: "life" },
+  { titleKey: "move.default.text_someone", category: "social", anchor_category: "life" },
+  { titleKey: "move.default.learn", category: "creative", anchor_category: "future" },
+]
+
+// Turns the static pool above into full MoveSuggestion-shaped objects (fake
+// stable ids, no user_id/created_at) so it can be merged with real DB rows
+// through the same filtering/sorting/picking functions below.
+export function materializeDefaultSuggestions(t: (key: string) => string): MoveSuggestion[] {
+  return DEFAULT_SUGGESTIONS.map((d, i) => ({
+    id: `default-${i}`,
+    user_id: "",
+    title: t(d.titleKey),
+    category: d.category,
+    anchor_category: d.anchor_category,
+    is_custom: false,
+    generated_by: "user" as const,
+    week_key: null,
+    is_favorite: false,
+    intensity: "standard" as const,
+    created_at: "",
+  }))
+}
+
+// Combines real DB rows (favorites/customs/this-week's AI batch) with the
+// static pool (skipping any default whose title a real row already covers),
+// sorted favorites-first then this-week's AI batch first — the exact
+// ordering src/pages/move.tsx used to build inline; now shared so
+// src/pages/home.tsx's planning picker agrees on the same order.
+export function buildVisibleSuggestions(
+  dbSuggestions: MoveSuggestion[],
+  weekKey: string,
+  defaults: MoveSuggestion[]
+): MoveSuggestion[] {
+  const dbVisible = filterVisibleMoveSuggestions(dbSuggestions, weekKey)
+  const defaultsVisible = defaults.filter((d) => !dbVisible.some((s) => s.title === d.title))
+  const all = [...dbVisible, ...defaultsVisible]
+
+  return [...all].sort((a, b) => {
+    if (a.is_favorite !== b.is_favorite) return a.is_favorite ? -1 : 1
+    const aThisWeek = a.generated_by === "ai" && a.week_key === weekKey ? 0 : 1
+    const bThisWeek = b.generated_by === "ai" && b.week_key === weekKey ? 0 : 1
+    return aThisWeek - bThisWeek
+  })
+}
+
+// Point 1a: a suggestion is only ever relevant to the ONE anchor category
+// it's tagged with.
+export function filterByAnchorCategory(suggestions: MoveSuggestion[], anchorCategory: AnchorCategory): MoveSuggestion[] {
+  return suggestions.filter((s) => s.anchor_category === anchorCategory)
+}
+
+function normalizeTitle(title: string): string {
+  return title.trim().toLowerCase()
+}
+
+// Point 1b: draw-without-replacement across today's 3 anchor cards — a
+// suggestion already sitting in one field must never be offered again for
+// another. Also used to strip out a suggestion that was just picked before
+// re-picking for a different card.
+export function excludeUsedTitles(suggestions: MoveSuggestion[], usedTitles: Set<string>): MoveSuggestion[] {
+  return suggestions.filter((s) => !usedTitles.has(normalizeTitle(s.title)))
+}
+
+export function usedTitlesForToday(anchor: Pick<DailyAnchor, "future_task" | "mindbody_task" | "life_task">): Set<string> {
+  return new Set(
+    [anchor.future_task, anchor.mindbody_task, anchor.life_task].filter(Boolean).map((title) => normalizeTitle(title))
+  )
+}
+
+// Point 1c: a soft (not hard) exclusion — titles that appeared in any of the
+// 3 anchor fields on the last `days` calendar days, so the same move doesn't
+// keep resurfacing day after day. Callers should fall back to the
+// un-varied pool if this empties it out (a small favorites-only pool
+// shouldn't go silent just because it was used yesterday).
+export function getRecentlyUsedTitles(recentAnchors: DailyAnchor[], days: number): Set<string> {
+  const today = localDateStr(new Date())
+  const cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() - days)
+  const cutoffStr = localDateStr(cutoff)
+
+  const titles = new Set<string>()
+  for (const a of recentAnchors) {
+    if (a.date === today || a.date < cutoffStr) continue
+    for (const task of [a.future_task, a.mindbody_task, a.life_task]) {
+      if (task) titles.add(normalizeTitle(task))
+    }
+  }
+  return titles
 }
 
 const LOW_MOODS = new Set(["low", "stressed"])

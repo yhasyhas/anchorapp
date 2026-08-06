@@ -140,11 +140,32 @@
     "picker_title": "{{anchor}} suggestions",
     "picker_empty": "No suggestions yet — add your own on the Move tab."
   },
-  "focus": {
-    "title": "Focus Mode",
-    "message": "You've been scrolling for a while. Want to come back to yourself?",
-    "yes": "Yes, let's refocus",
-    "no": "Not now"
+  "pause": {
+    "title": "Take a Pause",
+    "message": "A few quiet minutes, on your terms.",
+    "option_breathing": "Guided breathing",
+    "option_focus": "Focus on my Future anchor",
+    "option_recenter": "Gentle recentering",
+    "not_now": "Not now",
+    "skip": "Skip",
+    "duration_minutes": "{{count}} min",
+    "breathing_pick_duration": "How long would you like to breathe?",
+    "breathing_done": "That's enough for now",
+    "focus_pick_duration": "How long do you want to focus?",
+    "focus_label": "Focusing on",
+    "focus_no_task": "You haven't set a Future anchor yet — these minutes are still yours.",
+    "focus_end_early": "End session",
+    "focus_no_guilt": "Pauses are part of the work too.",
+    "focus_done": "Time's up. Well done.",
+    "focus_mark_done": "Mark my Future anchor as done",
+    "focus_close": "Close",
+    "recenter_q1": "What's pulling at your attention right now?",
+    "recenter_q2": "What are you carrying that you could set down for a moment?",
+    "recenter_q3": "What does this moment actually need from you?",
+    "recenter_q4": "If you gave yourself permission to pause, what would you do right now?",
+    "recenter_suggest_jar": "Open your Gratitude Jar",
+    "recenter_suggest_move": "A small idea: {{title}}",
+    "recenter_open_move": "See it on the Move tab"
   },
   "settings": {
     "title": "Settings",

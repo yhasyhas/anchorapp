@@ -140,11 +140,32 @@
     "picker_title": "Mapendekezo ya {{anchor}}",
     "picker_empty": "Bado hakuna mapendekezo — ongeza yako mwenyewe kwenye kichupo cha Sogeza."
   },
-  "focus": {
-    "title": "Hali ya Kuzingatia",
-    "message": "Umeendelea kusogea kwa muda. Unataka kurudi kwa wewe?",
-    "yes": "Ndiyo, turekebishe",
-    "no": "Sio sasa"
+  "pause": {
+    "title": "Chukua Mapumziko",
+    "message": "Dakika chache za utulivu, kwa masharti yako.",
+    "option_breathing": "Mazoezi ya kupumua",
+    "option_focus": "Zingatia nanga yangu ya Baadaye",
+    "option_recenter": "Kujirudisha kwa upole",
+    "not_now": "Sio sasa",
+    "skip": "Ruka",
+    "duration_minutes": "dakika {{count}}",
+    "breathing_pick_duration": "Ungependa kupumua kwa muda gani?",
+    "breathing_done": "Hiyo inatosha kwa sasa",
+    "focus_pick_duration": "Ungependa kuzingatia kwa muda gani?",
+    "focus_label": "Unazingatia",
+    "focus_no_task": "Bado hujaweka nanga ya Baadaye — dakika hizi bado ni zako.",
+    "focus_end_early": "Maliza kipindi",
+    "focus_no_guilt": "Mapumziko pia ni sehemu ya kazi.",
+    "focus_done": "Muda umeisha. Hongera.",
+    "focus_mark_done": "Weka nanga yangu ya Baadaye kama imekamilika",
+    "focus_close": "Funga",
+    "recenter_q1": "Ni nini kinachovuta usikivu wako sasa hivi?",
+    "recenter_q2": "Ni nini unachobeba ambacho ungeweza kukiweka chini kwa dakika moja?",
+    "recenter_q3": "Ni nini hasa ambacho wakati huu unahitaji kutoka kwako?",
+    "recenter_q4": "Kama ungejiruhusu kupumzika, ungefanya nini sasa hivi?",
+    "recenter_suggest_jar": "Fungua Chombo chako cha Shukrani",
+    "recenter_suggest_move": "Wazo dogo: {{title}}",
+    "recenter_open_move": "Ione kwenye kichupo cha Sogeza"
   },
   "settings": {
     "title": "Mipangilio",

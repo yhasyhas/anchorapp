@@ -4,7 +4,10 @@ import { Home, BarChart3, Heart, Footprints, CloudOff, RefreshCw } from "lucide-
 import { Suspense, useEffect, useState } from "react"
 import { isOnline, processSyncQueue, getPendingSyncCount, SYNC_QUEUE_CHANGED_EVENT } from "@/lib/offline-sync"
 import { useAuth } from "@/lib/auth-context"
-import { FocusModeModal } from "@/components/anchor/focus-mode-modal"
+import { PauseModal, type PauseOption } from "@/components/anchor/pause-modal"
+import { PauseBreathing } from "@/components/anchor/pause-breathing"
+import { PauseFocusSession } from "@/components/anchor/pause-focus-session"
+import { PauseRecenter } from "@/components/anchor/pause-recenter"
 import { InstallPrompt } from "@/components/pwa/install-prompt"
 import { Spinner } from "@/components/ui/spinner"
 
@@ -20,7 +23,8 @@ export function AppLayout() {
   const { user } = useAuth()
   const location = useLocation()
   const [online, setOnline] = useState(isOnline())
-  const [showFocus, setShowFocus] = useState(false)
+  const [showPauseMenu, setShowPauseMenu] = useState(false)
+  const [activePause, setActivePause] = useState<PauseOption | null>(null)
   const [pendingCount, setPendingCount] = useState(0)
   const [retrying, setRetrying] = useState(false)
 
@@ -131,16 +135,26 @@ export function AppLayout() {
         </div>
       </nav>
 
-      {/* Focus Mode Floating Button */}
+      {/* Pause Floating Button */}
       <button
-        onClick={() => setShowFocus(true)}
+        onClick={() => setShowPauseMenu(true)}
         className="fixed bottom-20 right-6 flex h-12 w-12 items-center justify-center rounded-full bg-secondary shadow-[0_2px_10px_rgba(0,0,0,0.08)] transition-all hover:scale-110 hover:shadow-[0_4px_15px_rgba(0,0,0,0.12)] active:scale-95"
-        aria-label={t("focus.title")}
+        aria-label={t("pause.title")}
       >
         <span className="text-lg">&#x2601;&#xFE0F;</span>
       </button>
 
-      <FocusModeModal open={showFocus} onClose={() => setShowFocus(false)} />
+      <PauseModal
+        open={showPauseMenu}
+        onClose={() => setShowPauseMenu(false)}
+        onSelect={(option) => {
+          setShowPauseMenu(false)
+          setActivePause(option)
+        }}
+      />
+      {activePause === "breathing" && <PauseBreathing onClose={() => setActivePause(null)} />}
+      {activePause === "focus_session" && <PauseFocusSession onClose={() => setActivePause(null)} />}
+      {activePause === "recenter" && <PauseRecenter onClose={() => setActivePause(null)} />}
     </div>
   )
 }

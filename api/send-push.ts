@@ -34,6 +34,59 @@ function jsonResponse(body: unknown, status: number): Response {
   })
 }
 
+const RATE_LIMIT_MAX = 20
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000 // 1 heure
+
+// Rate limit via action_rate_log, keyed on the TARGET user_id rather than
+// the caller — this endpoint has no caller identity beyond the shared
+// PUSH_SEND_SECRET (see the POST handler below), so the only meaningful
+// subject to throttle is "how many pushes has this one user received".
+// Defense-in-depth only: legitimate callers are cron/system and stay well
+// under this; it protects a given user from being spammed if the secret is
+// ever leaked. Deliberately NOT applied inside sendPushToUser() itself,
+// since that function is also called in-process by the reminders/weekly-
+// letter crons and by api/circle/notify-*.ts (which already rate-limit
+// themselves per caller) — rate-limiting here only guards the externally
+// reachable POST entry point.
+async function checkAndRecordRateLimit(
+  subject: string,
+  supabaseUrl: string,
+  serviceRoleKey: string
+): Promise<boolean> {
+  const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString()
+  try {
+    const countRes = await fetch(
+      `${supabaseUrl}/rest/v1/action_rate_log?action=eq.push&subject=eq.${encodeURIComponent(subject)}&created_at=gte.${encodeURIComponent(since)}&select=id`,
+      {
+        method: "HEAD",
+        headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, Prefer: "count=exact" },
+      }
+    )
+    if (countRes.ok) {
+      const contentRange = countRes.headers.get("content-range")
+      const total = contentRange ? Number(contentRange.split("/")[1]) : NaN
+      if (Number.isFinite(total) && total >= RATE_LIMIT_MAX) return false
+    }
+    await fetch(`${supabaseUrl}/rest/v1/action_rate_log`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceRoleKey}`,
+        apikey: serviceRoleKey,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({ action: "push", subject }),
+    })
+    fetch(
+      `${supabaseUrl}/rest/v1/action_rate_log?action=eq.push&subject=eq.${encodeURIComponent(subject)}&created_at=lt.${encodeURIComponent(since)}`,
+      { method: "DELETE", headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey } }
+    ).catch(() => {})
+    return true
+  } catch {
+    return true
+  }
+}
+
 function safeEqual(a: string, b: string): boolean {
   const bufA = Buffer.from(a)
   const bufB = Buffer.from(b)
@@ -160,6 +213,17 @@ export async function POST(request: Request): Promise<Response> {
   }
   if (url !== undefined && typeof url !== "string") {
     return jsonResponse({ error: "url must be a string" }, 400)
+  }
+
+  const SUPABASE_URL = process.env.VITE_SUPABASE_URL
+  const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+    return jsonResponse({ error: "Server misconfigured" }, 500)
+  }
+
+  const allowed = await checkAndRecordRateLimit(user_id, SUPABASE_URL, SERVICE_ROLE_KEY)
+  if (!allowed) {
+    return jsonResponse({ error: "Rate limit exceeded. Try again later." }, 429)
   }
 
   try {

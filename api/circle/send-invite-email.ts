@@ -36,6 +36,53 @@ async function getAuthenticatedUser(
   }
 }
 
+const RATE_LIMIT_MAX = 5
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000 // 1 heure
+
+// Rate limit via action_rate_log (service-role key, same as every other
+// query in this file) — bounds how many times an inviter can (re)trigger an
+// email send for her own invites. See the migration's comment for why this
+// is a separate table from ai_request_log.
+async function checkAndRecordRateLimit(
+  subject: string,
+  supabaseUrl: string,
+  serviceRoleKey: string
+): Promise<boolean> {
+  const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString()
+  try {
+    const countRes = await fetch(
+      `${supabaseUrl}/rest/v1/action_rate_log?action=eq.invite-email&subject=eq.${encodeURIComponent(subject)}&created_at=gte.${encodeURIComponent(since)}&select=id`,
+      {
+        method: "HEAD",
+        headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, Prefer: "count=exact" },
+      }
+    )
+    if (countRes.ok) {
+      const contentRange = countRes.headers.get("content-range")
+      const total = contentRange ? Number(contentRange.split("/")[1]) : NaN
+      if (Number.isFinite(total) && total >= RATE_LIMIT_MAX) return false
+    }
+    await fetch(`${supabaseUrl}/rest/v1/action_rate_log`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceRoleKey}`,
+        apikey: serviceRoleKey,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({ action: "invite-email", subject }),
+    })
+    fetch(
+      `${supabaseUrl}/rest/v1/action_rate_log?action=eq.invite-email&subject=eq.${encodeURIComponent(subject)}&created_at=lt.${encodeURIComponent(since)}`,
+      { method: "DELETE", headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey } }
+    ).catch(() => {})
+    return true
+  } catch {
+    // fail open — an infra hiccup here must never block a legitimate invite send
+    return true
+  }
+}
+
 interface InviteRow {
   id: string
   token: string
@@ -150,6 +197,11 @@ export default async function handler(request: Request): Promise<Response> {
 
   const caller = await getAuthenticatedUser(bearerToken, SUPABASE_URL, SUPABASE_ANON_KEY)
   if (!caller) return jsonResponse({ error: "Unauthorized" }, 401)
+
+  const allowed = await checkAndRecordRateLimit(caller.id, SUPABASE_URL, SERVICE_ROLE_KEY)
+  if (!allowed) {
+    return jsonResponse({ error: "Rate limit exceeded. Try again later." }, 429)
+  }
 
   let body: any
   try {

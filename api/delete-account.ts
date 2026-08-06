@@ -39,6 +39,52 @@ async function getAuthenticatedUser(
   }
 }
 
+const RATE_LIMIT_MAX = 3
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000 // 1 heure
+
+// Rate limit via action_rate_log (service-role key, same as every other
+// query in this file) — this is a destructive, one-shot-per-account action,
+// so the cap exists purely to blunt retry storms against the Supabase Admin
+// API, not to police legitimate repeat use.
+async function checkAndRecordRateLimit(
+  subject: string,
+  supabaseUrl: string,
+  serviceRoleKey: string
+): Promise<boolean> {
+  const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString()
+  try {
+    const countRes = await fetch(
+      `${supabaseUrl}/rest/v1/action_rate_log?action=eq.delete-account&subject=eq.${encodeURIComponent(subject)}&created_at=gte.${encodeURIComponent(since)}&select=id`,
+      {
+        method: "HEAD",
+        headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, Prefer: "count=exact" },
+      }
+    )
+    if (countRes.ok) {
+      const contentRange = countRes.headers.get("content-range")
+      const total = contentRange ? Number(contentRange.split("/")[1]) : NaN
+      if (Number.isFinite(total) && total >= RATE_LIMIT_MAX) return false
+    }
+    await fetch(`${supabaseUrl}/rest/v1/action_rate_log`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceRoleKey}`,
+        apikey: serviceRoleKey,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({ action: "delete-account", subject }),
+    })
+    fetch(
+      `${supabaseUrl}/rest/v1/action_rate_log?action=eq.delete-account&subject=eq.${encodeURIComponent(subject)}&created_at=lt.${encodeURIComponent(since)}`,
+      { method: "DELETE", headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey } }
+    ).catch(() => {})
+    return true
+  } catch {
+    return true
+  }
+}
+
 // Removes every object under this user's own folder in the private
 // voice-notes bucket (see supabase/migrations/20260802190000_voice_transcript_and_private_bucket.sql
 // — uploads go to `${user.id}/${date}.webm`, one folder per user). Postgres
@@ -99,6 +145,11 @@ export async function POST(request: Request): Promise<Response> {
   // account, there is no userId param anywhere in this request.
   const caller = await getAuthenticatedUser(token, SUPABASE_URL, SUPABASE_ANON_KEY)
   if (!caller) return jsonResponse({ error: "Unauthorized" }, 401)
+
+  const allowed = await checkAndRecordRateLimit(caller.id, SUPABASE_URL, SERVICE_ROLE_KEY)
+  if (!allowed) {
+    return jsonResponse({ error: "Rate limit exceeded. Try again later." }, 429)
+  }
 
   await deleteVoiceNotes(caller.id, SUPABASE_URL, SERVICE_ROLE_KEY)
 

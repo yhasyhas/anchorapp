@@ -75,6 +75,21 @@ const FUTURE_LETTER_PUSH: Record<Language, { title: string; body: string }> = {
   sw: { title: "Barua kutoka zamani yako imefika 💌", body: "Iliyoandikwa na wewe, ikisubiri siku hii hasa." },
 }
 
+// Same static-not-tone-varied posture as FUTURE_LETTER_PUSH above — a
+// one-time nudge, not an emotional companion line. Never names how many
+// days it's been waiting or implies she's neglected it (no guilt-tripping,
+// same rule as everywhere else in this file).
+const LETTER_REMINDER_PUSH: Record<Language, (count: number) => { title: string; body: string }> = {
+  en: (count) => ({
+    title: count > 1 ? `${count} letters are waiting for you 💌` : "Your letter is still waiting for you 💌",
+    body: count > 1 ? "No rush — open them whenever you're ready." : "No rush — open it whenever you're ready.",
+  }),
+  sw: (count) => ({
+    title: count > 1 ? `Barua ${count} zinakusubiri 💌` : "Barua yako bado inakusubiri 💌",
+    body: count > 1 ? "Bila haraka — zifungue utakapokuwa tayari." : "Bila haraka — ifungue utakapokuwa tayari.",
+  }),
+}
+
 const STATIC_FALLBACKS: Record<Slot, Record<Language, string[]>> = {
   morning: {
     en: [
@@ -313,6 +328,12 @@ interface FutureLetterProfileRow {
   preferred_language: Language
 }
 
+interface UnopenedLetterRow {
+  id: string
+  user_id: string
+  delivered_at: string
+}
+
 // MISSION 3: independent of the 3 daily slots above (no quiet-hours, no
 // circuit-breaker, no per-slot enabled toggle — a sealed letter reaching
 // its date is unconditional). Runs every cron invocation (same pg_cron
@@ -360,6 +381,70 @@ async function processFutureLetters(rest: RestConfig, now: Date): Promise<{ deli
   )
 
   return { delivered }
+}
+
+// MISSION: a letter delivered but never opened dies in the archive — the
+// moment of opening IS the feature's value, so this sends exactly one
+// gentle nudge per letter, ever. Idempotent via `reminder_sent_at` (same
+// pattern as `delivered_at` above): once stamped, a row can never match
+// this query again. The 3-4 day window (rather than an exact-day match) is
+// deliberately tolerant — a single missed/slow cron tick can't cause a
+// letter to fall through the cracks and never get nudged. Unlike
+// processFutureLetters (a sealed letter's own arrival is unconditional),
+// this respects notification_preferences.reminders_enabled — it's a
+// discretionary nudge, not the letter itself.
+async function processFutureLetterReminders(rest: RestConfig, now: Date): Promise<{ sent: number }> {
+  const fourDaysAgo = new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString()
+  const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString()
+
+  const unopened = await restGet<UnopenedLetterRow>(
+    rest,
+    `future_letters?delivered_at=not.is.null&opened_at=is.null&reminder_sent_at=is.null&delivered_at=gte.${encodeURIComponent(fourDaysAgo)}&delivered_at=lte.${encodeURIComponent(threeDaysAgo)}&select=id,user_id,delivered_at`
+  )
+  if (unopened.length === 0) return { sent: 0 }
+
+  const userIds = [...new Set(unopened.map((l) => l.user_id))]
+  const idList = userIds.join(",")
+
+  const [prefsRows, profiles] = await Promise.all([
+    restGet<{ user_id: string; reminders_enabled: boolean }>(
+      rest,
+      `notification_preferences?user_id=in.(${idList})&select=user_id,reminders_enabled`
+    ),
+    restGet<FutureLetterProfileRow>(rest, `profiles?id=in.(${idList})&select=id,timezone,preferred_language`),
+  ])
+  const enabledUsers = new Set(prefsRows.filter((p) => p.reminders_enabled).map((p) => p.user_id))
+  const profileById = new Map(profiles.map((p) => [p.id, p]))
+  const lettersByUser = groupBy(unopened)
+
+  let sent = 0
+  await Promise.all(
+    userIds.map(async (userId) => {
+      if (!enabledUsers.has(userId)) return
+      const profile = profileById.get(userId)
+      if (!profile) return
+
+      // Several pending letters for the same user always fold into ONE
+      // push, never one per letter — same "never spam the same day" spirit
+      // as the rest of this file.
+      const userLetters = lettersByUser.get(userId) || []
+      const language: Language = profile.preferred_language === "sw" ? "sw" : "en"
+      const { title, body } = LETTER_REMINDER_PUSH[language](userLetters.length)
+      const url = userLetters.length === 1 ? `/letters/future/${userLetters[0].id}` : "/letters"
+
+      try {
+        await sendPushToUser({ userId, title, body, url })
+        const ids = userLetters.map((l) => l.id).join(",")
+        await restUpdate(rest, `future_letters?id=in.(${ids})`, { reminder_sent_at: new Date().toISOString() })
+        sent++
+      } catch {
+        // Leave reminder_sent_at null so the next run retries — same
+        // reasoning as processFutureLetters above.
+      }
+    })
+  )
+
+  return { sent }
 }
 
 function groupBy<T extends { user_id: string }>(rows: T[]): Map<string, T[]> {
@@ -531,13 +616,17 @@ export async function GET(request: Request): Promise<Response> {
   // toggles, so this runs regardless of what the rest of this function
   // finds below.
   const futureLetters = await processFutureLetters(rest, now)
+  const letterReminders = await processFutureLetterReminders(rest, now)
 
   const prefsRows = await restGet<PrefsRow>(
     rest,
     "notification_preferences?reminders_enabled=eq.true&select=user_id,morning_enabled,midday_enabled,evening_enabled,quiet_hours_enabled,quiet_hours_start,quiet_hours_end"
   )
   if (prefsRows.length === 0) {
-    return jsonResponse({ processed: 0, sent: 0, futureLettersDelivered: futureLetters.delivered }, 200)
+    return jsonResponse(
+      { processed: 0, sent: 0, futureLettersDelivered: futureLetters.delivered, futureLettersReminded: letterReminders.sent },
+      200
+    )
   }
 
   const userIds = prefsRows.map((p) => p.user_id)
@@ -562,7 +651,10 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   if (dueToday.size === 0) {
-    return jsonResponse({ processed: 0, sent: 0, futureLettersDelivered: futureLetters.delivered }, 200)
+    return jsonResponse(
+      { processed: 0, sent: 0, futureLettersDelivered: futureLetters.delivered, futureLettersReminded: letterReminders.sent },
+      200
+    )
   }
 
   const dueIds = [...dueToday.keys()]
@@ -714,5 +806,14 @@ export async function GET(request: Request): Promise<Response> {
     })
   )
 
-  return jsonResponse({ processed: dueIds.length, sent, skipped, futureLettersDelivered: futureLetters.delivered }, 200)
+  return jsonResponse(
+    {
+      processed: dueIds.length,
+      sent,
+      skipped,
+      futureLettersDelivered: futureLetters.delivered,
+      futureLettersReminded: letterReminders.sent,
+    },
+    200
+  )
 }

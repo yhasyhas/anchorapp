@@ -210,7 +210,9 @@ function VoiceComposeForm({ recipientId, onSent }: { recipientId: string; onSent
         type="button"
         onClick={recorder.isRecording ? recorder.stopRecording : handleStart}
         className={`flex h-14 w-14 items-center justify-center rounded-full transition-all ${
-          recorder.isRecording ? "animate-pulse bg-rose-accent text-white" : "bg-primary text-primary-foreground"
+          recorder.isRecording
+            ? "animate-pulse bg-rose-accent text-white dark:text-background"
+            : "bg-primary text-primary-foreground"
         }`}
         aria-label={t("circle.voice_tap_to_record", { max: MAX_VOICE_ENCOURAGEMENT_SECONDS })}
       >

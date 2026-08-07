@@ -291,6 +291,50 @@ export interface SharedLetter {
   letter_text: string
 }
 
+export interface CircleVoiceEncouragement {
+  id: string
+  storage_path: string
+  duration_seconds: number
+  created_at: string
+}
+
+export interface ReceivedVoiceEncouragement extends CircleVoiceEncouragement {
+  sender_id: string
+  read_at: string | null
+}
+
+export interface SentVoiceEncouragement extends CircleVoiceEncouragement {
+  recipient_id: string
+}
+
+export type CircleSharedIntentionStatus = "pending" | "accepted" | "declined"
+
+export interface CircleSharedIntention {
+  id: string
+  proposer_id: string
+  recipient_id: string
+  intention: string
+  status: CircleSharedIntentionStatus
+  proposed_at: string
+}
+
+export interface CircleGraceGift {
+  id: string
+  sender_id: string
+  sent_at: string
+}
+
+export interface CircleStreakAlert {
+  friend_id: string
+  absent: boolean
+}
+
+export interface CircleMilestone {
+  friend_id: string
+  milestone: number
+  reached_at: string
+}
+
 // Metadata only — `content` deliberately isn't part of this shape, since
 // it's never selectable from the client until deliver_on arrives (see
 // supabase/migrations/20260807120000_create_future_letters.sql). Fetch it

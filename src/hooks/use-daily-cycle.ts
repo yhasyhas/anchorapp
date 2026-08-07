@@ -11,7 +11,8 @@ import { todayStr, localDateStr } from "@/lib/utils"
 import { FIRST_INTENTION_KEY_BASE } from "@/lib/constants"
 import { getAllGratitudesForReveal, isSecondConsecutiveLowMoodDay } from "@/lib/gratitude"
 import { isDailyFlagSet, setDailyFlag, DAILY_FLAGS } from "@/lib/local-flags"
-import type { DailyAnchor, MoodType, CheckIn, MoodLog, MoveSuggestion, Gratitude, Profile } from "@/types"
+import { getMyGraceGift, markGraceGiftConsumed } from "@/lib/circle-grace"
+import type { DailyAnchor, MoodType, CheckIn, MoodLog, MoveSuggestion, Gratitude, Profile, CircleGraceGift } from "@/types"
 
 const ANCHOR_MILESTONES_CELEBRATED_KEY = "anchor_streak_milestones_celebrated"
 
@@ -38,6 +39,10 @@ export interface UseDailyCycleResult {
   recentCheckInMoods: { date: string; evening_mood: string | null }[]
   moveSuggestions: MoveSuggestion[]
   streaks: StreakData
+  // Circle "grace gift" (Mission 3) still active/unconsumed for this user —
+  // null once she has none, or once it's just been detected as consumed
+  // (see loadContextData). Home shows a soft reassurance badge while set.
+  graceGift: CircleGraceGift | null
   companionMsg: string
   loadingCompanion: boolean
   checkInDone: boolean
@@ -97,6 +102,7 @@ export function useDailyCycle(
   const [recentAnchors, setRecentAnchors] = useState<DailyAnchor[]>([])
   const [recentCheckInMoods, setRecentCheckInMoods] = useState<{ date: string; evening_mood: string | null }[]>([])
   const [moveSuggestions, setMoveSuggestions] = useState<MoveSuggestion[]>([])
+  const [graceGift, setGraceGift] = useState<CircleGraceGift | null>(null)
 
   const [streaks, setStreaks] = useState<StreakData>({
     currentMoodStreak: 0,
@@ -153,6 +159,16 @@ export function useDailyCycle(
 
     setStreakMilestone(milestone)
     setUserLocalData(ANCHOR_MILESTONES_CELEBRATED_KEY, user.id, [...celebrated, milestone])
+
+    // Server-side record so a Circle friend's device can learn "she hit day
+    // 14" (see anchor_streak_milestones_log / circle_get_recent_milestones)
+    // — previously this celebration existed only in this device's
+    // localStorage. Own row, plain RLS insert, fire-and-forget: a failure
+    // here never blocks or affects the celebration modal itself.
+    supabase.from("anchor_streak_milestones_log").insert({ user_id: user.id, milestone }).then(
+      () => {},
+      () => {}
+    )
   }, [streaks.currentAnchorStreak, user])
 
   async function loadTodayData(): Promise<DailyAnchor | undefined> {
@@ -255,10 +271,11 @@ export function useDailyCycle(
       thirtyAgo.setDate(thirtyAgo.getDate() - 30)
       const since = localDateStr(thirtyAgo)
 
-      const [{ data: monthMoods }, { data: monthAnchors }, { data: monthCheckIns }] = await Promise.all([
+      const [{ data: monthMoods }, { data: monthAnchors }, { data: monthCheckIns }, giftResult] = await Promise.all([
         supabase.from("mood_logs").select("*").eq("user_id", user.id).gte("date", since),
         supabase.from("daily_anchors").select("*").eq("user_id", user.id).gte("date", since),
         supabase.from("check_ins").select("date, evening_mood").eq("user_id", user.id).gte("date", since),
+        getMyGraceGift().catch(() => null),
       ])
 
       const moods = (monthMoods || []) as MoodLog[]
@@ -272,7 +289,27 @@ export function useDailyCycle(
       // already active. Same daily-dismissal pattern as the jar prompt.
       checkSoftExitTrigger(moods)
       setRecentCheckInMoods((monthCheckIns as { date: string; evening_mood: string | null }[]) || [])
-      setStreaks(calculateStreaks(moods, anchors))
+
+      // Circle "grace gift" (Mission 3): if she has one active, compare her
+      // anchor streak with vs. without the extra token. A longer streak
+      // WITH it means a real gap just got covered — mark it consumed and
+      // keep the (longer) protected number; otherwise it's still sitting
+      // in reserve for a future gap, unconsumed, streak unaffected.
+      const baseStreaks = calculateStreaks(moods, anchors, 0)
+      if (giftResult) {
+        const withGiftStreaks = calculateStreaks(moods, anchors, 1)
+        if (withGiftStreaks.currentAnchorStreak > baseStreaks.currentAnchorStreak) {
+          setStreaks(withGiftStreaks)
+          setGraceGift(null)
+          markGraceGiftConsumed(giftResult.id).catch(() => {})
+        } else {
+          setStreaks(baseStreaks)
+          setGraceGift(giftResult)
+        }
+      } else {
+        setStreaks(baseStreaks)
+        setGraceGift(null)
+      }
 
       const { data: todayCheckIn } = await supabase
         .from("check_ins")
@@ -316,7 +353,11 @@ export function useDailyCycle(
     const m = updatedMoods || recentMoods
     const a = updatedAnchors || recentAnchors
     if (m.length || a.length) {
-      setStreaks(calculateStreaks(m, a))
+      // Keeps whatever grace-gift state loadContextData last resolved —
+      // this only recomputes today's own optimistic update, it doesn't
+      // re-run the consume-detection (that only makes sense against a
+      // freshly-fetched history, see loadContextData).
+      setStreaks(calculateStreaks(m, a, graceGift ? 1 : 0))
     }
   }
 
@@ -474,6 +515,7 @@ export function useDailyCycle(
     recentAnchors,
     recentCheckInMoods,
     moveSuggestions,
+    graceGift,
     streaks,
     companionMsg,
     loadingCompanion,

@@ -1,8 +1,10 @@
-import { useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useAuth } from "@/lib/auth-context"
 import { getWeekKey } from "@/lib/ai-service"
+import { getMemberNames } from "@/lib/circle"
+import { getActiveSharedIntentions } from "@/lib/circle-intentions"
 import {
   resolveMoveReason,
   pickFeaturedSuggestion,
@@ -45,7 +47,7 @@ import { useAnchorDefs } from "@/hooks/use-anchor-defs"
 import { useNudgeArbitration } from "@/hooks/use-nudge-arbitration"
 import { useDailyCycle } from "@/hooks/use-daily-cycle"
 import { useHomeBadges } from "@/hooks/use-home-badges"
-import type { AnchorCategory } from "@/types"
+import type { AnchorCategory, CircleSharedIntention } from "@/types"
 
 function intentionLabel(t: (key: string) => string, rawIntention: string | null): string | null {
   if (!rawIntention) return null
@@ -80,6 +82,49 @@ export function HomePage() {
 
   const cycle = useDailyCycle(user, profile, softModeActive, checkSoftEnterTrigger, checkSoftExitTrigger)
   const { hasUnreadLetter, hasPendingCircleInvite, hasUnreadEncouragement } = useHomeBadges(user, profile)
+
+  // Circle Mission 3 (grace gift badge) + Mission 2 (shared intention
+  // pre-fill) — deliberately a small, self-contained fetch here rather than
+  // folded into useDailyCycle beyond the grace-gift streak math it already
+  // needed: Home is the only page that needs a friend's name or the active
+  // shared intention, so there's no reason for every daily-cycle consumer
+  // to pull this in.
+  const [graceGiftSenderName, setGraceGiftSenderName] = useState("")
+  const [sharedIntention, setSharedIntention] = useState<CircleSharedIntention | null>(null)
+  const sharedIntentionAppliedRef = useRef(false)
+
+  useEffect(() => {
+    if (!user) return
+    getActiveSharedIntentions()
+      .then((rows) => setSharedIntention(rows.find((r) => r.status === "accepted") ?? null))
+      .catch(() => {})
+  }, [user])
+
+  useEffect(() => {
+    if (!cycle.graceGift) return
+    getMemberNames()
+      .then((names) => setGraceGiftSenderName(names[cycle.graceGift!.sender_id] || ""))
+      .catch(() => {})
+  }, [cycle.graceGift])
+
+  // Applies once, only once real data has loaded (loadingCompanion flips
+  // false right after loadContextData resolves) and only if she hasn't
+  // already set today's intention herself — a default to pre-select, never
+  // a silent overwrite (see this mission's own "modifiable individuellement
+  // sans friction" requirement).
+  useEffect(() => {
+    if (
+      sharedIntentionAppliedRef.current ||
+      !sharedIntention ||
+      cycle.loadingCompanion ||
+      cycle.dayMode !== "planning" ||
+      cycle.anchor.daily_intention
+    ) {
+      return
+    }
+    sharedIntentionAppliedRef.current = true
+    cycle.saveAnchor({ daily_intention: sharedIntention.intention })
+  }, [sharedIntention, cycle.loadingCompanion, cycle.dayMode, cycle.anchor.daily_intention])
 
   const firstName = profile?.full_name?.split(" ")[0] ?? ""
   const { anchorDefs, filledAnchorDefs, softAllFilledDone, allAnchorsDone, hasAnyAnchorText } = useAnchorDefs(
@@ -414,6 +459,12 @@ export function HomePage() {
           celebratedBg="bg-gradient-to-br from-sage-light/70 to-lavender/25"
         />
       </div>
+
+      {cycle.graceGift && (
+        <p className="text-center text-xs italic text-muted-foreground">
+          &#x1F381; {t("circle.grace_gift_badge", { name: graceGiftSenderName || t("settings.circle_member_fallback") })}
+        </p>
+      )}
 
       {/* Mood Selector */}
       <div className="flex justify-between gap-2">

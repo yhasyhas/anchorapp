@@ -281,6 +281,20 @@ interface Highlights {
   anchorStreakThisWeek: number
   bestJournalSentence: string | null
   bestJournalDate: string | null
+  // Circle Mission 2 ("Anchor Together") — only ever set when BOTH sides'
+  // actual dominant intention this week matched the accepted shared
+  // proposal (see the per-user loop below), never just because a proposal
+  // was accepted. Null the rest of the time, including when she changed
+  // her mind mid-week — there is no "she carried it, you didn't" case.
+  sharedIntentionWithFriend: { friendName: string; intention: string } | null
+}
+
+// Shared by buildHighlights below and the circle shared-intention check in
+// the per-user loop (GET handler) — same frequency logic, one definition.
+function computeDominantIntention(anchors: { daily_intention: string }[]): string | null {
+  const freq: Record<string, number> = {}
+  for (const a of anchors) if (a.daily_intention) freq[a.daily_intention] = (freq[a.daily_intention] || 0) + 1
+  return Object.entries(freq).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
 }
 
 function buildHighlights(params: {
@@ -289,16 +303,15 @@ function buildHighlights(params: {
   anchors: AnchorRow[]
   checkIns: CheckInRow[]
   journal: JournalRow[]
+  sharedIntentionWithFriend?: Highlights["sharedIntentionWithFriend"]
 }): Highlights {
-  const { weekEnd, moods, anchors, checkIns, journal } = params
+  const { weekEnd, moods, anchors, checkIns, journal, sharedIntentionWithFriend = null } = params
 
   const moodCounts: Record<string, number> = {}
   for (const m of moods) moodCounts[m.mood] = (moodCounts[m.mood] || 0) + 1
   for (const c of checkIns) if (c.evening_mood) moodCounts[c.evening_mood] = (moodCounts[c.evening_mood] || 0) + 1
 
-  const intentionFreq: Record<string, number> = {}
-  for (const a of anchors) if (a.daily_intention) intentionFreq[a.daily_intention] = (intentionFreq[a.daily_intention] || 0) + 1
-  const dominantIntention = Object.entries(intentionFreq).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+  const dominantIntention = computeDominantIntention(anchors)
 
   const completedDates = anchors
     .filter((a) => a.future_completed && a.mindbody_completed && a.life_completed)
@@ -330,6 +343,7 @@ function buildHighlights(params: {
     anchorStreakThisWeek,
     bestJournalSentence,
     bestJournalDate,
+    sharedIntentionWithFriend,
   }
 }
 
@@ -378,6 +392,9 @@ async function generateLetterWithGroq(params: {
     highlights.bestJournalSentence ? `Something she wrote in her journal this week: "${highlights.bestJournalSentence}"` : null,
     checkInSnippet ? `Something she reflected on in a check-in this week: "${checkInSnippet}"` : null,
     gratitudeSnippet ? `Something good she dropped in her gratitude jar this week: "${gratitudeSnippet}"` : null,
+    highlights.sharedIntentionWithFriend
+      ? `She and her circle friend ${highlights.sharedIntentionWithFriend.friendName || "her friend"} both chose "${translateIntention(highlights.sharedIntentionWithFriend.intention, "en")}" as their intention this week and both actually carried it — worth a warm, brief mention that they held this together, not a big deal made of it.`
+      : null,
   ].filter(Boolean)
 
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -441,8 +458,11 @@ function buildStaticLetter(language: Language, firstName: string, highlights: Hi
     const journalLine = highlights.bestJournalSentence
       ? `Jambo moja ulilolisandika linasema yote: "${highlights.bestJournalSentence}"`
       : `Hata siku ambazo hukuandika, bado ilitokea, na bado ilikuwa na maana.`
+    const circleLine = highlights.sharedIntentionWithFriend
+      ? `\n\nWewe na ${highlights.sharedIntentionWithFriend.friendName || "rafiki yako"} mliishikilia ${translateIntention(highlights.sharedIntentionWithFriend.intention, "sw")} pamoja wiki hii — mliibeba pamoja.`
+      : ""
 
-    return `Habari ${name},\n\n${introLine} ${streakLine}\n\n${journalLine}\n\nSio tu unajaribu. Unakuwa. Endelea kuamini mchakato huu.\n\nNinakuona, na ninajivunia sana kwako.`
+    return `Habari ${name},\n\n${introLine} ${streakLine}\n\n${journalLine}${circleLine}\n\nSio tu unajaribu. Unakuwa. Endelea kuamini mchakato huu.\n\nNinakuona, na ninajivunia sana kwako.`
   }
 
   const name = firstName || "love"
@@ -458,8 +478,11 @@ function buildStaticLetter(language: Language, firstName: string, highlights: Hi
   const journalLine = highlights.bestJournalSentence
     ? `One moment you wrote down says it all: "${highlights.bestJournalSentence}"`
     : `Even on the days you didn't write it down, it still happened, and it still mattered.`
+  const circleLine = highlights.sharedIntentionWithFriend
+    ? `\n\nYou and ${highlights.sharedIntentionWithFriend.friendName || "your friend"} both chose ${translateIntention(highlights.sharedIntentionWithFriend.intention, "en")} this week — you carried it together.`
+    : ""
 
-  return `Hi ${name},\n\n${introLine} ${streakLine}\n\n${journalLine}\n\nYou're not just trying. You're becoming. Keep trusting the process.\n\nI see you, and I'm so proud of you.`
+  return `Hi ${name},\n\n${introLine} ${streakLine}\n\n${journalLine}${circleLine}\n\nYou're not just trying. You're becoming. Keep trusting the process.\n\nI see you, and I'm so proud of you.`
 }
 
 // llama-3.1-8b-instant's Swahili is noticeably less fluent than its English
@@ -797,6 +820,42 @@ export async function GET(request: Request): Promise<Response> {
   const checkInsByUser = groupBy(checkIns)
   const journalByUser = groupBy(journal)
   const gratitudesByUser = groupBy(gratitudes)
+  const profileById = new Map(profiles.map((p) => [p.id, p]))
+
+  // Circle Mission 2 ("Anchor Together"): accepted shared intentions
+  // involving any due user, either direction. The OTHER party may not be a
+  // due user herself (her own Sunday-8pm window may not be open right now),
+  // so her week's anchors are fetched separately and merged into
+  // anchorsByUser below — buildHighlights/computeDominantIntention then work
+  // on her data exactly the same way as any due user's.
+  const sharedIntentionRows = await restGet<{
+    id: string
+    proposer_id: string
+    recipient_id: string
+    intention: string
+    proposed_at: string
+  }>(
+    rest,
+    `circle_shared_intentions?status=eq.accepted&or=(proposer_id.in.(${dueIdList}),recipient_id.in.(${dueIdList}))&select=id,proposer_id,recipient_id,intention,proposed_at`
+  )
+  const partnerIds = [
+    ...new Set(
+      sharedIntentionRows
+        .flatMap((r) => [r.proposer_id, r.recipient_id])
+        .filter((id) => !due.has(id))
+    ),
+  ]
+  if (partnerIds.length > 0) {
+    const partnerAnchors = await restGet<AnchorRow>(
+      rest,
+      `daily_anchors?user_id=in.(${partnerIds.join(",")})&date=gte.${earliestFloor}&select=user_id,date,future_task,mindbody_task,life_task,future_completed,mindbody_completed,life_completed,daily_intention`
+    )
+    for (const row of partnerAnchors) {
+      const list = anchorsByUser.get(row.user_id)
+      if (list) list.push(row)
+      else anchorsByUser.set(row.user_id, [row])
+    }
+  }
 
   let lettersGenerated = 0
   let storiesGenerated = 0
@@ -825,7 +884,36 @@ export async function GET(request: Request): Promise<Response> {
         const wJournal = allJournal.filter((j) => dateInRange(j.date, weekStart, weekEnd))
         const wGratitudes = allGratitudes.filter((g) => dateInRange(gratitudeDate(g), weekStart, weekEnd))
 
-        const highlights = buildHighlights({ weekEnd, moods: wMoods, anchors: wAnchors, checkIns: wCheckIns, journal: wJournal })
+        // Circle Mission 2: only ever set when a proposal was accepted AND
+        // both sides' actual dominant intention this week matches it — an
+        // accepted-but-unmatched proposal (one of them chose differently,
+        // or never set an intention) stays silently null, never surfaced as
+        // "she didn't carry it."
+        let sharedIntentionWithFriend: Highlights["sharedIntentionWithFriend"] = null
+        const acceptedProposal = sharedIntentionRows.find(
+          (r) =>
+            (r.proposer_id === userId || r.recipient_id === userId) &&
+            dateInRange(r.proposed_at.slice(0, 10), weekStart, weekEnd)
+        )
+        if (acceptedProposal) {
+          const partnerId = acceptedProposal.proposer_id === userId ? acceptedProposal.recipient_id : acceptedProposal.proposer_id
+          const myIntention = computeDominantIntention(wAnchors)
+          const partnerWeekAnchors = (anchorsByUser.get(partnerId) || []).filter((a) => dateInRange(a.date, weekStart, weekEnd))
+          const partnerIntention = computeDominantIntention(partnerWeekAnchors)
+          if (myIntention === acceptedProposal.intention && partnerIntention === acceptedProposal.intention) {
+            const partnerFirstName = (profileById.get(partnerId)?.full_name || "").trim().split(/\s+/)[0] || ""
+            sharedIntentionWithFriend = { friendName: partnerFirstName, intention: acceptedProposal.intention }
+          }
+        }
+
+        const highlights = buildHighlights({
+          weekEnd,
+          moods: wMoods,
+          anchors: wAnchors,
+          checkIns: wCheckIns,
+          journal: wJournal,
+          sharedIntentionWithFriend,
+        })
 
         // Quiet week: no letter, no push, no reproach — silence is the kind
         // response here, not a "you didn't do enough" notification.

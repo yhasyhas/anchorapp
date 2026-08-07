@@ -115,15 +115,20 @@ interface StreakRun {
 }
 
 // Streak courant : part d'aujourd'hui et remonte tant que les jours sont consécutifs (ou
-// graciés une fois, si allowGrace). Si aujourd'hui n'est pas encore logué, on part d'hier
-// à la place — la journée n'est pas terminée, donc on ne casse pas le streak d'hier.
-function currentStreakRun(dateSet: Set<string>, allowGrace: boolean): StreakRun {
+// graciés, dans la limite de graceTokens). Si aujourd'hui n'est pas encore logué, on part
+// d'hier à la place — la journée n'est pas terminée, donc on ne casse pas le streak d'hier.
+//
+// graceTokens généralise l'ancien booléen allowGrace (true ≡ 1, false ≡ 0) : un Circle
+// "grace gift" (voir circle_grace_gifts, src/hooks/use-daily-cycle.ts) rend un second jeton
+// disponible pour l'anchor streak SANS que cette fonction pure ait besoin de savoir qu'un
+// don existe — l'appelant décide juste combien de jetons sont disponibles cette fois.
+function currentStreakRun(dateSet: Set<string>, graceTokens: number): StreakRun {
   const now = new Date()
   let cursor = dateSet.has(localDateStr(now)) ? now : addDaysLocal(now, -1)
   if (!dateSet.has(localDateStr(cursor))) return { length: 0, dates: [] }
 
   const dates: string[] = []
-  let graceUsed = false
+  let graceUsed = 0
 
   while (true) {
     const cursorStr = localDateStr(cursor)
@@ -132,8 +137,8 @@ function currentStreakRun(dateSet: Set<string>, allowGrace: boolean): StreakRun 
       cursor = addDaysLocal(cursor, -1)
       continue
     }
-    if (allowGrace && !graceUsed) {
-      graceUsed = true
+    if (graceUsed < graceTokens) {
+      graceUsed++
       cursor = addDaysLocal(cursor, -1)
       continue
     }
@@ -168,7 +173,13 @@ export function isAnchorDayComplete(a: DailyAnchor): boolean {
     : a.future_completed && a.mindbody_completed && a.life_completed
 }
 
-export function calculateStreaks(moods: MoodLog[], anchors: DailyAnchor[]): StreakData {
+// extraAnchorGraceTokens: 0 normally, 1 when an unconsumed Circle "grace
+// gift" is active for this user (see circle_grace_gifts) — added on top of
+// the anchor streak's always-available 1 built-in grace token. Never
+// applies to the mood streak (logging a mood is a simple tap, not
+// something that merits a gifted excuse either — same reasoning as the
+// built-in grace already being anchor-only).
+export function calculateStreaks(moods: MoodLog[], anchors: DailyAnchor[], extraAnchorGraceTokens = 0): StreakData {
   const today = localDateStr()
 
   // ✅ Toute humeur logguée compte : great, okay, meh, low, stressed
@@ -178,8 +189,8 @@ export function calculateStreaks(moods: MoodLog[], anchors: DailyAnchor[]): Stre
     anchors.filter((a) => isAnchorDayComplete(a) && a.date <= today).map((a) => a.date)
   )
 
-  const moodRun = currentStreakRun(moodDates, false)
-  const anchorRun = currentStreakRun(anchorDates, true)
+  const moodRun = currentStreakRun(moodDates, 0)
+  const anchorRun = currentStreakRun(anchorDates, 1 + extraAnchorGraceTokens)
 
   return {
     currentMoodStreak: moodRun.length,

@@ -1,8 +1,8 @@
-import { useEffect, useState, type FormEvent } from "react"
+import { useEffect, useRef, useState, type FormEvent } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
-import { Heart, HeartHandshake, Loader2, Mail } from "lucide-react"
+import { Heart, HeartHandshake, Loader2, Mail, Mic, Square, Play, Trash2, Gift, PartyPopper, Sparkles } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -22,21 +22,54 @@ import {
   getSharedLetters,
 } from "@/lib/circle"
 import { listActiveCircleSos, type CircleSosEntry } from "@/lib/circle-sos"
+import {
+  MAX_VOICE_ENCOURAGEMENT_SECONDS,
+  sendVoiceEncouragement,
+  listReceivedVoiceEncouragements,
+  listSentVoiceEncouragements,
+  markVoiceEncouragementRead,
+  getVoiceEncouragementUrl,
+} from "@/lib/circle-voice"
+import { useVoiceRecorder } from "@/hooks/use-voice-recorder"
+import { proposeSharedIntention, respondSharedIntention, getActiveSharedIntentions } from "@/lib/circle-intentions"
+import { sendGraceGift, getStreakAlerts } from "@/lib/circle-grace"
+import { getRecentCircleMilestones, filterUnseenMilestones, markMilestoneSeen } from "@/lib/circle-milestones"
+import {
+  reachedAnniversaryMonth,
+  getEncouragementCount,
+  hasSeenAnniversary,
+  markAnniversarySeen,
+} from "@/lib/circle-anniversary"
+import { intentions } from "@/lib/constants"
 import { ENCOURAGEMENT_PRESET_KEYS } from "@/types"
 import type {
   CircleMembership,
   ReceivedEncouragement,
   SentEncouragement,
   SharedLetter,
+  ReceivedVoiceEncouragement,
+  SentVoiceEncouragement,
+  CircleSharedIntention,
+  CircleStreakAlert,
+  CircleMilestone,
 } from "@/types"
 
 interface FeedItem {
   id: string
   createdAt: string
-  isPreset: boolean
-  message: string
   direction: "received" | "sent"
   otherId: string
+  kind: "text" | "voice"
+  isPreset?: boolean
+  message?: string
+  storagePath?: string
+  durationSeconds?: number
+}
+
+interface AnniversaryCard {
+  friendId: string
+  months: number
+  count: number
 }
 
 const ERROR_KEY: Record<string, string> = {
@@ -44,6 +77,152 @@ const ERROR_KEY: Record<string, string> = {
   not_circle_member: "circle.send_love_error_not_member",
   invalid_message: "circle.send_love_error_invalid",
   invalid_preset: "circle.send_love_error_invalid",
+  invalid_duration: "circle.send_love_error_invalid",
+  intention_already_proposed: "circle.intention_error_already_proposed",
+  gift_already_active: "circle.gift_error_already_active",
+  gift_already_sent_this_week: "circle.gift_error_already_sent",
+}
+
+// Inline playback for a received/sent voice encouragement — signs the URL
+// lazily on first play (bucket is private), same "sign on demand" posture
+// as check-in voice notes.
+function VoicePlayerInline({ storagePath, durationSeconds }: { storagePath: string; durationSeconds: number }) {
+  const { t } = useTranslation()
+  const [url, setUrl] = useState<string | null>(null)
+  const [playing, setPlaying] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  async function toggle() {
+    if (playing) {
+      audioRef.current?.pause()
+      setPlaying(false)
+      return
+    }
+    let signedUrl = url
+    if (!signedUrl) {
+      setLoading(true)
+      signedUrl = await getVoiceEncouragementUrl(storagePath)
+      setLoading(false)
+      if (!signedUrl) return
+      setUrl(signedUrl)
+    }
+    const audio = new Audio(signedUrl)
+    audioRef.current = audio
+    audio.onended = () => setPlaying(false)
+    audio.play()
+    setPlaying(true)
+  }
+
+  return (
+    <button onClick={toggle} className="flex items-center gap-1.5 text-primary">
+      {loading ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : playing ? (
+        <Square className="h-3.5 w-3.5" />
+      ) : (
+        <Play className="h-3.5 w-3.5" />
+      )}
+      <span className="text-xs">{t("circle.voice_duration", { seconds: durationSeconds })}</span>
+    </button>
+  )
+}
+
+// Record -> preview -> send, up to MAX_VOICE_ENCOURAGEMENT_SECONDS. Its own
+// small component (not folded into the page) since it owns a full
+// record/preview/send lifecycle independent of the text compose form.
+function VoiceComposeForm({ recipientId, onSent }: { recipientId: string; onSent: () => void }) {
+  const { t } = useTranslation()
+  const { user } = useAuth()
+  const recorder = useVoiceRecorder(MAX_VOICE_ENCOURAGEMENT_SECONDS)
+  const [sending, setSending] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [playing, setPlaying] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  useEffect(() => {
+    if (!recorder.blob) {
+      setPreviewUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(recorder.blob)
+    setPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [recorder.blob])
+
+  function togglePreviewPlay() {
+    if (!previewUrl) return
+    if (playing) {
+      audioRef.current?.pause()
+      setPlaying(false)
+      return
+    }
+    const audio = new Audio(previewUrl)
+    audioRef.current = audio
+    audio.onended = () => setPlaying(false)
+    audio.play()
+    setPlaying(true)
+  }
+
+  async function handleSend() {
+    if (!user || !recorder.blob || sending) return
+    setSending(true)
+    try {
+      await sendVoiceEncouragement(user.id, recipientId, recorder.blob, recorder.durationSeconds)
+      toast.success(t("circle.send_love_success"))
+      onSent()
+    } catch (err) {
+      const code = err instanceof CircleError ? err.code : "unknown_error"
+      toast.error(t(ERROR_KEY[code] ?? "circle.send_love_error_generic"))
+    } finally {
+      setSending(false)
+    }
+  }
+
+  async function handleStart() {
+    try {
+      await recorder.startRecording()
+    } catch {
+      toast.error(t("checkin.mic_permission_denied"))
+    }
+  }
+
+  if (recorder.blob) {
+    return (
+      <div className="flex items-center gap-2 rounded-xl bg-muted/50 p-3">
+        <Button type="button" variant="ghost" size="icon" onClick={togglePreviewPlay} className="h-9 w-9 shrink-0 text-primary">
+          {playing ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+        </Button>
+        <span className="flex-1 text-xs text-muted-foreground">{t("circle.voice_duration", { seconds: recorder.durationSeconds })}</span>
+        <Button type="button" variant="ghost" size="icon" onClick={recorder.reset} className="h-9 w-9 shrink-0 text-muted-foreground">
+          <Trash2 className="h-4 w-4" />
+        </Button>
+        <Button type="button" size="sm" onClick={handleSend} disabled={sending}>
+          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : t("circle.send_love_send")}
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-xl bg-muted/50 p-4">
+      <button
+        type="button"
+        onClick={recorder.isRecording ? recorder.stopRecording : handleStart}
+        className={`flex h-14 w-14 items-center justify-center rounded-full transition-all ${
+          recorder.isRecording ? "animate-pulse bg-rose-accent text-white" : "bg-primary text-primary-foreground"
+        }`}
+        aria-label={t("circle.voice_tap_to_record", { max: MAX_VOICE_ENCOURAGEMENT_SECONDS })}
+      >
+        {recorder.isRecording ? <Square className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+      </button>
+      <p className="text-xs text-muted-foreground">
+        {recorder.isRecording
+          ? t("circle.voice_recording", { seconds: recorder.durationSeconds, max: MAX_VOICE_ENCOURAGEMENT_SECONDS })
+          : t("circle.voice_tap_to_record", { max: MAX_VOICE_ENCOURAGEMENT_SECONDS })}
+      </p>
+    </div>
+  )
 }
 
 export function CirclePage() {
@@ -59,30 +238,59 @@ export function CirclePage() {
   const [openLetter, setOpenLetter] = useState<SharedLetter | null>(null)
 
   const [composeFor, setComposeFor] = useState<{ id: string; name: string } | null>(null)
+  const [composeMode, setComposeMode] = useState<"text" | "voice">("text")
   const [customMessage, setCustomMessage] = useState("")
   const [sending, setSending] = useState(false)
+
+  // Mission 2 — shared weekly intentions
+  const [sharedIntentions, setSharedIntentions] = useState<CircleSharedIntention[]>([])
+  const [proposeFor, setProposeFor] = useState<{ id: string; name: string } | null>(null)
+  const [proposing, setProposing] = useState(false)
+  const [respondingId, setRespondingId] = useState<string | null>(null)
+
+  // Mission 3 — grace gifts
+  const [streakAlerts, setStreakAlerts] = useState<CircleStreakAlert[]>([])
+  const [sendingGiftFor, setSendingGiftFor] = useState<string | null>(null)
+  const [dismissedGiftPrompts, setDismissedGiftPrompts] = useState<Set<string>>(new Set())
+
+  // Mission 4 — milestone celebrations
+  const [milestones, setMilestones] = useState<CircleMilestone[]>([])
+
+  // Mission 5 — circle anniversaries
+  const [anniversaries, setAnniversaries] = useState<AnniversaryCard[]>([])
 
   useEffect(() => {
     if (user) load()
   }, [user])
 
   async function load() {
+    if (!user) return
     try {
-      const [membershipRows, nameMap, presenceRows, received, sent, letters, sos] = await Promise.all([
-        listMemberships(),
-        getMemberNames(),
-        getPresenceToday(),
-        listReceivedEncouragements(),
-        listSentEncouragements(),
-        getSharedLetters(),
-        listActiveCircleSos(),
-      ])
+      const [membershipRows, nameMap, presenceRows, received, sent, receivedVoice, sentVoice, letters, sos, intentionRows, alerts, recentMilestones] =
+        await Promise.all([
+          listMemberships(),
+          getMemberNames(),
+          getPresenceToday(),
+          listReceivedEncouragements(),
+          listSentEncouragements(),
+          listReceivedVoiceEncouragements(),
+          listSentVoiceEncouragements(),
+          getSharedLetters(),
+          listActiveCircleSos(),
+          getActiveSharedIntentions(),
+          getStreakAlerts(),
+          getRecentCircleMilestones(),
+        ])
 
-      setMembers(membershipRows.filter((m) => m.status === "active"))
+      const activeMembers = membershipRows.filter((m) => m.status === "active")
+      setMembers(activeMembers)
       setNames(nameMap)
       setPresence(Object.fromEntries(presenceRows.map((p) => [p.friend_id, p.present])))
       setSharedLetters(letters)
       setActiveSos(sos)
+      setSharedIntentions(intentionRows)
+      setStreakAlerts(alerts)
+      setMilestones(filterUnseenMilestones(user.id, recentMilestones))
 
       const receivedItems: FeedItem[] = (received as ReceivedEncouragement[]).map((e) => ({
         id: e.id,
@@ -91,6 +299,7 @@ export function CirclePage() {
         message: e.message,
         direction: "received",
         otherId: e.sender_id,
+        kind: "text",
       }))
       const sentItems: FeedItem[] = (sent as SentEncouragement[]).map((e) => ({
         id: e.id,
@@ -99,13 +308,51 @@ export function CirclePage() {
         message: e.message,
         direction: "sent",
         otherId: e.recipient_id,
+        kind: "text",
       }))
-      setFeed([...receivedItems, ...sentItems].sort((a, b) => b.createdAt.localeCompare(a.createdAt)))
+      const receivedVoiceItems: FeedItem[] = (receivedVoice as ReceivedVoiceEncouragement[]).map((v) => ({
+        id: v.id,
+        createdAt: v.created_at,
+        direction: "received",
+        otherId: v.sender_id,
+        kind: "voice",
+        storagePath: v.storage_path,
+        durationSeconds: v.duration_seconds,
+      }))
+      const sentVoiceItems: FeedItem[] = (sentVoice as SentVoiceEncouragement[]).map((v) => ({
+        id: v.id,
+        createdAt: v.created_at,
+        direction: "sent",
+        otherId: v.recipient_id,
+        kind: "voice",
+        storagePath: v.storage_path,
+        durationSeconds: v.duration_seconds,
+      }))
+      setFeed(
+        [...receivedItems, ...sentItems, ...receivedVoiceItems, ...sentVoiceItems].sort((a, b) =>
+          b.createdAt.localeCompare(a.createdAt)
+        )
+      )
 
-      // Opening this page is "reading" a received encouragement — quiet,
-      // no read receipt is ever shown to the sender (see the migration).
+      // Opening this page is "reading" — quiet, no read receipt ever shown
+      // to the sender, same as the existing text-encouragement behavior.
       const unread = (received as ReceivedEncouragement[]).filter((e) => !e.read_at)
       unread.forEach((e) => markEncouragementRead(e.id).catch(() => {}))
+      const unreadVoice = (receivedVoice as ReceivedVoiceEncouragement[]).filter((v) => !v.read_at)
+      unreadVoice.forEach((v) => markVoiceEncouragementRead(v.id).catch(() => {}))
+
+      // Mission 5 — anniversaries: pure client computation off accepted_at,
+      // deduped locally so it only surfaces around the actual month it
+      // crosses, not every visit thereafter.
+      const anniversaryCards: AnniversaryCard[] = []
+      for (const m of activeMembers) {
+        if (!m.accepted_at) continue
+        const months = reachedAnniversaryMonth(m.accepted_at)
+        if (!months || hasSeenAnniversary(user.id, m.friend_id, months)) continue
+        const count = await getEncouragementCount(m.friend_id)
+        anniversaryCards.push({ friendId: m.friend_id, months, count })
+      }
+      setAnniversaries(anniversaryCards)
     } catch (err) {
       console.error("Failed to load circle:", err)
     } finally {
@@ -117,8 +364,14 @@ export function CirclePage() {
     return names[id] || t("settings.circle_member_fallback")
   }
 
-  function renderMessage(item: { isPreset: boolean; message: string }): string {
+  function renderMessage(item: { isPreset?: boolean; message?: string }): string {
+    if (!item.message) return ""
     return item.isPreset ? t(`circle.presets.${item.message}`) : item.message
+  }
+
+  function openCompose(id: string, name: string) {
+    setComposeFor({ id, name })
+    setComposeMode("text")
   }
 
   async function handleSendPreset(presetKey: string) {
@@ -155,6 +408,71 @@ export function CirclePage() {
       setSending(false)
     }
   }
+
+  async function handleVoiceSent() {
+    setComposeFor(null)
+    await load()
+  }
+
+  async function handleProposeIntention(intention: string) {
+    if (!proposeFor || proposing) return
+    setProposing(true)
+    try {
+      await proposeSharedIntention(proposeFor.id, intention)
+      toast.success(t("circle.intention_proposed_success"))
+      setProposeFor(null)
+      await load()
+    } catch (err) {
+      const code = err instanceof CircleError ? err.code : "unknown_error"
+      toast.error(t(ERROR_KEY[code] ?? "circle.intention_error_generic"))
+    } finally {
+      setProposing(false)
+    }
+  }
+
+  async function handleRespondIntention(id: string, accept: boolean) {
+    if (respondingId) return
+    setRespondingId(id)
+    try {
+      await respondSharedIntention(id, accept)
+      await load()
+    } catch (err) {
+      console.error("Failed to respond to shared intention:", err)
+      toast.error(t("circle.intention_error_generic"))
+    } finally {
+      setRespondingId(null)
+    }
+  }
+
+  async function handleSendGraceGift(friendId: string) {
+    if (sendingGiftFor) return
+    setSendingGiftFor(friendId)
+    try {
+      await sendGraceGift(friendId)
+      toast.success(t("circle.gift_sent_success", { name: friendName(friendId) }))
+      setDismissedGiftPrompts((prev) => new Set(prev).add(friendId))
+    } catch (err) {
+      const code = err instanceof CircleError ? err.code : "unknown_error"
+      toast.error(t(ERROR_KEY[code] ?? "circle.gift_error_generic"))
+    } finally {
+      setSendingGiftFor(null)
+    }
+  }
+
+  function dismissMilestone(milestone: CircleMilestone) {
+    if (!user) return
+    markMilestoneSeen(user.id, milestone)
+    setMilestones((prev) => prev.filter((m) => !(m.friend_id === milestone.friend_id && m.milestone === milestone.milestone)))
+  }
+
+  function dismissAnniversary(card: AnniversaryCard) {
+    if (!user) return
+    markAnniversarySeen(user.id, card.friendId, card.months)
+    setAnniversaries((prev) => prev.filter((a) => !(a.friendId === card.friendId && a.months === card.months)))
+  }
+
+  const pendingIntentionsForMe = sharedIntentions.filter((si) => si.recipient_id === user?.id && si.status === "pending")
+  const visibleGiftPrompts = streakAlerts.filter((a) => a.absent && !dismissedGiftPrompts.has(a.friend_id))
 
   if (loading) {
     return (
@@ -202,13 +520,143 @@ export function CirclePage() {
                         <p className="mt-0.5 text-xs text-muted-foreground">{t("sos.circle_card_subtitle")}</p>
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setComposeFor({ id: sos.senderId, name: friendName(sos.senderId) })}
-                    >
+                    <Button size="sm" variant="outline" onClick={() => openCompose(sos.senderId, friendName(sos.senderId))}>
                       {t("circle.send_love_button")}
                     </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* Mission 5 — anniversaries */}
+          {anniversaries.length > 0 && (
+            <div className="space-y-2">
+              {anniversaries.map((card) => (
+                <Card key={`${card.friendId}-${card.months}`} className="border-0 bg-sage-light/40 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+                  <CardContent className="flex items-start justify-between gap-3 p-4">
+                    <div className="flex items-start gap-3">
+                      <span className="text-lg">&#x1F331;</span>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          {t(`circle.anniversary_title_${card.months}`, { name: friendName(card.friendId) })}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {t("circle.anniversary_count", { count: card.count })}
+                        </p>
+                      </div>
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => dismissAnniversary(card)}>
+                      {t("circle.dismiss")}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* Mission 4 — milestone celebrations */}
+          {milestones.length > 0 && (
+            <div className="space-y-2">
+              {milestones.map((m) => (
+                <Card key={`${m.friend_id}-${m.milestone}`} className="border-0 bg-gradient-to-br from-peach/20 to-lavender/20 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+                  <CardContent className="flex items-center justify-between gap-3 p-4">
+                    <div className="flex items-center gap-3">
+                      <PartyPopper className="h-4 w-4 shrink-0 text-primary" />
+                      <p className="text-sm font-medium text-foreground">
+                        {t("circle.milestone_card", { name: friendName(m.friend_id), days: m.milestone })}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => dismissMilestone(m)}>
+                        {t("circle.dismiss")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          dismissMilestone(m)
+                          openCompose(m.friend_id, friendName(m.friend_id))
+                        }}
+                      >
+                        {t("circle.send_love_button")}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* Mission 2 — pending shared-intention proposals */}
+          {pendingIntentionsForMe.length > 0 && (
+            <div className="space-y-2">
+              {pendingIntentionsForMe.map((si) => (
+                <Card key={si.id} className="border-0 bg-lavender/20 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 shrink-0 text-primary" />
+                      <p className="text-sm font-medium text-foreground">
+                        {t("circle.intention_proposal_card", {
+                          name: friendName(si.proposer_id),
+                          intention: t(`intentions.${si.intention.toLowerCase()}`),
+                        })}
+                      </p>
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1"
+                        disabled={respondingId === si.id}
+                        onClick={() => handleRespondIntention(si.id, true)}
+                      >
+                        {t("circle.intention_accept")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1"
+                        disabled={respondingId === si.id}
+                        onClick={() => handleRespondIntention(si.id, false)}
+                      >
+                        {t("circle.intention_decline")}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* Mission 3 — grace gift prompts */}
+          {visibleGiftPrompts.length > 0 && (
+            <div className="space-y-2">
+              {visibleGiftPrompts.map((alert) => (
+                <Card key={alert.friend_id} className="border-0 bg-peach/15 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+                  <CardContent className="flex items-center justify-between gap-3 p-4">
+                    <div className="flex items-center gap-3">
+                      <Gift className="h-4 w-4 shrink-0 text-primary" />
+                      <p className="text-sm font-medium text-foreground">
+                        {t("circle.grace_gift_prompt", { name: friendName(alert.friend_id) })}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setDismissedGiftPrompts((prev) => new Set(prev).add(alert.friend_id))}
+                      >
+                        {t("circle.dismiss")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={sendingGiftFor === alert.friend_id}
+                        onClick={() => handleSendGraceGift(alert.friend_id)}
+                      >
+                        {sendingGiftFor === alert.friend_id ? <Loader2 className="h-4 w-4 animate-spin" /> : t("circle.grace_gift_send")}
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -225,13 +673,20 @@ export function CirclePage() {
                       <p className="mt-0.5 text-xs text-muted-foreground">{t("circle.presence_badge")}</p>
                     )}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setComposeFor({ id: m.friend_id, name: friendName(m.friend_id) })}
-                  >
-                    {t("circle.send_love_button")}
-                  </Button>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-primary"
+                      onClick={() => setProposeFor({ id: m.friend_id, name: friendName(m.friend_id) })}
+                      aria-label={t("circle.intention_propose_button")}
+                    >
+                      &#x1F331;
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => openCompose(m.friend_id, friendName(m.friend_id))}>
+                      {t("circle.send_love_button")}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -272,14 +727,20 @@ export function CirclePage() {
             ) : (
               <div className="space-y-2">
                 {feed.map((item) => (
-                  <Card key={`${item.direction}-${item.id}`} className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+                  <Card key={`${item.kind}-${item.direction}-${item.id}`} className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
                     <CardContent className="p-3.5">
                       <p className="text-xs text-muted-foreground">
                         {item.direction === "received"
                           ? t("circle.feed_from", { name: friendName(item.otherId) })
                           : t("circle.feed_to", { name: friendName(item.otherId) })}
                       </p>
-                      <p className="mt-0.5 text-sm text-foreground">{renderMessage(item)}</p>
+                      {item.kind === "voice" && item.storagePath && item.durationSeconds !== undefined ? (
+                        <div className="mt-1">
+                          <VoicePlayerInline storagePath={item.storagePath} durationSeconds={item.durationSeconds} />
+                        </div>
+                      ) : (
+                        <p className="mt-0.5 text-sm text-foreground">{renderMessage(item)}</p>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -302,36 +763,84 @@ export function CirclePage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              {ENCOURAGEMENT_PRESET_KEYS.map((key) => (
-                <button
-                  key={key}
-                  disabled={sending}
-                  onClick={() => handleSendPreset(key)}
-                  className="rounded-full bg-muted px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-sage-light disabled:opacity-50"
-                >
-                  {t(`circle.presets.${key}`)}
-                </button>
-              ))}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setComposeMode("text")}
+                className={`flex-1 rounded-full px-3 py-1.5 text-xs font-medium ${
+                  composeMode === "text" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                }`}
+              >
+                {t("circle.compose_mode_text")}
+              </button>
+              <button
+                onClick={() => setComposeMode("voice")}
+                className={`flex-1 rounded-full px-3 py-1.5 text-xs font-medium ${
+                  composeMode === "voice" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                }`}
+              >
+                {t("circle.compose_mode_voice")}
+              </button>
             </div>
-            <form onSubmit={handleSendCustom} className="space-y-2">
-              <label className="block text-xs text-muted-foreground">{t("circle.send_love_custom_label")}</label>
-              <Textarea
-                value={customMessage}
-                onChange={(e) => setCustomMessage(e.target.value.slice(0, 140))}
-                placeholder={t("circle.send_love_custom_placeholder")}
-                maxLength={140}
-                rows={3}
-              />
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">
-                  {t("circle.send_love_char_count", { count: customMessage.length })}
-                </span>
-                <Button type="submit" size="sm" disabled={sending || !customMessage.trim()}>
-                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : t("circle.send_love_send")}
-                </Button>
-              </div>
-            </form>
+
+            {composeMode === "voice" && composeFor ? (
+              <VoiceComposeForm recipientId={composeFor.id} onSent={handleVoiceSent} />
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {ENCOURAGEMENT_PRESET_KEYS.map((key) => (
+                    <button
+                      key={key}
+                      disabled={sending}
+                      onClick={() => handleSendPreset(key)}
+                      className="rounded-full bg-muted px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-sage-light disabled:opacity-50"
+                    >
+                      {t(`circle.presets.${key}`)}
+                    </button>
+                  ))}
+                </div>
+                <form onSubmit={handleSendCustom} className="space-y-2">
+                  <label className="block text-xs text-muted-foreground">{t("circle.send_love_custom_label")}</label>
+                  <Textarea
+                    value={customMessage}
+                    onChange={(e) => setCustomMessage(e.target.value.slice(0, 140))}
+                    placeholder={t("circle.send_love_custom_placeholder")}
+                    maxLength={140}
+                    rows={3}
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      {t("circle.send_love_char_count", { count: customMessage.length })}
+                    </span>
+                    <Button type="submit" size="sm" disabled={sending || !customMessage.trim()}>
+                      {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : t("circle.send_love_send")}
+                    </Button>
+                  </div>
+                </form>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Propose a shared weekly intention */}
+      <Dialog open={!!proposeFor} onOpenChange={(open) => !open && setProposeFor(null)}>
+        <DialogContent className="max-w-sm border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+          <DialogHeader>
+            <DialogTitle className="font-heading">
+              {t("circle.intention_propose_title", { name: proposeFor?.name ?? "" })}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-wrap gap-2">
+            {intentions.map((intention) => (
+              <button
+                key={intention}
+                disabled={proposing}
+                onClick={() => handleProposeIntention(intention)}
+                className="rounded-full bg-muted px-4 py-1.5 text-sm text-foreground transition-colors hover:bg-sage-light disabled:opacity-50"
+              >
+                {t(`intentions.${intention.toLowerCase()}`)}
+              </button>
+            ))}
           </div>
         </DialogContent>
       </Dialog>

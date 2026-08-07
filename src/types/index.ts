@@ -308,6 +308,7 @@ export interface CircleVoiceEncouragement {
   storage_path: string
   duration_seconds: number
   created_at: string
+  reply_to_id: string | null
 }
 
 export interface ReceivedVoiceEncouragement extends CircleVoiceEncouragement {

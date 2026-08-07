@@ -18,6 +18,17 @@ const VOICE_ENCOURAGEMENT_PUSH: Record<Language, (firstName: string) => { title:
   sw: (firstName) => ({ title: "💛 Sauti kwa ajili yako", body: `Kutoka kwa ${firstName || "mzunguko wako"}` }),
 }
 
+// Same push, gentler framing when the note is a reply to one of the
+// recipient's own voice notes — still just a nudge to open Circle, never a
+// hint at what was said.
+const VOICE_REPLY_PUSH: Record<Language, (firstName: string) => { title: string; body: string }> = {
+  en: (firstName) => ({ title: "💛 A voice for you", body: `${firstName || "Someone in your circle"} replied to your voice note` }),
+  sw: (firstName) => ({
+    title: "💛 Sauti kwa ajili yako",
+    body: `${firstName || "Mtu katika mzunguko wako"} amejibu ujumbe wako wa sauti`,
+  }),
+}
+
 function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -111,21 +122,25 @@ async function fetchProfile(
 // Confirms a real voice-encouragement row exists for this sender→recipient
 // pair (created in the last minute) before pushing — stops this endpoint
 // being usable to push-spam an arbitrary user_id, same pattern as
-// notify-encouragement.ts's hasRecentEncouragement.
-async function hasRecentVoiceEncouragement(
+// notify-encouragement.ts's hasRecentEncouragement. Also hands back whether
+// that row is a reply, read straight from the DB rather than trusting a
+// client-supplied flag, so the "replied to your voice note" copy can't be
+// spoofed onto a first-time note.
+async function findRecentVoiceEncouragement(
   senderId: string,
   recipientId: string,
   supabaseUrl: string,
   serviceRoleKey: string
-): Promise<boolean> {
+): Promise<{ isReply: boolean } | null> {
   const since = new Date(Date.now() - 60_000).toISOString()
   const res = await fetch(
-    `${supabaseUrl}/rest/v1/circle_voice_encouragements?sender_id=eq.${encodeURIComponent(senderId)}&recipient_id=eq.${encodeURIComponent(recipientId)}&created_at=gte.${encodeURIComponent(since)}&select=id`,
+    `${supabaseUrl}/rest/v1/circle_voice_encouragements?sender_id=eq.${encodeURIComponent(senderId)}&recipient_id=eq.${encodeURIComponent(recipientId)}&created_at=gte.${encodeURIComponent(since)}&select=reply_to_id&order=created_at.desc&limit=1`,
     { headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey } }
   )
-  if (!res.ok) return false
+  if (!res.ok) return null
   const rows = await res.json()
-  return rows.length > 0
+  if (rows.length === 0) return null
+  return { isReply: rows[0].reply_to_id != null }
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -163,7 +178,7 @@ export async function POST(request: Request): Promise<Response> {
     return jsonResponse({ error: "recipient_id is required" }, 400)
   }
 
-  const recent = await hasRecentVoiceEncouragement(caller.id, recipient_id, SUPABASE_URL, SERVICE_ROLE_KEY)
+  const recent = await findRecentVoiceEncouragement(caller.id, recipient_id, SUPABASE_URL, SERVICE_ROLE_KEY)
   if (!recent) {
     return jsonResponse({ error: "No recent voice encouragement found" }, 404)
   }
@@ -175,7 +190,8 @@ export async function POST(request: Request): Promise<Response> {
 
   const language: Language = recipient?.preferred_language === "sw" ? "sw" : "en"
   const firstName = (sender?.full_name || "").trim().split(/\s+/)[0] || ""
-  const { title, body: message } = VOICE_ENCOURAGEMENT_PUSH[language](firstName)
+  const pushCopy = recent.isReply ? VOICE_REPLY_PUSH : VOICE_ENCOURAGEMENT_PUSH
+  const { title, body: message } = pushCopy[language](firstName)
 
   try {
     const result = await sendPushToUser({ userId: recipient_id, title, body: message, url: "/circle" })

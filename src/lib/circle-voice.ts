@@ -19,7 +19,8 @@ export async function sendVoiceEncouragement(
   senderId: string,
   recipientId: string,
   blob: Blob,
-  durationSeconds: number
+  durationSeconds: number,
+  replyToId?: string | null
 ): Promise<void> {
   const path = `${senderId}/${recipientId}/${crypto.randomUUID()}.webm`
 
@@ -32,6 +33,7 @@ export async function sendVoiceEncouragement(
     p_recipient_id: recipientId,
     p_storage_path: path,
     p_duration_seconds: Math.round(durationSeconds),
+    p_reply_to_id: replyToId ?? null,
   })
   if (error) {
     // Best-effort cleanup — the row failed, no reason to leave the file behind.

@@ -64,6 +64,7 @@ interface FeedItem {
   message?: string
   storagePath?: string
   durationSeconds?: number
+  replyToId?: string | null
 }
 
 interface AnniversaryCard {
@@ -85,12 +86,25 @@ const ERROR_KEY: Record<string, string> = {
 
 // Inline playback for a received/sent voice encouragement — signs the URL
 // lazily on first play (bucket is private), same "sign on demand" posture
-// as check-in voice notes.
-function VoicePlayerInline({ storagePath, durationSeconds }: { storagePath: string; durationSeconds: number }) {
+// as check-in voice notes. `onReply` (received items only) reveals a
+// "Reply with your voice" affordance once she's started listening — keyed
+// off the audio element's own `play` event rather than `ended`, so it shows
+// up for anyone replying after just the gist of a 20s note, not only after
+// hearing every second of it.
+function VoicePlayerInline({
+  storagePath,
+  durationSeconds,
+  onReply,
+}: {
+  storagePath: string
+  durationSeconds: number
+  onReply?: () => void
+}) {
   const { t } = useTranslation()
   const [url, setUrl] = useState<string | null>(null)
   const [playing, setPlaying] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [hasPlayed, setHasPlayed] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   async function toggle() {
@@ -109,29 +123,49 @@ function VoicePlayerInline({ storagePath, durationSeconds }: { storagePath: stri
     }
     const audio = new Audio(signedUrl)
     audioRef.current = audio
+    audio.onplay = () => setHasPlayed(true)
     audio.onended = () => setPlaying(false)
     audio.play()
     setPlaying(true)
   }
 
   return (
-    <button onClick={toggle} className="flex items-center gap-1.5 text-primary">
-      {loading ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-      ) : playing ? (
-        <Square className="h-3.5 w-3.5" />
-      ) : (
-        <Play className="h-3.5 w-3.5" />
+    <div className="flex flex-col items-start gap-1.5">
+      <button onClick={toggle} className="flex items-center gap-1.5 text-primary">
+        {loading ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : playing ? (
+          <Square className="h-3.5 w-3.5" />
+        ) : (
+          <Play className="h-3.5 w-3.5" />
+        )}
+        <span className="text-xs">{t("circle.voice_duration", { seconds: durationSeconds })}</span>
+      </button>
+      {onReply && hasPlayed && (
+        <button
+          onClick={onReply}
+          className="flex items-center gap-1 text-xs text-muted-foreground underline underline-offset-2 hover:text-primary"
+        >
+          <Mic className="h-3 w-3" />
+          {t("circle.voice_reply_button")}
+        </button>
       )}
-      <span className="text-xs">{t("circle.voice_duration", { seconds: durationSeconds })}</span>
-    </button>
+    </div>
   )
 }
 
 // Record -> preview -> send, up to MAX_VOICE_ENCOURAGEMENT_SECONDS. Its own
 // small component (not folded into the page) since it owns a full
 // record/preview/send lifecycle independent of the text compose form.
-function VoiceComposeForm({ recipientId, onSent }: { recipientId: string; onSent: () => void }) {
+function VoiceComposeForm({
+  recipientId,
+  replyToId,
+  onSent,
+}: {
+  recipientId: string
+  replyToId?: string
+  onSent: () => void
+}) {
   const { t } = useTranslation()
   const { user } = useAuth()
   const recorder = useVoiceRecorder(MAX_VOICE_ENCOURAGEMENT_SECONDS)
@@ -168,7 +202,7 @@ function VoiceComposeForm({ recipientId, onSent }: { recipientId: string; onSent
     if (!user || !recorder.blob || sending) return
     setSending(true)
     try {
-      await sendVoiceEncouragement(user.id, recipientId, recorder.blob, recorder.durationSeconds)
+      await sendVoiceEncouragement(user.id, recipientId, recorder.blob, recorder.durationSeconds, replyToId)
       toast.success(t("circle.send_love_success"))
       onSent()
     } catch (err) {
@@ -239,7 +273,7 @@ export function CirclePage() {
   const [activeSos, setActiveSos] = useState<CircleSosEntry[]>([])
   const [openLetter, setOpenLetter] = useState<SharedLetter | null>(null)
 
-  const [composeFor, setComposeFor] = useState<{ id: string; name: string } | null>(null)
+  const [composeFor, setComposeFor] = useState<{ id: string; name: string; replyToId?: string } | null>(null)
   const [composeMode, setComposeMode] = useState<"text" | "voice">("text")
   const [customMessage, setCustomMessage] = useState("")
   const [sending, setSending] = useState(false)
@@ -320,6 +354,7 @@ export function CirclePage() {
         kind: "voice",
         storagePath: v.storage_path,
         durationSeconds: v.duration_seconds,
+        replyToId: v.reply_to_id,
       }))
       const sentVoiceItems: FeedItem[] = (sentVoice as SentVoiceEncouragement[]).map((v) => ({
         id: v.id,
@@ -329,6 +364,7 @@ export function CirclePage() {
         kind: "voice",
         storagePath: v.storage_path,
         durationSeconds: v.duration_seconds,
+        replyToId: v.reply_to_id,
       }))
       setFeed(
         [...receivedItems, ...sentItems, ...receivedVoiceItems, ...sentVoiceItems].sort((a, b) =>
@@ -374,6 +410,14 @@ export function CirclePage() {
   function openCompose(id: string, name: string) {
     setComposeFor({ id, name })
     setComposeMode("text")
+  }
+
+  // Reply to a received voice note with a voice note of her own — same
+  // recorder/compose flow, just pre-aimed at the sender and pre-linked via
+  // replyToId so the RPC can validate and store the thread pointer.
+  function openVoiceReply(item: FeedItem) {
+    setComposeFor({ id: item.otherId, name: friendName(item.otherId), replyToId: item.id })
+    setComposeMode("voice")
   }
 
   async function handleSendPreset(presetKey: string) {
@@ -728,24 +772,35 @@ export function CirclePage() {
               <p className="text-xs text-muted-foreground">{t("circle.feed_empty")}</p>
             ) : (
               <div className="space-y-2">
-                {feed.map((item) => (
-                  <Card key={`${item.kind}-${item.direction}-${item.id}`} className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
-                    <CardContent className="p-3.5">
-                      <p className="text-xs text-muted-foreground">
-                        {item.direction === "received"
-                          ? t("circle.feed_from", { name: friendName(item.otherId) })
-                          : t("circle.feed_to", { name: friendName(item.otherId) })}
-                      </p>
-                      {item.kind === "voice" && item.storagePath && item.durationSeconds !== undefined ? (
-                        <div className="mt-1">
-                          <VoicePlayerInline storagePath={item.storagePath} durationSeconds={item.durationSeconds} />
-                        </div>
-                      ) : (
-                        <p className="mt-0.5 text-sm text-foreground">{renderMessage(item)}</p>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
+                {feed.map((item) => {
+                  const isVoiceReply = item.kind === "voice" && !!item.replyToId
+                  return (
+                    <Card key={`${item.kind}-${item.direction}-${item.id}`} className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+                      <CardContent className={`p-3.5 ${isVoiceReply ? "ml-3 border-l-2 border-primary/20 pl-3" : ""}`}>
+                        <p className="text-xs text-muted-foreground">
+                          {isVoiceReply
+                            ? item.direction === "received"
+                              ? t("circle.voice_reply_received_badge", { name: friendName(item.otherId) })
+                              : t("circle.voice_reply_sent_badge", { name: friendName(item.otherId) })
+                            : item.direction === "received"
+                              ? t("circle.feed_from", { name: friendName(item.otherId) })
+                              : t("circle.feed_to", { name: friendName(item.otherId) })}
+                        </p>
+                        {item.kind === "voice" && item.storagePath && item.durationSeconds !== undefined ? (
+                          <div className="mt-1">
+                            <VoicePlayerInline
+                              storagePath={item.storagePath}
+                              durationSeconds={item.durationSeconds}
+                              onReply={item.direction === "received" ? () => openVoiceReply(item) : undefined}
+                            />
+                          </div>
+                        ) : (
+                          <p className="mt-0.5 text-sm text-foreground">{renderMessage(item)}</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )
+                })}
               </div>
             )}
           </div>
@@ -761,31 +816,35 @@ export function CirclePage() {
         <DialogContent className="max-w-sm border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
           <DialogHeader>
             <DialogTitle className="font-heading">
-              {t("circle.send_love_sheet_title", { name: composeFor?.name ?? "" })}
+              {composeFor?.replyToId
+                ? t("circle.voice_reply_sheet_title", { name: composeFor?.name ?? "" })
+                : t("circle.send_love_sheet_title", { name: composeFor?.name ?? "" })}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="flex gap-2">
-              <button
-                onClick={() => setComposeMode("text")}
-                className={`flex-1 rounded-full px-3 py-1.5 text-xs font-medium ${
-                  composeMode === "text" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
-                }`}
-              >
-                {t("circle.compose_mode_text")}
-              </button>
-              <button
-                onClick={() => setComposeMode("voice")}
-                className={`flex-1 rounded-full px-3 py-1.5 text-xs font-medium ${
-                  composeMode === "voice" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
-                }`}
-              >
-                {t("circle.compose_mode_voice")}
-              </button>
-            </div>
+            {!composeFor?.replyToId && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setComposeMode("text")}
+                  className={`flex-1 rounded-full px-3 py-1.5 text-xs font-medium ${
+                    composeMode === "text" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                  }`}
+                >
+                  {t("circle.compose_mode_text")}
+                </button>
+                <button
+                  onClick={() => setComposeMode("voice")}
+                  className={`flex-1 rounded-full px-3 py-1.5 text-xs font-medium ${
+                    composeMode === "voice" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                  }`}
+                >
+                  {t("circle.compose_mode_voice")}
+                </button>
+              </div>
+            )}
 
             {composeMode === "voice" && composeFor ? (
-              <VoiceComposeForm recipientId={composeFor.id} onSent={handleVoiceSent} />
+              <VoiceComposeForm recipientId={composeFor.id} replyToId={composeFor.replyToId} onSent={handleVoiceSent} />
             ) : (
               <>
                 <div className="flex flex-wrap gap-2">

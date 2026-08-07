@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
 import { buildWrappedCards, type WrappedCard } from "@/lib/wrapped"
 import { shareWrappedCard } from "@/lib/wrapped-share"
+import { useCustomIntentions } from "@/hooks/use-custom-intentions"
 import { Button } from "@/components/ui/button"
 import { X, Share2, Loader2 } from "lucide-react"
 import { toast } from "sonner"
@@ -16,6 +17,7 @@ const SWIPE_THRESHOLD_PX = 50
 export function WrappedPage() {
   const { t, i18n } = useTranslation()
   const { user } = useAuth()
+  const { customIntentions } = useCustomIntentions(user?.id)
   const { monthStart } = useParams<{ monthStart: string }>()
   const navigate = useNavigate()
 
@@ -48,7 +50,10 @@ export function WrappedPage() {
   }
 
   const lang: "en" | "sw" = i18n.language === "sw" ? "sw" : "en"
-  const cards = useMemo(() => (recap ? buildWrappedCards(recap, t, lang) : []), [recap, t, lang])
+  const cards = useMemo(
+    () => (recap ? buildWrappedCards(recap, t, lang, customIntentions) : []),
+    [recap, t, lang, customIntentions]
+  )
   const card = cards[index]
 
   function goNext() {

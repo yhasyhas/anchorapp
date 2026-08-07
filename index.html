@@ -17,17 +17,26 @@
     <meta name="description" content="A gentle life alignment system. Supportive, not demanding." />
     <title>Anchor — Life Alignment</title>
 
-    <!-- Open Graph / social link previews. og:image points at an asset that doesn't
-         exist yet (public/og-image.png, 1200x630) — add it whenever a real visual is
-         ready; until then previews just show no image, nothing is broken. -->
+    <!-- Open Graph / social link previews. public/og-image.png is a real 2048x1072
+         branded asset. og:image below uses an ABSOLUTE url — several scrapers
+         (Slack, iMessage, some WhatsApp versions) don't reliably resolve a
+         relative path against the page origin the way browsers do, so a bare
+         "/og-image.png" can silently show no preview image on those platforms.
+         https://anchorapp-liard.vercel.app is the current deployment domain — if a
+         custom domain is attached later, swap every occurrence below to match;
+         nothing else needs to change. -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Anchor — Life Alignment" />
     <meta property="og:description" content="A gentle space to align who you are, how you feel, and what you do." />
-    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:image" content="https://anchorapp-liard.vercel.app/og-image.png" />
+    <meta property="og:image:width" content="2048" />
+    <meta property="og:image:height" content="1072" />
+    <meta property="og:image:alt" content="Anchor — a gentle space to align who you are, how you feel, and what you do" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Anchor — Life Alignment" />
     <meta name="twitter:description" content="A gentle space to align who you are, how you feel, and what you do." />
-    <meta name="twitter:image" content="/og-image.png" />
+    <meta name="twitter:image" content="https://anchorapp-liard.vercel.app/og-image.png" />
+    <meta name="twitter:image:alt" content="Anchor — a gentle space to align who you are, how you feel, and what you do" />
 
     <!-- iOS "Add to Home Screen" behaviour -->
     <meta name="mobile-web-app-capable" content="yes" />

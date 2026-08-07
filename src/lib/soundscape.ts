@@ -1,7 +1,9 @@
-// Optional ambient sound for breathing sessions (morning ritual + Pause menu) — synthesized
-// entirely with the Web Audio API rather than shipped as audio files: no real recording
-// could be sourced/licensed for this, and synthesizing sidesteps the whole "fetch + PWA
-// precache" problem too (nothing is ever downloaded, so it's offline by construction).
+// Ambient sound for breathing sessions (morning ritual + Pause menu), synthesized
+// entirely with the Web Audio API — no file to fetch, so it's offline by construction.
+// This is now the FALLBACK engine: the real recorded ambiences in public/sounds/ (via
+// src/lib/soundscape-file.ts) are what actually plays under normal conditions, this one
+// only kicks in if that file fails to load — see src/lib/soundscape-player.ts, which
+// orchestrates the two behind one start()/stop() API. Kept, not deleted.
 export type SoundscapeId = "rain" | "waves" | "forest"
 
 export const SOUNDSCAPE_IDS: SoundscapeId[] = ["rain", "waves", "forest"]

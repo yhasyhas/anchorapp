@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
-import { Soundscape, SOUNDSCAPE_IDS, type SoundscapeId } from "@/lib/soundscape"
+import { SOUNDSCAPE_IDS, type SoundscapeId } from "@/lib/soundscape"
+import { SoundscapePlayer } from "@/lib/soundscape-player"
 import { getUserLocalData, setUserLocalData } from "@/lib/user-storage"
 
 const SOUNDSCAPE_TRACK_KEY_BASE = "anchor_soundscape_track"
@@ -11,7 +12,8 @@ export interface UseSoundscapeResult {
   toggle: () => void
 }
 
-// Owns playback lifecycle for the synthesized ambient sound (see src/lib/soundscape.ts).
+// Owns playback lifecycle for the ambient sound (see src/lib/soundscape-player.ts, which
+// plays the real audio file and falls back to synthesis if that fails).
 // `enabled` always starts false on mount — off by default every session, never autoplay,
 // only ever flips true from a tap on the toggle this hook returns. Only the last-picked
 // TRACK is remembered across sessions (localStorage, user-scoped) so turning it back on
@@ -23,10 +25,10 @@ export function useSoundscape(userId: string | undefined): UseSoundscapeResult {
     const saved = getUserLocalData<SoundscapeId>(SOUNDSCAPE_TRACK_KEY_BASE, userId)
     return saved && (SOUNDSCAPE_IDS as string[]).includes(saved) ? saved : SOUNDSCAPE_IDS[0]
   })
-  const soundscapeRef = useRef<Soundscape | null>(null)
+  const soundscapeRef = useRef<SoundscapePlayer | null>(null)
 
-  function getSoundscape(): Soundscape {
-    if (!soundscapeRef.current) soundscapeRef.current = new Soundscape()
+  function getSoundscape(): SoundscapePlayer {
+    if (!soundscapeRef.current) soundscapeRef.current = new SoundscapePlayer()
     return soundscapeRef.current
   }
 

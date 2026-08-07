@@ -73,9 +73,16 @@ const INTENTION_LABELS: Record<Language, Record<string, string>> = {
   sw: { clarity: "uwazi", courage: "ujasiri", love: "upendo", abundance: "wingi", peace: "amani" },
 }
 
-function translateIntention(raw: string | null, language: Language): string | null {
+// customIntentions: the due user's active custom intentions (see CustomIntentionRow above)
+// — checked before falling back to raw.toLowerCase(), so a Swahili letter/story shows her
+// own label_sw translation instead of the raw English text she picked on Home.
+function translateIntention(raw: string | null, language: Language, customIntentions: CustomIntentionRow[] = []): string | null {
   if (!raw) return null
-  return INTENTION_LABELS[language][raw.toLowerCase()] ?? raw.toLowerCase()
+  const native = INTENTION_LABELS[language][raw.toLowerCase()]
+  if (native) return native
+  const custom = customIntentions.find((c) => c.label_en.toLowerCase() === raw.toLowerCase())
+  if (custom) return language === "sw" ? custom.label_sw : custom.label_en
+  return raw.toLowerCase()
 }
 
 function jsonResponse(body: unknown, status: number): Response {
@@ -221,6 +228,12 @@ interface GratitudeRow {
   user_id: string
   created_at: string
   text: string
+}
+
+interface CustomIntentionRow {
+  user_id: string
+  label_en: string
+  label_sw: string
 }
 
 // gratitudes has no `date` column (just created_at) — every other row type
@@ -441,8 +454,13 @@ Rules:
   return capWords(text.replace(/^["']|["']$/g, ""), LETTER_MAX_WORDS)
 }
 
-function buildStaticLetter(language: Language, firstName: string, highlights: Highlights): string {
-  const intention = translateIntention(highlights.dominantIntention, language)
+function buildStaticLetter(
+  language: Language,
+  firstName: string,
+  highlights: Highlights,
+  customIntentions: CustomIntentionRow[]
+): string {
+  const intention = translateIntention(highlights.dominantIntention, language, customIntentions)
 
   if (language === "sw") {
     const name = firstName || "mpendwa"
@@ -459,7 +477,7 @@ function buildStaticLetter(language: Language, firstName: string, highlights: Hi
       ? `Jambo moja ulilolisandika linasema yote: "${highlights.bestJournalSentence}"`
       : `Hata siku ambazo hukuandika, bado ilitokea, na bado ilikuwa na maana.`
     const circleLine = highlights.sharedIntentionWithFriend
-      ? `\n\nWewe na ${highlights.sharedIntentionWithFriend.friendName || "rafiki yako"} mliishikilia ${translateIntention(highlights.sharedIntentionWithFriend.intention, "sw")} pamoja wiki hii — mliibeba pamoja.`
+      ? `\n\nWewe na ${highlights.sharedIntentionWithFriend.friendName || "rafiki yako"} mliishikilia ${translateIntention(highlights.sharedIntentionWithFriend.intention, "sw", customIntentions)} pamoja wiki hii — mliibeba pamoja.`
       : ""
 
     return `Habari ${name},\n\n${introLine} ${streakLine}\n\n${journalLine}${circleLine}\n\nSio tu unajaribu. Unakuwa. Endelea kuamini mchakato huu.\n\nNinakuona, na ninajivunia sana kwako.`
@@ -479,7 +497,7 @@ function buildStaticLetter(language: Language, firstName: string, highlights: Hi
     ? `One moment you wrote down says it all: "${highlights.bestJournalSentence}"`
     : `Even on the days you didn't write it down, it still happened, and it still mattered.`
   const circleLine = highlights.sharedIntentionWithFriend
-    ? `\n\nYou and ${highlights.sharedIntentionWithFriend.friendName || "your friend"} both chose ${translateIntention(highlights.sharedIntentionWithFriend.intention, "en")} this week — you carried it together.`
+    ? `\n\nYou and ${highlights.sharedIntentionWithFriend.friendName || "your friend"} both chose ${translateIntention(highlights.sharedIntentionWithFriend.intention, "en", customIntentions)} this week — you carried it together.`
     : ""
 
   return `Hi ${name},\n\n${introLine} ${streakLine}\n\n${journalLine}${circleLine}\n\nYou're not just trying. You're becoming. Keep trusting the process.\n\nI see you, and I'm so proud of you.`
@@ -500,8 +518,9 @@ async function buildLetterText(params: {
   tone: Tone
   groqApiKey: string | undefined
   softMode: boolean
+  customIntentions: CustomIntentionRow[]
 }): Promise<string> {
-  const { language, firstName, highlights, checkInSnippet, gratitudeSnippet, tone, groqApiKey, softMode } = params
+  const { language, firstName, highlights, checkInSnippet, gratitudeSnippet, tone, groqApiKey, softMode, customIntentions } = params
 
   if (language === "sw" || !groqApiKey) {
     // Static fallback never references check-in text or gratitudes — it
@@ -509,13 +528,13 @@ async function buildLetterText(params: {
     // template also doesn't vary by tone or soft mode (same fluency reasoning
     // above) — tone/soft-mode adaptation only reaches the letter for English
     // users, who go through Groq below.
-    return buildStaticLetter(language, firstName, highlights)
+    return buildStaticLetter(language, firstName, highlights, customIntentions)
   }
 
   try {
     return await generateLetterWithGroq({ firstName, highlights, checkInSnippet, gratitudeSnippet, tone, groqApiKey, softMode })
   } catch {
-    return buildStaticLetter(language, firstName, highlights)
+    return buildStaticLetter(language, firstName, highlights, customIntentions)
   }
 }
 
@@ -689,11 +708,11 @@ Rules:
   return capWords(text.replace(/^["']|["']$/g, ""), STORY_MAX_WORDS)
 }
 
-function weekFallbackLine(label: string, week: WeekStat, language: Language): string {
+function weekFallbackLine(label: string, week: WeekStat, language: Language, customIntentions: CustomIntentionRow[]): string {
   if (week.activeDays === 0) {
     return language === "sw" ? `${label}, ulipumzika.` : `${label}, you rested.`
   }
-  const intention = translateIntention(week.dominantIntention, language)
+  const intention = translateIntention(week.dominantIntention, language, customIntentions)
   if (language === "sw") {
     return intention
       ? `${label}, ulikuwa ukichagua ${intention} — ulikamilisha nanga zako siku ${week.anchorsCompletedDays}.`
@@ -704,9 +723,9 @@ function weekFallbackLine(label: string, week: WeekStat, language: Language): st
     : `${label}, you kept showing up for yourself, completing your anchors on ${week.anchorsCompletedDays} day${week.anchorsCompletedDays === 1 ? "" : "s"}.`
 }
 
-function buildStaticStory(language: Language, firstName: string, stats: StoryStats): string {
+function buildStaticStory(language: Language, firstName: string, stats: StoryStats, customIntentions: CustomIntentionRow[]): string {
   const labels = language === "sw" ? WEEK_LABELS_SW : WEEK_LABELS_EN
-  const paragraphs = stats.weeks.map((w, i) => weekFallbackLine(labels[i], w, language))
+  const paragraphs = stats.weeks.map((w, i) => weekFallbackLine(labels[i], w, language, customIntentions))
   const name = firstName || (language === "sw" ? "mpendwa" : "love")
   const greeting = language === "sw" ? `Habari ${name},` : `Hi ${name},`
   const closing =
@@ -727,17 +746,18 @@ async function buildStoryText(params: {
   tone: Tone
   groqApiKey: string | undefined
   softMode: boolean
+  customIntentions: CustomIntentionRow[]
 }): Promise<string> {
-  const { language, firstName, stats, checkInSnippet, gratitudeSnippet, tone, groqApiKey, softMode } = params
+  const { language, firstName, stats, checkInSnippet, gratitudeSnippet, tone, groqApiKey, softMode, customIntentions } = params
 
   if (language === "sw" || !groqApiKey) {
-    return buildStaticStory(language, firstName, stats)
+    return buildStaticStory(language, firstName, stats, customIntentions)
   }
 
   try {
     return await generateStoryWithGroq({ firstName, stats, checkInSnippet, gratitudeSnippet, tone, groqApiKey, softMode })
   } catch {
-    return buildStaticStory(language, firstName, stats)
+    return buildStaticStory(language, firstName, stats, customIntentions)
   }
 }
 
@@ -797,7 +817,7 @@ export async function GET(request: Request): Promise<Response> {
     due.get(dueIds[0])!.periodStart
   )
 
-  const [existingLetters, existingStories, moodLogs, anchors, checkIns, journal, gratitudes] = await Promise.all([
+  const [existingLetters, existingStories, moodLogs, anchors, checkIns, journal, gratitudes, customIntentions] = await Promise.all([
     restGet<ExistingLetterRow>(rest, `weekly_letters?user_id=in.(${dueIdList})&select=user_id,week_start`),
     restGet<ExistingStoryRow>(rest, `progress_stories?user_id=in.(${dueIdList})&select=user_id,period_end`),
     restGet<MoodLogRow>(rest, `mood_logs?user_id=in.(${dueIdList})&date=gte.${earliestFloor}&select=user_id,date,mood`),
@@ -811,6 +831,14 @@ export async function GET(request: Request): Promise<Response> {
       rest,
       `gratitudes?user_id=in.(${dueIdList})&created_at=gte.${encodeURIComponent(earliestFloor + "T00:00:00.000Z")}&select=user_id,created_at,text`
     ),
+    // Active custom intentions for due users (src/lib/custom-intentions.ts) — needed to
+    // translate a custom intention's raw daily_intention value (stored as its label_en,
+    // same convention as native intentions) when the letter/story is written in Swahili.
+    // See translateIntention below, which now checks this per-user list first.
+    restGet<CustomIntentionRow>(
+      rest,
+      `custom_intentions?user_id=in.(${dueIdList})&is_archived=eq.false&select=user_id,label_en,label_sw`
+    ),
   ])
 
   const existingLetterByUser = new Set(existingLetters.map((l) => `${l.user_id}:${l.week_start}`))
@@ -820,6 +848,7 @@ export async function GET(request: Request): Promise<Response> {
   const checkInsByUser = groupBy(checkIns)
   const journalByUser = groupBy(journal)
   const gratitudesByUser = groupBy(gratitudes)
+  const customIntentionsByUser = groupBy(customIntentions)
   const profileById = new Map(profiles.map((p) => [p.id, p]))
 
   // Circle Mission 2 ("Anchor Together"): accepted shared intentions
@@ -866,6 +895,7 @@ export async function GET(request: Request): Promise<Response> {
       const { profile, periodStart, weekStart, weekEnd } = due.get(userId)!
       const language: Language = profile.preferred_language === "sw" ? "sw" : "en"
       const firstName = (profile.full_name || "").trim().split(/\s+/)[0] || ""
+      const customIntentions = customIntentionsByUser.get(userId) || []
 
       const allMoods = (moodByUser.get(userId) || []).filter((m) => dateInRange(m.date, periodStart, weekEnd))
       const allAnchors = (anchorsByUser.get(userId) || []).filter((a) => dateInRange(a.date, periodStart, weekEnd))
@@ -929,6 +959,7 @@ export async function GET(request: Request): Promise<Response> {
             tone: normalizeTone(profile.tone),
             groqApiKey: GROQ_API_KEY,
             softMode: profile.soft_mode,
+            customIntentions,
           })
           try {
             await restInsert(rest, "weekly_letters", {
@@ -972,6 +1003,7 @@ export async function GET(request: Request): Promise<Response> {
             tone: normalizeTone(profile.tone),
             groqApiKey: GROQ_API_KEY,
             softMode: profile.soft_mode,
+            customIntentions,
           })
           try {
             await restInsert(rest, "progress_stories", {

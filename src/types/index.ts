@@ -223,6 +223,18 @@ export interface MonthlyRecap {
   created_at: string
 }
 
+// User-created intention, alongside the 5 hardcoded native ones in
+// src/lib/constants.ts — see src/lib/custom-intentions.ts and
+// src/lib/intentions.ts for how these are created/resolved for display.
+export interface CustomIntention {
+  id: string
+  user_id: string
+  label_en: string
+  label_sw: string
+  is_archived: boolean
+  created_at: string
+}
+
 export type CircleMembershipStatus = "pending" | "active" | "declined"
 
 export interface CircleMembership {

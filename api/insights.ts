@@ -211,6 +211,19 @@ function validateReassuranceBody(body: any): string | null {
   return null
 }
 
+function validateTranslateIntentionBody(body: any): string | null {
+  if (typeof body.text !== "string" || !body.text.trim()) {
+    return "text is required"
+  }
+  if (body.text.trim().length > 40) {
+    return "text too long"
+  }
+  if (body.sourceLanguage !== "en" && body.sourceLanguage !== "sw") {
+    return "invalid sourceLanguage"
+  }
+  return null
+}
+
 const MOVE_CATEGORIES = ["physical", "social", "mindful", "novelty", "creative", "rest"] as const
 const MOVE_INTENSITIES = ["gentle", "standard", "ambitious"] as const
 
@@ -362,6 +375,12 @@ export default async function handler(request: Request) {
       const validationError = validateMoveSuggestionsBody(body)
       if (validationError) return jsonResponse({ error: validationError }, 400)
       return await handleMoveSuggestions(body, GROQ_API_KEY)
+    }
+
+    if (type === "translate_intention") {
+      const validationError = validateTranslateIntentionBody(body)
+      if (validationError) return jsonResponse({ error: validationError }, 400)
+      return await handleTranslateIntention(body, GROQ_API_KEY)
     }
 
     const validationError = validateInsightsBody(body)
@@ -555,6 +574,66 @@ Examples:
     status: 200,
     headers: { "Content-Type": "application/json" },
   })
+}
+
+// One-word/short-phrase EN<->SW translation for a freshly-created custom intention (see
+// src/lib/custom-intentions.ts's createCustomIntention, called via
+// src/lib/ai-service.ts's translateCustomIntention). Best-effort: any failure just falls
+// back to the same text in both fields, which the user can correct later in Settings.
+async function handleTranslateIntention(body: any, apiKey: string) {
+  const text = body.text.trim()
+  const sourceLanguage: "en" | "sw" = body.sourceLanguage
+  const fallback = { label_en: text, label_sw: text }
+
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "llama-3.1-8b-instant",
+      messages: [
+        {
+          role: "system",
+          content: `You translate a short personal daily intention (1-3 words, e.g. "Focus", "Gratitude") between English and Swahili.
+
+Rules:
+- Return ONLY strict JSON: {"en": "...", "sw": "..."}
+- 1-3 words in each language, natural everyday phrasing a person would actually use as a one-word intention, not a literal word-for-word translation
+- Title Case both forms
+- Never explain, never add extra text outside the JSON`,
+        },
+        {
+          role: "user",
+          content: `The word/phrase is "${text}", given in ${sourceLanguage === "en" ? "English" : "Swahili"}. Provide both the English and Swahili forms.`,
+        },
+      ],
+      temperature: 0.2,
+      max_tokens: 60,
+      response_format: { type: "json_object" },
+    }),
+  })
+
+  if (!response.ok) {
+    return jsonResponse(fallback, 200)
+  }
+
+  const json = await response.json()
+  const content = json.choices?.[0]?.message?.content
+
+  if (!content) {
+    return jsonResponse(fallback, 200)
+  }
+
+  try {
+    const parsed = JSON.parse(content)
+    const label_en = typeof parsed.en === "string" && parsed.en.trim() ? parsed.en.trim() : text
+    const label_sw = typeof parsed.sw === "string" && parsed.sw.trim() ? parsed.sw.trim() : text
+    return jsonResponse({ label_en, label_sw }, 200)
+  } catch {
+    return jsonResponse(fallback, 200)
+  }
 }
 
 // Raw daily_intention values are stored in English — duplicated small translation map, same

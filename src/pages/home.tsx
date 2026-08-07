@@ -19,13 +19,16 @@ import {
 import { MoveOfTheDayCard } from "@/components/anchor/move-of-the-day-card"
 import { MovePickerSheet } from "@/components/anchor/move-picker-sheet"
 import { MIN_STREAK_FOR_INTENTION } from "@/lib/streaks"
+import { resolveIntentionLabel, buildSelectableIntentions } from "@/lib/intentions"
+import { useCustomIntentions } from "@/hooks/use-custom-intentions"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Settings, Info, Heart, Flame, Anchor as AnchorIcon, Sparkles, Lock, Pencil, Sun, Moon, Mail, PartyPopper } from "lucide-react"
-import { moodConfig, intentions } from "@/lib/constants"
+import { Settings, Info, Heart, Flame, Anchor as AnchorIcon, Sparkles, Lock, Pencil, Sun, Moon, Mail, PartyPopper, Volume2, Square } from "lucide-react"
+import { isSpeechSynthesisAvailable, speak, stopSpeaking } from "@/lib/speech"
+import { moodConfig } from "@/lib/constants"
 import { canCheckAnchors, getTimeUntilAnchorCheck } from "@/lib/utils"
 import { OnboardingModal } from "@/components/onboarding/onboarding-modal"
 import { MorningRitual } from "@/components/anchor/morning-ritual"
@@ -47,11 +50,17 @@ import { useAnchorDefs } from "@/hooks/use-anchor-defs"
 import { useNudgeArbitration } from "@/hooks/use-nudge-arbitration"
 import { useDailyCycle } from "@/hooks/use-daily-cycle"
 import { useHomeBadges } from "@/hooks/use-home-badges"
-import type { AnchorCategory, CircleSharedIntention } from "@/types"
+import type { TFunction } from "i18next"
+import type { AnchorCategory, CircleSharedIntention, CustomIntention } from "@/types"
 
-function intentionLabel(t: (key: string) => string, rawIntention: string | null): string | null {
-  if (!rawIntention) return null
-  return t(`intentions.${rawIntention.toLowerCase()}`).toLowerCase()
+function intentionLabel(
+  t: TFunction,
+  rawIntention: string | null,
+  language: "en" | "sw",
+  customIntentions: CustomIntention[]
+): string | null {
+  const resolved = resolveIntentionLabel(t, rawIntention, language, customIntentions)
+  return resolved ? resolved.toLowerCase() : null
 }
 
 function getGreetingKey(): string {
@@ -62,8 +71,26 @@ function getGreetingKey(): string {
 }
 
 export function HomePage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const language = i18n.language === "sw" ? "sw" : "en"
   const { user, profile, updateProfile } = useAuth()
+  const { customIntentions } = useCustomIntentions(user?.id)
+  const [isSpeakingCompanion, setIsSpeakingCompanion] = useState(false)
+
+  useEffect(() => {
+    return () => stopSpeaking()
+  }, [])
+
+  function handleToggleCompanionSpeech() {
+    if (isSpeakingCompanion) {
+      stopSpeaking()
+      setIsSpeakingCompanion(false)
+      return
+    }
+    const message = cycle.companionMsg || t("companion.default_message")
+    setIsSpeakingCompanion(true)
+    speak(message, language, () => setIsSpeakingCompanion(false))
+  }
   const {
     softModeActive,
     showEnterNudge: showSoftEnterNudge,
@@ -218,7 +245,7 @@ export function HomePage() {
 
       <StreakMilestoneModal
         milestone={cycle.streakMilestone}
-        intentionLabel={intentionLabel(t, cycle.streaks.anchorStreakIntention)}
+        intentionLabel={intentionLabel(t, cycle.streaks.anchorStreakIntention, language, customIntentions)}
         onClose={cycle.dismissStreakMilestone}
       />
 
@@ -342,10 +369,21 @@ export function HomePage() {
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
               <Sparkles className="h-4 w-4 text-primary" />
             </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-0.5">
-                {cycle.loadingCompanion ? t("companion.loading") : t("companion.title")}
-              </p>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-xs font-medium text-muted-foreground mb-0.5">
+                  {cycle.loadingCompanion ? t("companion.loading") : t("companion.title")}
+                </p>
+                {isSpeechSynthesisAvailable() && !cycle.loadingCompanion && (
+                  <button
+                    onClick={handleToggleCompanionSpeech}
+                    aria-label={t(isSpeakingCompanion ? "companion.stop" : "companion.listen")}
+                    className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {isSpeakingCompanion ? <Square className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+                  </button>
+                )}
+              </div>
               <p className="text-sm text-foreground/90 leading-relaxed font-medium">
                 {cycle.companionMsg || t("companion.default_message")}
               </p>
@@ -443,6 +481,7 @@ export function HomePage() {
           current={cycle.streaks.currentMoodStreak}
           best={cycle.streaks.bestMoodStreak}
           intention={cycle.streaks.moodStreakIntention}
+          customIntentions={customIntentions}
           activeBg="bg-peach/30"
           activeText="text-peach"
           celebratedBg="bg-gradient-to-br from-peach/40 to-rose-accent/20"
@@ -454,6 +493,7 @@ export function HomePage() {
           current={cycle.streaks.currentAnchorStreak}
           best={cycle.streaks.bestAnchorStreak}
           intention={cycle.streaks.anchorStreakIntention}
+          customIntentions={customIntentions}
           activeBg="bg-sage-light/60"
           activeText="text-primary"
           celebratedBg="bg-gradient-to-br from-sage-light/70 to-lavender/25"
@@ -490,17 +530,17 @@ export function HomePage() {
         <CardContent className="p-5">
           <p className="mb-3 text-sm font-medium text-muted-foreground">{t("home.intention_label")}</p>
           <div className="flex flex-wrap gap-2">
-            {intentions.map((intention) => (
+            {buildSelectableIntentions(t, language, customIntentions).map((intention) => (
               <button
-                key={intention}
-                onClick={() => cycle.saveAnchor({ daily_intention: intention })}
+                key={intention.value}
+                onClick={() => cycle.saveAnchor({ daily_intention: intention.value })}
                 className={`rounded-full px-4 py-1.5 text-sm transition-all duration-200 ${
-                  cycle.anchor.daily_intention === intention
+                  cycle.anchor.daily_intention === intention.value
                     ? "bg-primary text-primary-foreground shadow-md scale-105"
                     : "bg-muted text-foreground hover:bg-accent hover:scale-105"
                 }`}
               >
-                {t(`intentions.${intention.toLowerCase()}`)}
+                {intention.isCustom ? `✨ ${intention.label}` : intention.label}
               </button>
             ))}
           </div>
@@ -644,19 +684,20 @@ interface StreakCardProps {
   current: number
   best: number
   intention: string | null
+  customIntentions: CustomIntention[]
   activeBg: string
   activeText: string
   celebratedBg: string
 }
 
-function StreakCard({ icon, label, emoji, current, best, intention, activeBg, activeText, celebratedBg }: StreakCardProps) {
-  const { t } = useTranslation()
+function StreakCard({ icon, label, emoji, current, best, intention, customIntentions, activeBg, activeText, celebratedBg }: StreakCardProps) {
+  const { t, i18n } = useTranslation()
   const celebrated = current >= MIN_STREAK_FOR_INTENTION
   // Un streak vient de se terminer : jamais culpabilisant, juste une phrase discrète en
   // option — visible uniquement si un streak a réellement existé avant (best > 0).
   const justEnded = current === 0 && best > 0
 
-  const translatedIntention = intentionLabel(t, intention)
+  const translatedIntention = intentionLabel(t, intention, i18n.language === "sw" ? "sw" : "en", customIntentions)
   const sentence = translatedIntention
     ? t("streaks.showing_up_with_intention", { count: current, intention: translatedIntention })
     : t("streaks.showing_up_for_yourself", { count: current })

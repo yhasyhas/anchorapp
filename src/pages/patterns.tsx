@@ -6,6 +6,8 @@ import { fetchInsightsWithFallback } from "@/lib/ai-service"
 import { moodToValue } from "@/lib/constants"
 import { localDateStr } from "@/lib/utils"
 import { formatWeekRange } from "@/lib/letters"
+import { resolveIntentionLabel } from "@/lib/intentions"
+import { useCustomIntentions } from "@/hooks/use-custom-intentions"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Sparkles, Brain, Loader2, BookOpen, ChevronDown, ChevronUp } from "lucide-react"
@@ -41,6 +43,7 @@ function formatEntryDate(dateStr: string, lang: string): string {
 export function PatternsPage() {
   const { t, i18n } = useTranslation()
   const { user, profile } = useAuth()
+  const { customIntentions } = useCustomIntentions(user?.id)
   const [chartData, setChartData] = useState<{ day: string; value: number; mood: string | null }[]>([])
   const [insights, setInsights] = useState<InsightItem[]>([])
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([])
@@ -314,7 +317,9 @@ export function PatternsPage() {
                   <div className="space-y-2.5">
                     {selectedStory.stats.topIntentions.map((ti) => (
                       <div key={ti.intention} className="flex items-center justify-between">
-                        <span className="text-sm text-foreground">{t(`intentions.${ti.intention.toLowerCase()}`)}</span>
+                        <span className="text-sm text-foreground">
+                          {resolveIntentionLabel(t, ti.intention, i18n.language === "sw" ? "sw" : "en", customIntentions)}
+                        </span>
                         <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
                           {t("progress_story.days_count", { count: ti.days })}
                         </span>

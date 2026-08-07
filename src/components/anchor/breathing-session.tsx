@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
+import { Volume2, VolumeX } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/lib/auth-context"
+import { useSoundscape } from "@/hooks/use-soundscape"
+import { SOUNDSCAPE_IDS } from "@/lib/soundscape"
 
 export interface BreathingSessionTexts {
   inhale: string
@@ -43,6 +48,12 @@ export function BreathingSession({
   onComplete,
   onSkip,
 }: BreathingSessionProps) {
+  // Read directly from i18next rather than via a `texts`-style prop, unlike the rest of
+  // this component's copy — the soundscape toggle/track labels are identical for both
+  // callers (morning ritual, Pause menu), so there's no per-caller wording to thread through.
+  const { t } = useTranslation()
+  const { user } = useAuth()
+  const soundscape = useSoundscape(user?.id)
   const [phase, setPhase] = useState<"inhale" | "hold" | "exhale" | "done">("inhale")
   const [cycle, setCycle] = useState(0)
 
@@ -97,7 +108,35 @@ export function BreathingSession({
         </p>
       </div>
 
-      <Button variant="ghost" className="mt-12 text-muted-foreground hover:text-foreground" onClick={onSkip}>
+      <div className="mt-8 flex flex-col items-center gap-2">
+        <button
+          onClick={soundscape.toggle}
+          aria-label={t(soundscape.enabled ? "breathing.soundscape_off" : "breathing.soundscape_on")}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {soundscape.enabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+          {t(soundscape.enabled ? "breathing.soundscape_on" : "breathing.soundscape_off")}
+        </button>
+        {soundscape.enabled && (
+          <div className="flex gap-2">
+            {SOUNDSCAPE_IDS.map((id) => (
+              <button
+                key={id}
+                onClick={() => soundscape.setTrack(id)}
+                className={`rounded-full px-3 py-1 text-xs transition-colors ${
+                  soundscape.track === id
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-accent"
+                }`}
+              >
+                {t(`breathing.soundscape_${id}`)}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Button variant="ghost" className="mt-8 text-muted-foreground hover:text-foreground" onClick={onSkip}>
         {skipLabel}
       </Button>
     </div>

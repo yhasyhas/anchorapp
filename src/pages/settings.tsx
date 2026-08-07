@@ -26,6 +26,7 @@ import { RemindersSection } from "@/components/settings/reminders-section"
 import { JournalExportSection } from "@/components/settings/journal-export-section"
 import { ToneSection } from "@/components/settings/tone-section"
 import { SoftModeSection } from "@/components/settings/soft-mode-section"
+import { CustomIntentionsSection } from "@/components/settings/custom-intentions-section"
 import { CircleSection } from "@/components/settings/circle-section"
 import { ArrowLeft, Brain } from "lucide-react"
 
@@ -70,7 +71,7 @@ export function SettingsPage() {
   async function handleExport() {
     if (!user) return
 
-    const [anchors, moods, checkIns, gratitudes, journalEntries, weeklyLetters, monthlyRecaps, moveSuggestions, insightLog] =
+    const [anchors, moods, checkIns, gratitudes, journalEntries, weeklyLetters, monthlyRecaps, moveSuggestions, insightLog, customIntentions] =
       await Promise.all([
         supabase.from("daily_anchors").select("*").eq("user_id", user.id),
         supabase.from("mood_logs").select("*").eq("user_id", user.id),
@@ -81,6 +82,7 @@ export function SettingsPage() {
         supabase.from("monthly_recaps").select("*").eq("user_id", user.id),
         supabase.from("move_suggestions").select("*").eq("user_id", user.id),
         supabase.from("insight_log").select("*").eq("user_id", user.id),
+        supabase.from("custom_intentions").select("*").eq("user_id", user.id),
       ])
 
     const exportData = {
@@ -95,6 +97,7 @@ export function SettingsPage() {
       monthly_recaps: monthlyRecaps.data,
       move_suggestions: moveSuggestions.data,
       insight_log: insightLog.data,
+      custom_intentions: customIntentions.data,
     }
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" })
@@ -233,6 +236,9 @@ export function SettingsPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Custom intentions */}
+        <CustomIntentionsSection />
 
         {/* Soft Mode */}
         <SoftModeSection />

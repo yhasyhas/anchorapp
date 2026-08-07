@@ -533,6 +533,96 @@ function getLocalReassuranceFallback(language: "en" | "sw", tone: Tone): string 
   return LOCAL_REASSURANCE_FALLBACK[tone][language]
 }
 
+// ==================== INTENTIONS CUSTOM : traduction à la création ====================
+
+export interface CustomIntentionLabels {
+  label_en: string
+  label_sw: string
+}
+
+// Traduit une intention custom (1-2 mots) créée par l'utilisatrice vers l'autre langue, via
+// Groq — même découpage dev/prod/offline que generateCompanionMessage ci-dessus. Ne bloque
+// jamais la création : hors-ligne, IA désactivée, ou tout échec réseau retombent sur le texte
+// saisi dans les deux champs (corrigible ensuite dans Settings).
+export async function translateCustomIntention(
+  text: string,
+  sourceLanguage: "en" | "sw",
+  aiEnabled: boolean
+): Promise<CustomIntentionLabels> {
+  const fallback: CustomIntentionLabels = { label_en: text, label_sw: text }
+
+  if (!aiEnabled || !isOnline()) {
+    return fallback
+  }
+
+  // 🚀 PROD : appel Edge Function
+  if (!import.meta.env.DEV) {
+    try {
+      const response = await fetch("/api/insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(await getAuthHeader()) },
+        body: JSON.stringify({ type: "translate_intention", text, sourceLanguage }),
+      })
+      if (!response.ok) return fallback
+      const json = await response.json()
+      return {
+        label_en: typeof json.label_en === "string" && json.label_en.trim() ? json.label_en.trim() : text,
+        label_sw: typeof json.label_sw === "string" && json.label_sw.trim() ? json.label_sw.trim() : text,
+      }
+    } catch {
+      return fallback
+    }
+  }
+
+  // 💻 DEV FALLBACK : appel direct (si VITE_GROQ_API_KEY existe)
+  if (!GROQ_API_KEY) {
+    return fallback
+  }
+
+  try {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${GROQ_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          {
+            role: "system",
+            content: `You translate a short personal daily intention (1-3 words, e.g. "Focus", "Gratitude") between English and Swahili.
+
+Rules:
+- Return ONLY strict JSON: {"en": "...", "sw": "..."}
+- 1-3 words in each language, natural everyday phrasing a person would actually use as a one-word intention, not a literal word-for-word translation
+- Title Case both forms
+- Never explain, never add extra text outside the JSON`,
+          },
+          {
+            role: "user",
+            content: `The word/phrase is "${text}", given in ${sourceLanguage === "en" ? "English" : "Swahili"}. Provide both the English and Swahili forms.`,
+          },
+        ],
+        temperature: 0.2,
+        max_tokens: 60,
+        response_format: { type: "json_object" },
+      }),
+    })
+    if (!response.ok) return fallback
+    const json = await response.json()
+    const content = json.choices?.[0]?.message?.content
+    if (!content) return fallback
+    const parsed = JSON.parse(content)
+    return {
+      label_en: typeof parsed.en === "string" && parsed.en.trim() ? parsed.en.trim() : text,
+      label_sw: typeof parsed.sw === "string" && parsed.sw.trim() ? parsed.sw.trim() : text,
+    }
+  } catch {
+    return fallback
+  }
+}
+
 // ==================== FOLLOW-UP QUESTION : check-in personnalisé ====================
 
 export interface FollowUpEntry {

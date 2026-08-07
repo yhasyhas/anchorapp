@@ -1,4 +1,4 @@
-import type { CheckIn, DailyAnchor, JournalEntry, MoodLog, ProgressStory, WeeklyLetter } from "@/types"
+import type { CheckIn, CustomIntention, DailyAnchor, JournalEntry, MoodLog, ProgressStory, WeeklyLetter } from "@/types"
 
 export interface MonthlyJournalData {
   monthStart: string // YYYY-MM-DD, first day of the exported month
@@ -11,6 +11,7 @@ export interface MonthlyJournalData {
   journalEntries: JournalEntry[]
   weeklyLetters: WeeklyLetter[]
   progressStory: ProgressStory | null
+  customIntentions: CustomIntention[]
 }
 
 export interface MonthStats {

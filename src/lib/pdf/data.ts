@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase"
-import type { CheckIn, DailyAnchor, JournalEntry, MoodLog, ProgressStory, WeeklyLetter } from "@/types"
+import type { CheckIn, CustomIntention, DailyAnchor, JournalEntry, MoodLog, ProgressStory, WeeklyLetter } from "@/types"
 import type { MonthlyJournalData } from "./types"
 
 // "2026-08" -> ["2026-08-01", "2026-08-31"]
@@ -31,7 +31,7 @@ export async function fetchMonthlyJournalData(
 ): Promise<MonthlyJournalData> {
   const { monthStart, monthEnd } = monthBounds(monthIso)
 
-  const [anchorsRes, moodsRes, checkInsRes, journalRes, lettersRes, storiesRes] = await Promise.all([
+  const [anchorsRes, moodsRes, checkInsRes, journalRes, lettersRes, storiesRes, customIntentionsRes] = await Promise.all([
     supabase.from("daily_anchors").select("*").eq("user_id", userId).gte("date", monthStart).lte("date", monthEnd).order("date", { ascending: true }),
     supabase.from("mood_logs").select("*").eq("user_id", userId).gte("date", monthStart).lte("date", monthEnd).order("date", { ascending: true }),
     supabase.from("check_ins").select("*").eq("user_id", userId).gte("date", monthStart).lte("date", monthEnd).order("date", { ascending: true }),
@@ -50,6 +50,9 @@ export async function fetchMonthlyJournalData(
       .lte("period_start", monthEnd)
       .gte("period_end", monthStart)
       .order("period_end", { ascending: false }),
+    // Include archived customs too (unlike listCustomIntentions) — a since-archived
+    // intention can still be the dominant one for a past month's export.
+    supabase.from("custom_intentions").select("*").eq("user_id", userId),
   ])
 
   const stories = (storiesRes.data as ProgressStory[]) || []
@@ -65,5 +68,6 @@ export async function fetchMonthlyJournalData(
     journalEntries: (journalRes.data as JournalEntry[]) || [],
     weeklyLetters: (lettersRes.data as WeeklyLetter[]) || [],
     progressStory: pickProgressStory(stories, monthStart, monthEnd),
+    customIntentions: (customIntentionsRes.data as CustomIntention[]) || [],
   }
 }

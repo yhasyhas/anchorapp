@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { supabase } from "@/lib/supabase"
 import { cleanupLegacyLocalStorage } from "@/lib/user-storage"
 import { migrateLegacySyncQueue } from "@/lib/offline-sync"
+import i18n from "@/lib/i18n"
 import type { Session, User } from "@supabase/supabase-js"
 import type { Profile } from "@/types"
 
@@ -90,7 +91,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(data)
     setLoading(false)
 
-    if (data) syncBrowserTimezone(userId, data.timezone)
+    if (data) {
+      syncBrowserTimezone(userId, data.timezone)
+      // i18next boots hardcoded to English (src/lib/i18n.ts) — without this, a Swahili
+      // user sees English on every fresh load/reload until she re-toggles it herself in
+      // Settings, since settings.tsx's handleLanguageChange is otherwise the only caller
+      // of changeLanguage.
+      if (data.preferred_language && data.preferred_language !== i18n.language) {
+        i18n.changeLanguage(data.preferred_language)
+      }
+    }
   }
 
   async function signIn(email: string, password: string) {

@@ -10,8 +10,19 @@ import { getAuthHeader } from "@/lib/ai-service"
 import { calculateBestStreakFromDates, calculateBestAnchorStreakWithGrace, isAnchorDayComplete } from "@/lib/streaks"
 import { moodToValue } from "@/lib/constants"
 import { monthBounds } from "@/lib/pdf/data"
+import { resolveIntentionLabel } from "@/lib/intentions"
 import type { User } from "@supabase/supabase-js"
-import type { DailyAnchor, JournalEntry, MonthlyRecap, MoodLog, Profile, Tone, WrappedMoodTrend, WrappedStats } from "@/types"
+import type {
+  CustomIntention,
+  DailyAnchor,
+  JournalEntry,
+  MonthlyRecap,
+  MoodLog,
+  Profile,
+  Tone,
+  WrappedMoodTrend,
+  WrappedStats,
+} from "@/types"
 
 export const MIN_WRAPPED_DAYS = 8
 
@@ -323,7 +334,12 @@ function moodTrendKey(trend: WrappedMoodTrend): string {
 // days, streaks, mood trend, closing; only when real data exists: intention,
 // treasures (gratitudes/journal). Pure function of already-stored data, so
 // re-reading a recap always reproduces the exact same cards.
-export function buildWrappedCards(recap: MonthlyRecap, t: TFunction, lang: "en" | "sw"): WrappedCard[] {
+export function buildWrappedCards(
+  recap: MonthlyRecap,
+  t: TFunction,
+  lang: "en" | "sw",
+  customIntentions: CustomIntention[] = []
+): WrappedCard[] {
   const s = recap.stats
   const locale = lang === "sw" ? "sw-TZ" : "en-US"
   const monthLabel = new Date(`${recap.month_start}T00:00:00`).toLocaleDateString(locale, { month: "long", year: "numeric" })
@@ -348,7 +364,7 @@ export function buildWrappedCards(recap: MonthlyRecap, t: TFunction, lang: "en" 
     cards.push({
       kind: "intention",
       eyebrow: t("wrapped.card_intention_eyebrow"),
-      title: t(`intentions.${s.dominantIntention.toLowerCase()}`),
+      title: resolveIntentionLabel(t, s.dominantIntention, lang, customIntentions) ?? s.dominantIntention,
       subtitle: t("wrapped.card_intention_subtitle", {
         count: s.dominantIntentionDays,
         plural: s.dominantIntentionDays === 1 ? "" : "s",

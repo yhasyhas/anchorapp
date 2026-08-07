@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf"
 import type { TFunction } from "i18next"
 import { formatWeekRange } from "@/lib/letters"
+import { resolveIntentionLabel } from "@/lib/intentions"
 import {
   renderClosingCard,
   renderCoverCard,
@@ -107,7 +108,9 @@ export async function generateMonthlyJournalPdf(data: MonthlyJournalData, t: TFu
 
   const doc = new jsPDF({ unit: "pt", format: "a4" })
 
-  const dominantIntentionLabel = stats.dominantIntention ? t(`intentions.${stats.dominantIntention.toLowerCase()}`) : null
+  const dominantIntentionLabel = stats.dominantIntention
+    ? resolveIntentionLabel(t, stats.dominantIntention, data.lang, data.customIntentions)
+    : null
   const intentionLine = dominantIntentionLabel ? t("pdf.cover_intention_line", { intention: dominantIntentionLabel }) : null
   const openingLine = dominantIntentionLabel
     ? t("pdf.cover_opening_with_intention", { intention: dominantIntentionLabel })

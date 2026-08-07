@@ -10,6 +10,8 @@ import { Spinner } from "@/components/ui/spinner"
 // every protected route mounts into, so it's needed immediately once
 // logged in; only the pages nested inside it (and the two top-level
 // standalone routes, Settings and the public/auth pages) are deferred.
+const LandingPage = lazy(() => import("@/pages/landing").then((m) => ({ default: m.LandingPage })))
+const PrivacyPage = lazy(() => import("@/pages/privacy").then((m) => ({ default: m.PrivacyPage })))
 const LoginPage = lazy(() => import("@/pages/login").then((m) => ({ default: m.LoginPage })))
 const RegisterPage = lazy(() => import("@/pages/register").then((m) => ({ default: m.RegisterPage })))
 const ForgotPasswordPage = lazy(() => import("@/pages/forgot-password").then((m) => ({ default: m.ForgotPasswordPage })))
@@ -70,10 +72,20 @@ export default function App() {
               sign in/register before accepting, or may already be logged in. */}
           <Route path="/circle/invite/:token" element={<CircleInvitePage />} />
 
-          {/* Routes protégées */}
+          {/* Privacy page: reachable whether logged in or not, same pattern
+              as /reset-password and /circle/invite above. */}
+          <Route path="/privacy" element={<PrivacyPage />} />
+
+          {/* Plain alias — anyone linking the explicit marketing URL still
+              lands on "/", which is the real (single) landing page route. */}
+          <Route path="/welcome" element={<Navigate to="/" replace />} />
+
+          {/* Root: public marketing landing page when logged out, the app
+              shell when logged in — "/" is now a real public page, not just
+              an auth gate. */}
           <Route
             path="/"
-            element={session ? <AppLayout /> : <Navigate to="/login" replace />}
+            element={session ? <AppLayout /> : <LandingPage />}
           >
             <Route index element={<HomePage />} />
             <Route path="patterns" element={<PatternsPage />} />
@@ -93,11 +105,9 @@ export default function App() {
             element={session ? <SettingsPage /> : <Navigate to="/login" replace />}
           />
 
-          {/* Fallback */}
-          <Route
-            path="*"
-            element={<Navigate to={session ? "/" : "/login"} replace />}
-          />
+          {/* Fallback — "/" is now a real public page (the landing page when
+              logged out), so a stray unmatched URL lands there either way. */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
     </BrowserRouter>

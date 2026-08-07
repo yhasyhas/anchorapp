@@ -290,3 +290,16 @@ export interface SharedLetter {
   week_end: string
   letter_text: string
 }
+
+// Metadata only — `content` deliberately isn't part of this shape, since
+// it's never selectable from the client until deliver_on arrives (see
+// supabase/migrations/20260807120000_create_future_letters.sql). Fetch it
+// via the get_future_letter_content(id) RPC once due.
+export interface FutureLetter {
+  id: string
+  user_id: string
+  written_at: string
+  deliver_on: string
+  delivered_at: string | null
+  opened_at: string | null
+}

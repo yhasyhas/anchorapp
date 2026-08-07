@@ -22,6 +22,8 @@ const MovePage = lazy(() => import("@/pages/move").then((m) => ({ default: m.Mov
 const SettingsPage = lazy(() => import("@/pages/settings").then((m) => ({ default: m.SettingsPage })))
 const LettersPage = lazy(() => import("@/pages/letters").then((m) => ({ default: m.LettersPage })))
 const LetterDetailPage = lazy(() => import("@/pages/letter-detail").then((m) => ({ default: m.LetterDetailPage })))
+const LetterFutureWritePage = lazy(() => import("@/pages/letter-future-write").then((m) => ({ default: m.LetterFutureWritePage })))
+const LetterFutureDetailPage = lazy(() => import("@/pages/letter-future-detail").then((m) => ({ default: m.LetterFutureDetailPage })))
 const CirclePage = lazy(() => import("@/pages/circle").then((m) => ({ default: m.CirclePage })))
 const JarPage = lazy(() => import("@/pages/jar").then((m) => ({ default: m.JarPage })))
 const WrappedHistoryPage = lazy(() => import("@/pages/wrapped-history").then((m) => ({ default: m.WrappedHistoryPage })))
@@ -78,6 +80,8 @@ export default function App() {
             <Route path="checkin" element={<CheckInPage />} />
             <Route path="move" element={<MovePage />} />
             <Route path="letters" element={<LettersPage />} />
+            <Route path="letters/future/write" element={<LetterFutureWritePage />} />
+            <Route path="letters/future/:id" element={<LetterFutureDetailPage />} />
             <Route path="letters/:weekStart" element={<LetterDetailPage />} />
             <Route path="circle" element={<CirclePage />} />
             <Route path="jar" element={<JarPage />} />

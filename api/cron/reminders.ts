@@ -64,6 +64,17 @@ const SLOT_URLS: Record<Slot, string> = {
   evening: "/checkin",
 }
 
+// Static, not tone-varied — same posture as INVITE_PUSH/ENCOURAGEMENT_PUSH/
+// SOS_PUSH in api/circle/*.ts: a delivery announcement, not an emotional
+// companion line, so it doesn't need the AI/tone treatment the 3 slots
+// above get. Never includes the letter's content (see future_letters'
+// migration — content only reaches the client through a date-gated RPC,
+// this push just points at the letter's own detail route).
+const FUTURE_LETTER_PUSH: Record<Language, { title: string; body: string }> = {
+  en: { title: "A letter from your past has arrived 💌", body: "Written by you, waiting for this exact day." },
+  sw: { title: "Barua kutoka zamani yako imefika 💌", body: "Iliyoandikwa na wewe, ikisubiri siku hii hasa." },
+}
+
 const STATIC_FALLBACKS: Record<Slot, Record<Language, string[]>> = {
   morning: {
     en: [
@@ -219,6 +230,19 @@ async function restInsert(rest: RestConfig, path: string, body: unknown): Promis
   }).catch(() => {})
 }
 
+async function restUpdate(rest: RestConfig, path: string, body: unknown): Promise<void> {
+  await fetch(`${rest.url}/rest/v1/${path}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${rest.serviceRoleKey}`,
+      apikey: rest.serviceRoleKey,
+      "Content-Type": "application/json",
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify(body),
+  }).catch(() => {})
+}
+
 interface ProfileRow {
   id: string
   full_name: string
@@ -275,6 +299,67 @@ interface LogRow {
   user_id: string
   slot: Slot
   sent_at: string
+}
+
+interface FutureLetterRow {
+  id: string
+  user_id: string
+  deliver_on: string
+}
+
+interface FutureLetterProfileRow {
+  id: string
+  timezone: string
+  preferred_language: Language
+}
+
+// MISSION 3: independent of the 3 daily slots above (no quiet-hours, no
+// circuit-breaker, no per-slot enabled toggle — a sealed letter reaching
+// its date is unconditional). Runs every cron invocation (same pg_cron
+// 15-min schedule, see this file's own header comment) and is naturally
+// idempotent via `delivered_at IS NULL`: once marked, a row never matches
+// this query again, so there's no separate log table to maintain.
+async function processFutureLetters(rest: RestConfig, now: Date): Promise<{ delivered: number }> {
+  const pending = await restGet<FutureLetterRow>(rest, "future_letters?delivered_at=is.null&select=id,user_id,deliver_on")
+  if (pending.length === 0) return { delivered: 0 }
+
+  const userIds = [...new Set(pending.map((p) => p.user_id))]
+  const idList = userIds.join(",")
+  const profiles = await restGet<FutureLetterProfileRow>(
+    rest,
+    `profiles?id=in.(${idList})&select=id,timezone,preferred_language`
+  )
+  const profileById = new Map(profiles.map((p) => [p.id, p]))
+
+  let delivered = 0
+  await Promise.all(
+    pending.map(async (letter) => {
+      const profile = profileById.get(letter.user_id)
+      if (!profile) return
+
+      // Her own local calendar date, same timezone-aware computation as the
+      // 3 daily slots above — a letter becomes due the moment HER day
+      // reaches deliver_on, not some fixed UTC instant.
+      const { dateStr } = getLocalParts(profile.timezone || "Africa/Nairobi", now)
+      if (dateStr < letter.deliver_on) return
+
+      const language: Language = profile.preferred_language === "sw" ? "sw" : "en"
+      const { title, body } = FUTURE_LETTER_PUSH[language]
+
+      try {
+        await sendPushToUser({ userId: letter.user_id, title, body, url: `/letters/future/${letter.id}` })
+        await restUpdate(rest, `future_letters?id=eq.${letter.id}`, { delivered_at: new Date().toISOString() })
+        delivered++
+      } catch {
+        // Leave delivered_at null so the next run retries — same reasoning
+        // as the reminders loop below (sendPushToUser already handles "no
+        // subscription" gracefully without throwing; a throw here means a
+        // real transient failure worth retrying).
+      }
+    })
+  )
+
+  return { delivered }
 }
 
 function groupBy<T extends { user_id: string }>(rows: T[]): Map<string, T[]> {
@@ -441,12 +526,18 @@ export async function GET(request: Request): Promise<Response> {
   const rest: RestConfig = { url: SUPABASE_URL, serviceRoleKey: SERVICE_ROLE_KEY }
   const now = new Date()
 
+  // Independent of notification_preferences.reminders_enabled — sealing a
+  // future letter is its own opt-in, not gated by the 3 daily reminder
+  // toggles, so this runs regardless of what the rest of this function
+  // finds below.
+  const futureLetters = await processFutureLetters(rest, now)
+
   const prefsRows = await restGet<PrefsRow>(
     rest,
     "notification_preferences?reminders_enabled=eq.true&select=user_id,morning_enabled,midday_enabled,evening_enabled,quiet_hours_enabled,quiet_hours_start,quiet_hours_end"
   )
   if (prefsRows.length === 0) {
-    return jsonResponse({ processed: 0, sent: 0 }, 200)
+    return jsonResponse({ processed: 0, sent: 0, futureLettersDelivered: futureLetters.delivered }, 200)
   }
 
   const userIds = prefsRows.map((p) => p.user_id)
@@ -471,7 +562,7 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   if (dueToday.size === 0) {
-    return jsonResponse({ processed: 0, sent: 0 }, 200)
+    return jsonResponse({ processed: 0, sent: 0, futureLettersDelivered: futureLetters.delivered }, 200)
   }
 
   const dueIds = [...dueToday.keys()]
@@ -623,5 +714,5 @@ export async function GET(request: Request): Promise<Response> {
     })
   )
 
-  return jsonResponse({ processed: dueIds.length, sent, skipped }, 200)
+  return jsonResponse({ processed: dueIds.length, sent, skipped, futureLettersDelivered: futureLetters.delivered }, 200)
 }

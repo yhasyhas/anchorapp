@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
+import { Haptics, ImpactStyle } from "@capacitor/haptics"
 import { useAuth } from "@/lib/auth-context"
 import { getWeekKey } from "@/lib/ai-service"
 import { getMemberNames } from "@/lib/circle"
@@ -883,7 +884,7 @@ function TrackingAnchorCard({
       return
     }
     onCheckChange(v)
-    if (navigator.vibrate) navigator.vibrate(30)
+    Haptics.impact({ style: ImpactStyle.Light }).catch(() => {})
   }
 
   return (

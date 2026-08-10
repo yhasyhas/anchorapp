@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { Home, BarChart3, Heart, Footprints, CloudOff, RefreshCw } from "lucide-react"
 import { Suspense, useEffect, useState } from "react"
 import { Capacitor } from "@capacitor/core"
+import { Network } from "@capacitor/network"
 import { isOnline, processSyncQueue, getPendingSyncCount, SYNC_QUEUE_CHANGED_EVENT } from "@/lib/offline-sync"
 import { useAuth } from "@/lib/auth-context"
 import { PauseModal, type PauseOption } from "@/components/anchor/pause-modal"
@@ -39,16 +40,12 @@ export function AppLayout() {
 
   useEffect(() => {
     if (!user) return
-    const handleOnline = () => {
-      setOnline(true)
-      processSyncQueue(user.id)
-    }
-    const handleOffline = () => setOnline(false)
-    window.addEventListener("online", handleOnline)
-    window.addEventListener("offline", handleOffline)
+    const listener = Network.addListener("networkStatusChange", (status) => {
+      setOnline(status.connected)
+      if (status.connected) processSyncQueue(user.id)
+    })
     return () => {
-      window.removeEventListener("online", handleOnline)
-      window.removeEventListener("offline", handleOffline)
+      listener.then((handle) => handle.remove())
     }
   }, [user])
 

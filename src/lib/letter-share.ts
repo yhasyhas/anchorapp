@@ -5,6 +5,7 @@
 // dependency is added for this: a canvas draw is small and fully
 // controllable, and this is the only place in the app that needs one.
 import { roundRect, wrapText, loadCanvasFonts } from "@/lib/canvas-utils"
+import { saveAndShareBlob } from "@/lib/native-file-share"
 
 export interface LetterShareOptions {
   letterText: string
@@ -136,13 +137,8 @@ export async function shareLetter(opts: LetterShareOptions): Promise<ShareResult
         }
       }
 
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = url
-      link.download = "anchor-letter.png"
-      link.click()
-      setTimeout(() => URL.revokeObjectURL(url), 10000)
-      return "downloaded"
+      const via = await saveAndShareBlob(blob, "anchor-letter.png", opts.badge)
+      return via === "share" ? "shared" : "downloaded"
     }
   } catch {
     // Canvas rendering failed (unlikely) — fall through to a plain text share.

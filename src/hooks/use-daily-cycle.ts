@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import type { User } from "@supabase/supabase-js"
+import { Haptics, ImpactStyle } from "@capacitor/haptics"
 import { supabase } from "@/lib/supabase"
 import { addToSyncQueue, isOnline, setLocalData, getLocalData } from "@/lib/offline-sync"
 import { generateCompanionMessage } from "@/lib/ai-service"
@@ -374,7 +375,9 @@ export function useDailyCycle(
   async function handleMoodSelect(mood: MoodType) {
     if (!user) return
     setSelectedMood(mood)
-    if (navigator.vibrate) navigator.vibrate(50)
+    // Web fallback throws when the browser doesn't support the Vibration
+    // API at all (Safari) — same as the old `if (navigator.vibrate)` guard.
+    Haptics.impact({ style: ImpactStyle.Light }).catch(() => {})
 
     const record = { user_id: user.id, date: todayStr(), mood }
     const updatedMoods = recentMoods.filter((m) => m.date !== todayStr())

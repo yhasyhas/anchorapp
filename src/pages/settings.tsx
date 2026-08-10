@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
+import { saveAndShareBlob } from "@/lib/native-file-share"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -101,12 +102,7 @@ export function SettingsPage() {
     }
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = "anchor-data-export.json"
-    a.click()
-    URL.revokeObjectURL(url)
+    await saveAndShareBlob(blob, "anchor-data-export.json")
   }
 
   async function handleLogout() {

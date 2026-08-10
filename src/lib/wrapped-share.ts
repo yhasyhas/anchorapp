@@ -5,6 +5,7 @@
 // needed.
 import type { WrappedCard } from "@/lib/wrapped"
 import { wrapText, loadCanvasFonts } from "@/lib/canvas-utils"
+import { saveAndShareBlob } from "@/lib/native-file-share"
 
 const CARD_WIDTH = 1080
 const CARD_HEIGHT = 1920 // 9:16 — Stories/Reels portrait format
@@ -177,13 +178,8 @@ export async function shareWrappedCard(card: WrappedCard, shareTitle: string): P
       }
     }
 
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = "anchor-wrapped.png"
-    link.click()
-    setTimeout(() => URL.revokeObjectURL(url), 10000)
-    return "downloaded"
+    const via = await saveAndShareBlob(blob, "anchor-wrapped.png", shareTitle)
+    return via === "share" ? "shared" : "downloaded"
   } catch {
     return "failed"
   }

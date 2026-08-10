@@ -2,6 +2,7 @@ import { Outlet, NavLink, useLocation } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Home, BarChart3, Heart, Footprints, CloudOff, RefreshCw } from "lucide-react"
 import { Suspense, useEffect, useState } from "react"
+import { Capacitor } from "@capacitor/core"
 import { isOnline, processSyncQueue, getPendingSyncCount, SYNC_QUEUE_CHANGED_EVENT } from "@/lib/offline-sync"
 import { useAuth } from "@/lib/auth-context"
 import { PauseModal, type PauseOption } from "@/components/anchor/pause-modal"
@@ -72,7 +73,9 @@ export function AppLayout() {
 
   return (
     <div className="flex min-h-svh flex-col bg-background">
-      <InstallPrompt />
+      {/* Install-to-homescreen nudge only makes sense for the PWA — the
+          native app is already "installed" once it's on the device. */}
+      {!Capacitor.isNativePlatform() && <InstallPrompt />}
 
       {/* Offline / pending-sync banner - Style doux */}
       {(!online || pendingCount > 0) && (

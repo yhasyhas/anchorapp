@@ -1,5 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import * as React from "react"
+import { Capacitor } from "@capacitor/core"
+import { StatusBar, Style } from "@capacitor/status-bar"
 
 type Theme = "dark" | "light" | "system"
 type ResolvedTheme = "dark" | "light"
@@ -63,6 +65,14 @@ function disableTransitionsTemporarily() {
   }
 }
 
+// setBackgroundColor is Android-only and rejects on iOS — swallow rather
+// than let an unhandled rejection surface for a status bar tweak.
+function syncNativeStatusBar(resolvedTheme: ResolvedTheme) {
+  if (!Capacitor.isNativePlatform()) return
+  StatusBar.setStyle({ style: resolvedTheme === "dark" ? Style.Dark : Style.Light }).catch(() => {})
+  StatusBar.setBackgroundColor({ color: THEME_COLORS[resolvedTheme] }).catch(() => {})
+}
+
 function isEditableTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) {
     return false
@@ -122,6 +132,7 @@ export function ThemeProvider({
       if (meta) {
         meta.setAttribute("content", THEME_COLORS[resolvedTheme])
       }
+      syncNativeStatusBar(resolvedTheme)
 
       if (restoreTransitions) {
         restoreTransitions()

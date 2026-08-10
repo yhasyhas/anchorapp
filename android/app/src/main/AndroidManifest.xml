@@ -22,6 +22,32 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Android App Links: verified against
+                 https://anchorapp-liard.vercel.app/.well-known/assetlinks.json
+                 (see public/.well-known/assetlinks.json) so tapping these links
+                 from an email/message opens the app directly instead of a
+                 browser. Split into one intent-filter per path, rather than
+                 multiple <data> tags in one filter, to avoid Android's
+                 cross-product matching across sibling <data> elements. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="anchorapp-liard.vercel.app"
+                    android:pathPrefix="/reset-password" />
+            </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="anchorapp-liard.vercel.app"
+                    android:pathPrefix="/circle/invite" />
+            </intent-filter>
+
         </activity>
 
         <provider

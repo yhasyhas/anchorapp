@@ -64,4 +64,9 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Voice notes (use-voice-recorder.ts / use-checkin.ts / journal-card.tsx) use
+         the plain web getUserMedia + MediaRecorder APIs, not a Capacitor plugin.
+         Capacitor's core WebView bridge auto-handles the runtime permission prompt
+         for RESOURCE_AUDIO_CAPTURE once this manifest permission is declared. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 </manifest>

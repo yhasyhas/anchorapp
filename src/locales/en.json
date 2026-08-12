@@ -79,8 +79,11 @@
     "title": "Check-In",
     "subtitle": "Take a few seconds for yourself.",
     "what_matters": "What matters to you this week?",
+    "what_matters_placeholder": "A conversation, a small win, a quiet moment...",
     "what_avoiding": "What are you avoiding?",
+    "what_avoiding_placeholder": "A text you've been putting off, a feeling you brushed aside...",
     "what_felt_real": "What felt real today?",
+    "what_felt_real_placeholder": "A moment that felt honest, unfiltered...",
     "evening_release": "Let go of what is not yours to carry tonight.",
     "release_button": "I release",
     "save": "Save Reflection",
@@ -192,6 +195,9 @@
     "export_success": "Your Anchor Journal is ready",
     "export_error": "Could not generate your journal. Please try again.",
     "export_json": "Export raw data (JSON)",
+    "export_json_success": "Your data export is ready",
+    "export_json_error": "Could not export your data. Please try again.",
+    "name_saved": "Saved",
     "about": "About",
     "about_text": "Anchor is a life alignment system. Supportive, not demanding.",
     "logout": "Log out",
@@ -743,7 +749,10 @@
     "reminder_body": "Drop it in your jar 🫙 — future you will be glad you did.",
     "reminder_cta": "Open the jar",
     "add_from_checkin": "Add to jar",
-    "added_from_checkin": "Added to your jar 🫙"
+    "added_from_checkin": "Added to your jar 🫙",
+    "delete_entry": "Remove this moment",
+    "delete_success": "Removed from your jar",
+    "delete_error": "Could not remove that. Please try again."
   },
   "landing": {
     "page_title": "Anchor — A gentle space to align who you are",

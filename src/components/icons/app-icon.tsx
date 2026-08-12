@@ -14,6 +14,10 @@ import {
   MoodStressedIcon,
   MoveIcon,
   PauseIcon,
+  MindbodyIcon,
+  LifeIcon,
+  StreakIcon,
+  WrappedIcon,
 } from "./signature"
 
 const signatureIcons = {
@@ -31,6 +35,10 @@ const signatureIcons = {
   "mood-stressed": MoodStressedIcon,
   move: MoveIcon,
   pause: PauseIcon,
+  mindbody: MindbodyIcon,
+  life: LifeIcon,
+  streak: StreakIcon,
+  wrapped: WrappedIcon,
 } as const
 
 export type SignatureIconName = keyof typeof signatureIcons

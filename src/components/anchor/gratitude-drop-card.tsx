@@ -7,11 +7,13 @@ import { Send } from "lucide-react"
 import { toast } from "sonner"
 import { addGratitude } from "@/lib/gratitude"
 import { AppIcon } from "@/components/icons/app-icon"
+import { usePrefersReducedMotion } from "@/hooks/use-reduced-motion"
 
 const MAX_LENGTH = 140
 
 export function GratitudeDropCard() {
   const { t } = useTranslation()
+  const prefersReducedMotion = usePrefersReducedMotion()
   const [text, setText] = useState("")
   const [saving, setSaving] = useState(false)
   const [dropping, setDropping] = useState(false)
@@ -61,7 +63,7 @@ export function GratitudeDropCard() {
             <Send className="h-4 w-4" />
           </Button>
 
-          {dropping && (
+          {dropping && !prefersReducedMotion && (
             <span className="pointer-events-none absolute right-10 top-1/2 -translate-y-1/2 text-primary animate-jar-drop">
               <AppIcon icon="gratitude-jar" size={20} active decorative />
             </span>

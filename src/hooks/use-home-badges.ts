@@ -17,7 +17,16 @@ export interface UseHomeBadgesResult {
 // fire-and-forget generation check — all share the same shape ("nothing to
 // show for it unless it finds something") and none feed into the daily
 // cycle, so they're grouped here rather than in useDailyCycle.
-export function useHomeBadges(user: User | null, profile: Profile | null): UseHomeBadgesResult {
+//
+// Now called from AppLayout (which persists across every route) instead of
+// HomePage (which used to unmount/remount on every visit, incidentally
+// refreshing these on its own). `refreshKey` — AppLayout passes the current
+// route pathname — replaces that: the 3 badge fetches re-run on every
+// in-app navigation instead of only once per login, so e.g. reading a
+// letter then navigating back still clears its badge. The Wrapped
+// generation check deliberately stays [user]-only: it's not a badge and
+// doesn't need re-checking on every tab switch.
+export function useHomeBadges(user: User | null, profile: Profile | null, refreshKey?: string): UseHomeBadgesResult {
   const [hasUnreadLetter, setHasUnreadLetter] = useState(false)
   const [hasPendingCircleInvite, setHasPendingCircleInvite] = useState(false)
   const [hasUnreadEncouragement, setHasUnreadEncouragement] = useState(false)
@@ -31,7 +40,7 @@ export function useHomeBadges(user: User | null, profile: Profile | null): UseHo
     return () => {
       cancelled = true
     }
-  }, [user])
+  }, [user, refreshKey])
 
   // Fire-and-forget, same "nothing to show for it unless it finds something"
   // pattern as checkUnreadLetter above — generates last month's Wrapped the
@@ -55,7 +64,7 @@ export function useHomeBadges(user: User | null, profile: Profile | null): UseHo
     return () => {
       cancelled = true
     }
-  }, [user])
+  }, [user, refreshKey])
 
   // Same badge-dot pattern — the /circle page itself marks encouragements
   // read as soon as it's opened, so this only ever reflects "not yet seen".
@@ -70,7 +79,7 @@ export function useHomeBadges(user: User | null, profile: Profile | null): UseHo
     return () => {
       cancelled = true
     }
-  }, [user])
+  }, [user, refreshKey])
 
   return { hasUnreadLetter, hasPendingCircleInvite, hasUnreadEncouragement }
 }

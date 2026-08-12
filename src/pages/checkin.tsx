@@ -153,7 +153,7 @@ export function CheckInPage() {
           <Textarea
             value={cycle.checkIn.what_matters ?? ""}
             onChange={(e) => cycle.updateField("what_matters", e.target.value)}
-            placeholder="..."
+            placeholder={t("checkin.what_matters_placeholder")}
             className="min-h-[80px] border-0 bg-muted/50 shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
           />
           {chipsWhatMatters.length > 0 && (
@@ -208,7 +208,7 @@ export function CheckInPage() {
               <Textarea
                 value={cycle.checkIn.what_avoiding ?? ""}
                 onChange={(e) => cycle.updateField("what_avoiding", e.target.value)}
-                placeholder="..."
+                placeholder={t("checkin.what_avoiding_placeholder")}
                 className="min-h-[80px] border-0 bg-muted/50 shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
               />
               {chipsWhatAvoiding.length > 0 && (
@@ -243,7 +243,7 @@ export function CheckInPage() {
               <Textarea
                 value={cycle.checkIn.what_felt_real ?? ""}
                 onChange={(e) => cycle.updateField("what_felt_real", e.target.value)}
-                placeholder="..."
+                placeholder={t("checkin.what_felt_real_placeholder")}
                 className="min-h-[80px] border-0 bg-muted/50 shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
               />
               {chipsWhatFeltReal.length > 0 && (

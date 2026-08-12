@@ -25,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Footprints, Plus, Star, Sparkles, Brain, Globe } from "lucide-react"
+import { Footprints, Plus, Star, Sparkles } from "lucide-react"
 import { AppIcon } from "@/components/icons/app-icon"
 import type { AppIconSource } from "@/components/icons/app-icon"
 import { moveCategoryIcons, DEFAULT_MOVE_CATEGORY_ICON } from "@/lib/move-category-icons"
@@ -37,8 +37,8 @@ import type { MoveSuggestion, MoodLog, DailyAnchor, AnchorCategory } from "@/typ
 // page's category picker to Home's per-anchor view-model shape.
 const anchorCategoryIcons: Record<AnchorCategory, AppIconSource> = {
   future: "anchor-mark",
-  mindbody: Brain,
-  life: Globe,
+  mindbody: "mindbody",
+  life: "life",
 }
 
 const ANCHOR_CATEGORIES: AnchorCategory[] = ["future", "mindbody", "life"]

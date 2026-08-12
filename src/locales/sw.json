@@ -79,8 +79,11 @@
     "title": "Kujiangalia",
     "subtitle": "Chukua sekunde chache kwa ajili yako.",
     "what_matters": "Nini muhimu kwako wiki hii?",
+    "what_matters_placeholder": "Mazungumzo, ushindi mdogo, wakati wa utulivu...",
     "what_avoiding": "Unakwepa nini?",
+    "what_avoiding_placeholder": "Ujumbe uliouahirisha, hisia uliyopuuza...",
     "what_felt_real": "Nini kilihisiwa kuwa halisi leo?",
+    "what_felt_real_placeholder": "Wakati uliohisi wa kweli, bila kujifanya...",
     "evening_release": "Acha kila kitu ambacho si chako kubeba usiku huu.",
     "release_button": "Naachilia",
     "save": "Hifadhi Tafakari",
@@ -192,6 +195,9 @@
     "export_success": "Jarida lako la Anchor liko tayari",
     "export_error": "Imeshindikana kutengeneza jarida lako. Tafadhali jaribu tena.",
     "export_json": "Hamisha data ghafi (JSON)",
+    "export_json_success": "Uhamisho wako wa data uko tayari",
+    "export_json_error": "Imeshindwa kuhamisha data yako. Tafadhali jaribu tena.",
+    "name_saved": "Imehifadhiwa",
     "about": "Kuhusu",
     "about_text": "Anchor ni mfumo wa kuoanisha maisha. Inakusaidia, haikubani.",
     "logout": "Ondoka",
@@ -743,7 +749,10 @@
     "reminder_body": "Liweke kwenye chombo chako 🫙 — wewe wa baadaye atafurahi ulifanya hivyo.",
     "reminder_cta": "Fungua chombo",
     "add_from_checkin": "Ongeza kwenye chombo",
-    "added_from_checkin": "Imeongezwa kwenye chombo chako 🫙"
+    "added_from_checkin": "Imeongezwa kwenye chombo chako 🫙",
+    "delete_entry": "Ondoa wakati huu",
+    "delete_success": "Imeondolewa kwenye chombo chako",
+    "delete_error": "Imeshindwa kuondoa hiyo. Tafadhali jaribu tena."
   },
   "landing": {
     "page_title": "Anchor — Nafasi ya upole ya kujiona",

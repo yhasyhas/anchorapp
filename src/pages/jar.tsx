@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 import { useAuth } from "@/lib/auth-context"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
-import { Loader2 } from "lucide-react"
+import { Loader2, Trash2 } from "lucide-react"
 import { AppIcon } from "@/components/icons/app-icon"
 import { GratitudeDropCard } from "@/components/anchor/gratitude-drop-card"
-import { countGratitudes, listGratitudes } from "@/lib/gratitude"
+import { countGratitudes, listGratitudes, deleteGratitude } from "@/lib/gratitude"
 import type { Gratitude } from "@/types"
 
 const PAGE_SIZE = 20
@@ -28,6 +29,7 @@ export function JarPage() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
     if (user) loadFirstPage()
@@ -44,6 +46,25 @@ export function JarPage() {
       console.error("Failed to load jar:", err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Direct delete, no confirmation dialog — same low-friction pattern
+  // src/pages/checkin.tsx already uses for deleting a voice note, rather
+  // than the heavier email-confirmation flow reserved for account deletion.
+  async function handleDelete(id: string) {
+    if (deletingId) return
+    setDeletingId(id)
+    try {
+      await deleteGratitude(id)
+      setEntries((prev) => prev.filter((e) => e.id !== id))
+      setCount((prev) => (prev !== null ? prev - 1 : prev))
+      toast.success(t("jar.delete_success"))
+    } catch (err) {
+      console.error("Failed to delete gratitude:", err)
+      toast.error(t("jar.delete_error"))
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -90,9 +111,23 @@ export function JarPage() {
           <div className="space-y-2">
             {entries.map((g) => (
               <Card key={g.id} className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
-                <CardContent className="p-4">
-                  <p className="text-sm text-foreground">{g.text}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{formatDate(g.created_at, i18n.language)}</p>
+                <CardContent className="flex items-start gap-2 p-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-foreground">{g.text}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{formatDate(g.created_at, i18n.language)}</p>
+                  </div>
+                  <button
+                    onClick={() => handleDelete(g.id)}
+                    disabled={deletingId === g.id}
+                    aria-label={t("jar.delete_entry")}
+                    className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                  >
+                    {deletingId === g.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" />
+                    )}
+                  </button>
                 </CardContent>
               </Card>
             ))}

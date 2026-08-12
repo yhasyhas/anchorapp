@@ -20,6 +20,15 @@ export async function addGratitude(text: string): Promise<Gratitude> {
   return data as Gratitude
 }
 
+// The `gratitudes` table has a DELETE policy but deliberately no UPDATE one
+// (see supabase/migrations/20260803190000_create_gratitudes.sql: "a dropped
+// moment is a snapshot she can remove, not rewrite") — the jar page never
+// surfaced a way to use it until now.
+export async function deleteGratitude(id: string): Promise<void> {
+  const { error } = await supabase.from("gratitudes").delete().eq("id", id)
+  if (error) throw error
+}
+
 export async function listGratitudes(limit: number, offset: number): Promise<Gratitude[]> {
   const { data, error } = await supabase
     .from("gratitudes")

@@ -7,10 +7,12 @@ import { Network } from "@capacitor/network"
 import { isOnline, processSyncQueue, getPendingSyncCount, SYNC_QUEUE_CHANGED_EVENT } from "@/lib/offline-sync"
 import { useAuth } from "@/lib/auth-context"
 import { usePrefersReducedMotion } from "@/hooks/use-reduced-motion"
+import { useHomeBadges } from "@/hooks/use-home-badges"
 import { PauseModal, type PauseOption } from "@/components/anchor/pause-modal"
 import { PauseBreathing } from "@/components/anchor/pause-breathing"
 import { PauseFocusSession } from "@/components/anchor/pause-focus-session"
 import { PauseRecenter } from "@/components/anchor/pause-recenter"
+import { QuickAccessBar } from "@/components/anchor/quick-access-bar"
 import { InstallPrompt } from "@/components/pwa/install-prompt"
 import { Spinner } from "@/components/ui/spinner"
 import { AppIcon } from "@/components/icons/app-icon"
@@ -24,7 +26,7 @@ const navItems = [
 
 export function AppLayout() {
   const { t } = useTranslation()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const location = useLocation()
   const prefersReducedMotion = usePrefersReducedMotion()
   const [online, setOnline] = useState(isOnline())
@@ -32,6 +34,19 @@ export function AppLayout() {
   const [activePause, setActivePause] = useState<PauseOption | null>(null)
   const [pendingCount, setPendingCount] = useState(0)
   const [retrying, setRetrying] = useState(false)
+
+  // Letters/Circle/Wrapped/Jar/Settings quick access — was Home-only before
+  // (home.tsx's greeting header), meaning switching to Patterns/Check-in/Move
+  // meant backtracking through Home to reach any of them. Lives here now so
+  // it's reachable from every tab, same as the bottom nav below. refreshKey
+  // (route pathname) keeps badge freshness AppLayout never had before, since
+  // unlike HomePage it never unmounts between navigations — see
+  // use-home-badges.ts.
+  const { hasUnreadLetter, hasPendingCircleInvite, hasUnreadEncouragement } = useHomeBadges(
+    user,
+    profile,
+    location.pathname
+  )
 
   useEffect(() => {
     if (!user) return
@@ -101,7 +116,23 @@ export function AppLayout() {
         </div>
       )}
 
-      <main className="flex-1 overflow-y-auto px-6 pb-24 pt-6">
+      {/* Quick access bar — persistent across every tab (unlike the old
+          Home-only header row it replaces), so Letters/Circle/Wrapped/Jar/
+          Settings are always one tap away. Sits in normal flow above
+          <main> (not fixed) — same technique the offline banner above
+          already uses to stay visible without scrolling away. */}
+      <div
+        className="mx-auto flex w-full max-w-lg shrink-0 justify-end px-3"
+        style={{ paddingTop: "calc(0.25rem + env(safe-area-inset-top))" }}
+      >
+        <QuickAccessBar
+          hasUnreadLetter={hasUnreadLetter}
+          hasPendingCircleInvite={hasPendingCircleInvite}
+          hasUnreadEncouragement={hasUnreadEncouragement}
+        />
+      </div>
+
+      <main className="flex-1 overflow-y-auto px-6 pb-24 pt-2">
         {/* Own Suspense boundary (rather than relying on App.tsx's top-level
             one) so switching tabs shows a small inline spinner in the
             content area only — the tab bar, offline banner, and focus

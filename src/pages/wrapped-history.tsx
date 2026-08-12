@@ -5,7 +5,8 @@ import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
 import { Card, CardContent } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
-import { PartyPopper, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
+import { AppIcon } from "@/components/icons/app-icon"
 import { toast } from "sonner"
 import type { MonthlyRecap } from "@/types"
 
@@ -52,7 +53,7 @@ export function WrappedHistoryPage() {
     <div className="mx-auto max-w-lg space-y-6">
       <div>
         <div className="flex items-center gap-2">
-          <PartyPopper className="h-5 w-5 text-primary" />
+          <AppIcon icon="wrapped" size={20} decorative className="text-primary" />
           <h1 className="font-heading text-2xl font-bold">{t("wrapped.history_title")}</h1>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">{t("wrapped.history_subtitle")}</p>

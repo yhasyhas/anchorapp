@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
-import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Haptics, ImpactStyle } from "@capacitor/haptics"
 import { useAuth } from "@/lib/auth-context"
@@ -28,24 +27,17 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import {
-  Settings,
   Info,
   Heart,
-  Flame,
-  Anchor as AnchorIcon,
   Sparkles,
   Lock,
   Pencil,
   Sun,
   Moon,
-  Mail,
-  PartyPopper,
   Volume2,
   Square,
   Check,
   Lightbulb,
-  Brain,
-  Globe,
 } from "lucide-react"
 import { AppIcon } from "@/components/icons/app-icon"
 import type { AppIconSource } from "@/components/icons/app-icon"
@@ -71,7 +63,6 @@ import { useSoftMode } from "@/hooks/use-soft-mode"
 import { useAnchorDefs } from "@/hooks/use-anchor-defs"
 import { useNudgeArbitration } from "@/hooks/use-nudge-arbitration"
 import { useDailyCycle } from "@/hooks/use-daily-cycle"
-import { useHomeBadges } from "@/hooks/use-home-badges"
 import type { TFunction } from "i18next"
 import type { AnchorCategory, CircleSharedIntention, CustomIntention } from "@/types"
 
@@ -140,7 +131,6 @@ export function HomePage() {
   } = useSoftMode(user, profile, updateProfile)
 
   const cycle = useDailyCycle(user, profile, softModeActive, checkSoftEnterTrigger, checkSoftExitTrigger)
-  const { hasUnreadLetter, hasPendingCircleInvite, hasUnreadEncouragement } = useHomeBadges(user, profile)
 
   // Circle Mission 3 (grace gift badge) + Mission 2 (shared intention
   // pre-fill) — deliberately a small, self-contained fetch here rather than
@@ -296,80 +286,17 @@ export function HomePage() {
       />
 
       {/* ── Greeting ── */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h1 className="font-heading text-anchor-greeting font-bold text-foreground">
-            {t(getGreetingKey())}
-            {firstName ? `, ${firstName}` : ""}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t(getSubtitleKey(profile?.tone))}</p>
-          {softModeActive && (
-            <div className="mt-2">
-              <SoftModeBadge onExit={exitSoftMode} />
-            </div>
-          )}
-        </div>
-        <div className="flex shrink-0 items-center gap-0.5">
-          <Link to="/letters">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative min-h-11 min-w-11 text-muted-foreground hover:text-foreground transition-colors"
-              aria-label={t("letters.title")}
-            >
-              <AppIcon icon={Mail} size={20} decorative />
-              {hasUnreadLetter && (
-                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-anchor-orange" aria-hidden="true" />
-              )}
-            </Button>
-          </Link>
-          <Link to="/circle">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative min-h-11 min-w-11 text-muted-foreground hover:text-foreground transition-colors"
-              aria-label={t("circle.page_title")}
-            >
-              <AppIcon icon={Heart} size={20} decorative />
-              {hasUnreadEncouragement && (
-                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-anchor-orange" aria-hidden="true" />
-              )}
-            </Button>
-          </Link>
-          <Link to="/wrapped">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="min-h-11 min-w-11 text-muted-foreground hover:text-foreground transition-colors"
-              aria-label={t("wrapped.history_title")}
-            >
-              <AppIcon icon={PartyPopper} size={20} decorative />
-            </Button>
-          </Link>
-          <Link to="/jar">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="min-h-11 min-w-11 text-muted-foreground hover:text-foreground transition-colors"
-              aria-label={t("jar.page_title")}
-            >
-              <AppIcon icon="gratitude-jar" size={20} decorative />
-            </Button>
-          </Link>
-          <Link to="/settings">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative min-h-11 min-w-11 text-muted-foreground hover:text-foreground transition-colors"
-              aria-label={t("settings.title")}
-            >
-              <AppIcon icon={Settings} size={20} decorative />
-              {hasPendingCircleInvite && (
-                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-anchor-orange" aria-hidden="true" />
-              )}
-            </Button>
-          </Link>
-        </div>
+      <div className="min-w-0">
+        <h1 className="font-heading text-anchor-greeting font-bold text-foreground">
+          {t(getGreetingKey())}
+          {firstName ? `, ${firstName}` : ""}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t(getSubtitleKey(profile?.tone))}</p>
+        {softModeActive && (
+          <div className="mt-2">
+            <SoftModeBadge onExit={exitSoftMode} />
+          </div>
+        )}
       </div>
 
       {/* ── Intention Hero ── */}
@@ -459,7 +386,7 @@ export function HomePage() {
                 />
                 <PlanningAnchorCard
                   borderColor="var(--anchor-pink)"
-                  icon={Brain}
+                  icon="mindbody"
                   title={t("anchors.mindbody")}
                   subtitle={t("anchors.mindbody_sub")}
                   task={cycle.anchor.mindbody_task}
@@ -468,7 +395,7 @@ export function HomePage() {
                 />
                 <PlanningAnchorCard
                   borderColor="var(--anchor-lavender)"
-                  icon={Globe}
+                  icon="life"
                   title={t("anchors.life")}
                   subtitle={t("anchors.life_sub")}
                   task={cycle.anchor.life_task}
@@ -604,9 +531,17 @@ export function HomePage() {
         />
       )}
 
-      {/* Daily Cycle progress */}
-      <Card className={`border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)] ${cycleComplete ? "bg-sage-light/40" : "bg-card"}`}>
-        <CardContent className="p-4">
+      {/* Daily Cycle progress + Streaks — grouped into one lighter-weight "Today"
+          section (tight internal space-y-3 instead of the page's usual
+          space-y-6) rather than 2-3 separately shadowed Cards: the progress
+          panel drops its own Card/shadow (flat tinted panel instead) so it
+          reads as this section's header rather than another stacked card,
+          while StreakCard below keeps its own Card — its background color is
+          real state (active/celebrated), not just decoration. Pure container
+          change: cycleComplete/moodDone/anchorsDone/checkInDone and every
+          StreakCard prop are untouched. */}
+      <div className="space-y-3">
+      <div className={`rounded-anchor-card-lg p-4 transition-colors duration-500 ${cycleComplete ? "bg-sage-light/40" : "bg-muted/30"}`}>
           <p className="mb-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
             {t("daily_cycle.title")}
           </p>
@@ -631,7 +566,7 @@ export function HomePage() {
               <div className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-500 ${
                 anchorsDone ? "bg-primary text-primary-foreground shadow-md scale-110" : "bg-muted text-muted-foreground"
               }`}>
-                <AnchorIcon className="h-4 w-4" />
+                <AppIcon icon="anchor-mark" decorative className="h-4 w-4" />
               </div>
               <span className={`text-[10px] font-medium ${anchorsDone ? "text-primary" : "text-muted-foreground"}`}>
                 {t("daily_cycle.anchors")}
@@ -661,13 +596,11 @@ export function HomePage() {
               </p>
             </div>
           )}
-        </CardContent>
-      </Card>
+      </div>
 
-      {/* Streaks */}
       <div className={(cycle.streaks.currentMoodStreak >= MIN_STREAK_FOR_INTENTION || cycle.streaks.currentAnchorStreak >= MIN_STREAK_FOR_INTENTION) ? "space-y-3" : "flex gap-3"}>
         <StreakCard
-          icon={<Flame className="h-4 w-4" />}
+          icon={<AppIcon icon="streak" decorative className="h-4 w-4" />}
           label={t("streaks.mood")}
           current={cycle.streaks.currentMoodStreak}
           best={cycle.streaks.bestMoodStreak}
@@ -678,7 +611,7 @@ export function HomePage() {
           celebratedBg="bg-gradient-to-br from-peach/40 to-rose-accent/20"
         />
         <StreakCard
-          icon={<AnchorIcon className="h-4 w-4" />}
+          icon={<AppIcon icon="anchor-mark" decorative className="h-4 w-4" />}
           label={t("streaks.anchors")}
           current={cycle.streaks.currentAnchorStreak}
           best={cycle.streaks.bestAnchorStreak}
@@ -688,6 +621,7 @@ export function HomePage() {
           activeText="text-primary"
           celebratedBg="bg-gradient-to-br from-sage-light/70 to-lavender/25"
         />
+      </div>
       </div>
 
       {cycle.graceGift && (
@@ -754,7 +688,7 @@ function IntentionHeroCard({ intention, loading, language, customIntentions, onS
   const selectable = buildSelectableIntentions(t, language, customIntentions)
 
   return (
-    <Card className="border-0 overflow-hidden rounded-anchor-card-lg bg-gradient-to-br from-card to-anchor-surface-2 dark:to-anchor-gradient-dark shadow-[0_2px_16px_rgba(0,0,0,0.06)]">
+    <Card className="border-0 overflow-hidden rounded-anchor-card-lg bg-gradient-to-br from-card to-secondary dark:to-anchor-gradient-dark shadow-[0_2px_16px_rgba(0,0,0,0.06)]">
       <CardContent className="space-y-4 p-anchor-3">
         <div className="flex items-center gap-1.5">
           <AppIcon icon="intention" size={20} className="text-primary" decorative />

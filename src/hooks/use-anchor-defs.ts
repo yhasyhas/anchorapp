@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next"
-import { Brain, Globe } from "lucide-react"
 import type { AppIconSource } from "@/components/icons/app-icon"
 import type { DailyAnchor } from "@/types"
 
@@ -48,7 +47,7 @@ export function useAnchorDefs(anchor: DailyAnchor, saveAnchor: (updates: Partial
     },
     {
       key: "mindbody",
-      icon: Brain,
+      icon: "mindbody",
       borderColor: "var(--anchor-pink)",
       title: t("anchors.mindbody"),
       subtitle: t("anchors.mindbody_sub"),
@@ -59,7 +58,7 @@ export function useAnchorDefs(anchor: DailyAnchor, saveAnchor: (updates: Partial
     },
     {
       key: "life",
-      icon: Globe,
+      icon: "life",
       borderColor: "var(--anchor-lavender)",
       title: t("anchors.life"),
       subtitle: t("anchors.life_sub"),

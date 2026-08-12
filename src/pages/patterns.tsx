@@ -256,7 +256,7 @@ export function PatternsPage() {
         </div>
 
         {loadingStory ? (
-          <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+          <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
             <CardContent className="p-5">
               <div className="flex items-center justify-center gap-2 py-6">
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -277,7 +277,7 @@ export function PatternsPage() {
             </div>
 
             {/* Mood trend across the 3 weeks */}
-            <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+            <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
               <CardContent className="p-5">
                 <p className="mb-3 text-sm font-medium text-muted-foreground">{t("progress_story.mood_trend")}</p>
                 <ResponsiveContainer width="100%" height={130}>
@@ -311,7 +311,7 @@ export function PatternsPage() {
 
             {/* Top intentions across the period */}
             {selectedStory.stats.topIntentions.length > 0 && (
-              <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+              <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
                 <CardContent className="p-5">
                   <p className="mb-3 text-sm font-medium text-muted-foreground">{t("progress_story.top_intentions")}</p>
                   <div className="space-y-2.5">
@@ -353,7 +353,7 @@ export function PatternsPage() {
             )}
           </div>
         ) : (
-          <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+          <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
             <CardContent className="p-5">
               <EmptyState icon="seedling" titleKey="progress_story.empty" descriptionKey="progress_story.empty_sub" />
             </CardContent>
@@ -362,7 +362,7 @@ export function PatternsPage() {
       </div>
 
       {/* Mood Chart */}
-      <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+      <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
         <CardContent className="p-5">
           <p className="mb-4 text-sm font-medium text-muted-foreground">{t("patterns.this_week")}</p>
           {hasData ? (
@@ -429,7 +429,7 @@ export function PatternsPage() {
       {/* Insights List */}
       <div className="space-y-3">
         {loading && !insights.length ? (
-          <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+          <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
             <CardContent className="p-5">
               <div className="flex items-center justify-center gap-2 py-4">
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -441,7 +441,7 @@ export function PatternsPage() {
           insights.map((insight, i) => (
             <Card
               key={`${insight.source}-${i}`}
-              className={`border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)] ${
+              className={`border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)] ${
                 insight.source === "ai" || insight.source === "cached_ai"
                   ? "bg-gradient-to-r from-lavender/20 to-transparent"
                   : ""
@@ -461,7 +461,7 @@ export function PatternsPage() {
             </Card>
           ))
         ) : (
-          <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+          <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
             <CardContent className="p-5">
               <EmptyState icon="seedling" titleKey="patterns.empty" />
             </CardContent>
@@ -485,7 +485,7 @@ export function PatternsPage() {
 
         {historyOpen &&
           (loadingHistory ? (
-            <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+            <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
               <CardContent className="p-5">
                 <div className="flex items-center justify-center gap-2 py-4">
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -494,7 +494,7 @@ export function PatternsPage() {
               </CardContent>
             </Card>
           ) : insightHistory && insightHistory.length > 0 ? (
-            <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+            <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
               <CardContent className="divide-y divide-border/60 p-0">
                 {insightHistory.map((entry) => (
                   <div key={entry.id} className="flex items-start gap-3 p-4">
@@ -507,7 +507,7 @@ export function PatternsPage() {
               </CardContent>
             </Card>
           ) : (
-            <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+            <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
               <CardContent className="p-5">
                 <EmptyState icon="cloud" titleKey="patterns.insights_history_empty" />
               </CardContent>
@@ -523,7 +523,7 @@ export function PatternsPage() {
         </div>
 
         {journalEntries.length > 0 ? (
-          <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+          <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
             <CardContent className="divide-y divide-border/60 p-0">
               {journalEntries.map((entry) => (
                 <div key={entry.id} className="flex items-start gap-3 p-4">
@@ -536,7 +536,7 @@ export function PatternsPage() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+          <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
             <CardContent className="p-5">
               <EmptyState icon="flower" titleKey="journal.history_empty" />
             </CardContent>

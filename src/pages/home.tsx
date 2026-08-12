@@ -27,10 +27,32 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Settings, Info, Heart, Flame, Anchor as AnchorIcon, Sparkles, Lock, Pencil, Sun, Moon, Mail, PartyPopper, Volume2, Square } from "lucide-react"
+import {
+  Settings,
+  Info,
+  Heart,
+  Flame,
+  Anchor as AnchorIcon,
+  Sparkles,
+  Lock,
+  Pencil,
+  Sun,
+  Moon,
+  Mail,
+  PartyPopper,
+  Volume2,
+  Square,
+  Check,
+  Lightbulb,
+  Brain,
+  Globe,
+} from "lucide-react"
+import { AppIcon } from "@/components/icons/app-icon"
+import type { AppIconSource } from "@/components/icons/app-icon"
 import { isSpeechSynthesisAvailable, speak, stopSpeaking } from "@/lib/speech"
 import { moodConfig } from "@/lib/constants"
 import { canCheckAnchors, getTimeUntilAnchorCheck } from "@/lib/utils"
+import { usePrefersReducedMotion } from "@/hooks/use-reduced-motion"
 import { OnboardingModal } from "@/components/onboarding/onboarding-modal"
 import { MorningRitual } from "@/components/anchor/morning-ritual"
 import { ConfettiBurst } from "@/components/anchor/confetti"
@@ -43,7 +65,6 @@ import { SosWidget } from "@/components/anchor/sos-widget"
 import { GratitudeDropCard } from "@/components/anchor/gratitude-drop-card"
 import { GratitudeReminderCard } from "@/components/anchor/gratitude-reminder-card"
 import { JarOpeningModal } from "@/components/anchor/jar-opening-modal"
-import { JarIcon } from "@/components/anchor/jar-icon"
 import { SoftModeNudgeCard } from "@/components/anchor/soft-mode-nudge-card"
 import { SoftModeBadge } from "@/components/anchor/soft-mode-badge"
 import { useSoftMode } from "@/hooks/use-soft-mode"
@@ -69,6 +90,16 @@ function getGreetingKey(): string {
   if (hour < 12) return "home.greeting"
   if (hour < 18) return "home.greeting_afternoon"
   return "home.greeting_evening"
+}
+
+// Tone-aware sub-line under the greeting — same tone family (gentle/direct/poetic) the
+// companion message and weekly letter already use (see src/lib/ai-service.ts), but this one
+// is a static i18n string rather than an AI call: it needs to render instantly with the
+// greeting, before profile/context data has finished loading.
+function getSubtitleKey(tone: string | undefined): string {
+  if (tone === "direct") return "home.subtitle_direct"
+  if (tone === "poetic") return "home.subtitle_poetic"
+  return "home.subtitle"
 }
 
 export function HomePage() {
@@ -218,8 +249,8 @@ export function HomePage() {
     else cycle.saveAnchor({ mindbody_task: featuredMoveTitle })
   }
 
-  // Point 2: the 💡 picker on each planning anchor card, filtered to that
-  // card's category and using the same today/recent exclusion as the
+  // Point 2: the suggestions picker on each planning anchor card, filtered to
+  // that card's category and using the same today/recent exclusion as the
   // featured pick above.
   const [pickerAnchor, setPickerAnchor] = useState<AnchorCategory | null>(null)
   const pickerSuggestions = pickerAnchor ? poolFor(pickerAnchor) : []
@@ -228,6 +259,10 @@ export function HomePage() {
     if (!pickerAnchor) return
     const field = pickerAnchor === "future" ? "future_task" : pickerAnchor === "mindbody" ? "mindbody_task" : "life_task"
     cycle.saveAnchor({ [field]: title })
+  }
+
+  function handleSaveIntention(value: string) {
+    cycle.saveAnchor({ daily_intention: value })
   }
 
   return (
@@ -260,30 +295,31 @@ export function HomePage() {
         onPick={handlePickMove}
       />
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-heading text-2xl font-bold text-foreground">
-            {t(getGreetingKey())}{firstName ? `, ${firstName}` : ""} &#x1F33B;
+      {/* ── Greeting ── */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className="font-heading text-anchor-greeting font-bold text-foreground">
+            {t(getGreetingKey())}
+            {firstName ? `, ${firstName}` : ""}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t("home.subtitle")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t(getSubtitleKey(profile?.tone))}</p>
           {softModeActive && (
             <div className="mt-2">
               <SoftModeBadge onExit={exitSoftMode} />
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-0.5">
           <Link to="/letters">
             <Button
               variant="ghost"
               size="icon"
-              className="relative text-muted-foreground hover:text-foreground transition-colors"
+              className="relative min-h-11 min-w-11 text-muted-foreground hover:text-foreground transition-colors"
               aria-label={t("letters.title")}
             >
-              <Mail className="h-5 w-5" />
+              <AppIcon icon={Mail} size={20} decorative />
               {hasUnreadLetter && (
-                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-accent" />
+                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-anchor-orange" aria-hidden="true" />
               )}
             </Button>
           </Link>
@@ -291,12 +327,12 @@ export function HomePage() {
             <Button
               variant="ghost"
               size="icon"
-              className="relative text-muted-foreground hover:text-foreground transition-colors"
+              className="relative min-h-11 min-w-11 text-muted-foreground hover:text-foreground transition-colors"
               aria-label={t("circle.page_title")}
             >
-              <Heart className="h-5 w-5" />
+              <AppIcon icon={Heart} size={20} decorative />
               {hasUnreadEncouragement && (
-                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-accent" />
+                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-anchor-orange" aria-hidden="true" />
               )}
             </Button>
           </Link>
@@ -304,45 +340,239 @@ export function HomePage() {
             <Button
               variant="ghost"
               size="icon"
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="min-h-11 min-w-11 text-muted-foreground hover:text-foreground transition-colors"
               aria-label={t("wrapped.history_title")}
             >
-              <PartyPopper className="h-5 w-5" />
+              <AppIcon icon={PartyPopper} size={20} decorative />
             </Button>
           </Link>
           <Link to="/jar">
             <Button
               variant="ghost"
               size="icon"
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="min-h-11 min-w-11 text-muted-foreground hover:text-foreground transition-colors"
               aria-label={t("jar.page_title")}
             >
-              <JarIcon className="h-5 w-5" />
+              <AppIcon icon="gratitude-jar" size={20} decorative />
             </Button>
           </Link>
           <Link to="/settings">
             <Button
               variant="ghost"
               size="icon"
-              className="relative text-muted-foreground hover:text-foreground transition-colors"
+              className="relative min-h-11 min-w-11 text-muted-foreground hover:text-foreground transition-colors"
               aria-label={t("settings.title")}
             >
-              <Settings className="h-5 w-5" />
+              <AppIcon icon={Settings} size={20} decorative />
               {hasPendingCircleInvite && (
-                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-accent" />
+                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-anchor-orange" aria-hidden="true" />
               )}
             </Button>
           </Link>
         </div>
       </div>
 
+      {/* ── Intention Hero ── */}
+      <IntentionHeroCard
+        intention={cycle.anchor.daily_intention}
+        loading={cycle.loadingCompanion}
+        language={language}
+        customIntentions={customIntentions}
+        onSave={handleSaveIntention}
+      />
+
+      {/* ── Mood selector — 1 tap, all 5 visible, no scroll needed at 390px ── */}
+      <div className="flex justify-between gap-2">
+        {moodConfig.map(({ key, icon, color }) => (
+          <button
+            key={key}
+            onClick={() => cycle.handleMoodSelect(key)}
+            aria-pressed={cycle.selectedMood === key}
+            aria-label={t(`mood.${key}`)}
+            className={`flex min-h-11 flex-1 flex-col items-center gap-1 rounded-xl p-3 transition-all duration-200 ${
+              prefersReducedMotionSafeScale(cycle.selectedMood === key)
+            }`}
+            style={{ backgroundColor: color }}
+          >
+            <AppIcon icon={icon} active={cycle.selectedMood === key} decorative className="text-foreground" />
+            <span className="text-xs font-medium text-foreground">{t(`mood.${key}`)}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* ── 3 Anchors ── */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="font-heading text-lg font-semibold">
+              {softModeActive && !softExpanded ? t("soft_mode.one_thing_title") : t("home.anchors_title")}
+            </h2>
+            {(!softModeActive || softExpanded) && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button className="text-muted-foreground hover:text-foreground transition-colors">
+                      <Info className="h-4 w-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">{t("home.why_three")}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+
+          {cycle.dayMode === "planning" && hasAnyAnchorText && (
+            <Button size="sm" onClick={cycle.attemptLockDay} className="gap-1.5 text-xs">
+              <Lock className="h-3.5 w-3.5" />
+              {t("home.start_my_day")}
+            </Button>
+          )}
+          {cycle.dayMode === "tracking" && (
+            <Button variant="ghost" size="sm" onClick={cycle.unlockDay} className="gap-1.5 text-xs text-muted-foreground">
+              <Pencil className="h-3.5 w-3.5" />
+              {t("home.edit")}
+            </Button>
+          )}
+        </div>
+
+        {cycle.dayMode === "planning" && (
+          <div className="space-y-3">
+            {softModeActive && !softExpanded ? (
+              <SoftAnchorPicker
+                defs={anchorDefs}
+                selected={softCategory ?? anchorDefs.find((d) => d.task)?.key ?? null}
+                onSelect={setSoftCategory}
+                onExpand={() => setSoftExpanded(true)}
+              />
+            ) : (
+              <>
+                <PlanningAnchorCard
+                  borderColor="var(--anchor-green)"
+                  icon="anchor-mark"
+                  title={t("anchors.future")}
+                  subtitle={t("anchors.future_sub")}
+                  task={cycle.anchor.future_task}
+                  onTaskChange={(v) => cycle.saveAnchor({ future_task: v })}
+                  onOpenSuggestions={() => setPickerAnchor("future")}
+                />
+                <PlanningAnchorCard
+                  borderColor="var(--anchor-pink)"
+                  icon={Brain}
+                  title={t("anchors.mindbody")}
+                  subtitle={t("anchors.mindbody_sub")}
+                  task={cycle.anchor.mindbody_task}
+                  onTaskChange={(v) => cycle.saveAnchor({ mindbody_task: v })}
+                  onOpenSuggestions={() => setPickerAnchor("mindbody")}
+                />
+                <PlanningAnchorCard
+                  borderColor="var(--anchor-lavender)"
+                  icon={Globe}
+                  title={t("anchors.life")}
+                  subtitle={t("anchors.life_sub")}
+                  task={cycle.anchor.life_task}
+                  onTaskChange={(v) => cycle.saveAnchor({ life_task: v })}
+                  onOpenSuggestions={() => setPickerAnchor("life")}
+                />
+              </>
+            )}
+
+            {hasAnyAnchorText && (
+              <Button onClick={cycle.attemptLockDay} className="w-full min-h-12 rounded-anchor-card-lg" size="lg">
+                <Lock className="mr-2 h-4 w-4" />
+                {t("home.lock_anchors_cta")}
+              </Button>
+            )}
+          </div>
+        )}
+
+        {cycle.dayMode === "tracking" && (
+          <div className="space-y-3">
+            {(softModeActive ? filledAnchorDefs : anchorDefs).map((d) => (
+              <TrackingAnchorCard
+                key={d.key}
+                borderColor={d.borderColor}
+                icon={d.icon}
+                title={d.title}
+                subtitle={d.subtitle}
+                task={d.task}
+                completed={d.completed}
+                onCheckChange={d.onCheckChange}
+                lockedAt={cycle.anchor.anchors_locked_at}
+              />
+            ))}
+
+            {(softModeActive ? softAllFilledDone : allAnchorsDone) && (
+              <div className="rounded-anchor-card-lg bg-sage-light/60 p-4 text-center">
+                <p className="text-sm font-medium text-primary">
+                  🎉 {t("home.all_anchors_done")}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Quick Actions — Journal + Gratitude Jar, side by side, secondary
+          to the hero flow above (min-w-0 lets each card's own inner flex
+          rows shrink instead of blowing out the grid track) ── */}
+      <div>
+        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          {t("home.quick_actions_title")}
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="min-w-0">
+            <JournalCard />
+          </div>
+          <div className="min-w-0">
+            <GratitudeDropCard />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Affirmation / Companion — one voice, fused per Mission 6 ── */}
+      <Card className="border-0 overflow-hidden rounded-anchor-card-lg bg-gradient-to-br from-sage-light/60 to-lavender/30 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+        <CardContent className="flex items-center gap-3 p-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
+            <Sparkles className="h-4 w-4 text-primary" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-medium text-muted-foreground">
+              {cycle.loadingCompanion ? t("companion.loading") : t("companion.title")}
+            </p>
+            <p className="text-sm text-foreground/90 leading-snug font-medium">
+              {cycle.companionMsg || t("companion.default_message")}
+            </p>
+          </div>
+          {isSpeechSynthesisAvailable() && !cycle.loadingCompanion && (
+            <button
+              onClick={handleToggleCompanionSpeech}
+              aria-label={t(isSpeakingCompanion ? "companion.stop" : "companion.listen")}
+              className="min-h-11 min-w-11 shrink-0 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {isSpeakingCompanion ? <Square className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+            </button>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Supportive Message — kept mounted per CARTOGRAPHIE.md (f) contract */}
+      <Card className="border-0 rounded-anchor-card-lg bg-secondary shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]">
+        <CardContent className="flex items-start gap-3 p-5">
+          <Heart className="mt-0.5 h-5 w-5 shrink-0 text-rose-accent" />
+          <p className="font-heading text-sm italic text-foreground/80">
+            {t("home.supportive")} &#x1F338;
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* ── Everything below keeps its existing conditional logic verbatim —
+          only its position moved lower in the page per Mission 6's new
+          hierarchy (Greeting → Intention → Mood → Anchors → Quick Actions →
+          Affirmation → nudges/streaks/move/grace → SOS). ── */}
       <CircleInviteNudge />
 
-      {/* Single nudge slot — at most one of these renders per visit, see
-          the activeNudge priority order above. GratitudeReminderCard and
-          PushNudge stay mounted even when suppressed so their own
-          eligibility checks keep running (and can win the slot on a later
-          render once Soft Mode / higher-priority nudges clear). */}
       {activeNudge === "soft_enter" && (
         <SoftModeNudgeCard variant="enter" onAccept={acceptSoftMode} onDismiss={dismissSoftEnterNudge} />
       )}
@@ -363,36 +593,6 @@ export function HomePage() {
         <p className="text-center text-xs italic text-muted-foreground">{t("wrapped.teaser")}</p>
       )}
 
-      {/* Companion */}
-      <Card className="border-0 bg-gradient-to-br from-sage-light/60 to-lavender/30 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
-        <CardContent className="p-4">
-          <div className="flex items-start gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-              <Sparkles className="h-4 w-4 text-primary" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-xs font-medium text-muted-foreground mb-0.5">
-                  {cycle.loadingCompanion ? t("companion.loading") : t("companion.title")}
-                </p>
-                {isSpeechSynthesisAvailable() && !cycle.loadingCompanion && (
-                  <button
-                    onClick={handleToggleCompanionSpeech}
-                    aria-label={t(isSpeakingCompanion ? "companion.stop" : "companion.listen")}
-                    className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {isSpeakingCompanion ? <Square className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
-                  </button>
-                )}
-              </div>
-              <p className="text-sm text-foreground/90 leading-relaxed font-medium">
-                {cycle.companionMsg || t("companion.default_message")}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {featuredMoveTitle && !cycle.anchor.anchors_locked_at && (
         <MoveOfTheDayCard
           title={featuredMoveTitle}
@@ -404,8 +604,8 @@ export function HomePage() {
         />
       )}
 
-      {/* Daily Cycle */}
-      <Card className={`border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] ${cycleComplete ? "bg-sage-light/40" : "bg-card"}`}>
+      {/* Daily Cycle progress */}
+      <Card className={`border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)] ${cycleComplete ? "bg-sage-light/40" : "bg-card"}`}>
         <CardContent className="p-4">
           <p className="mb-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
             {t("daily_cycle.title")}
@@ -464,21 +664,11 @@ export function HomePage() {
         </CardContent>
       </Card>
 
-      {/* One-Sentence Journal — a bonus, not part of the daily cycle */}
-      <JournalCard />
-
-      {/* Gratitude jar — same "small bonus habit" slot as the journal */}
-      <GratitudeDropCard />
-
-      {/* Streaks — mechanical count below MIN_STREAK_FOR_INTENTION, meaningful sentence
-          above it (celebrated state: warmer card, dominant intention of the streak
-          period). Stacked full-width instead of side-by-side once either card celebrates,
-          so the sentence has room to breathe. */}
+      {/* Streaks */}
       <div className={(cycle.streaks.currentMoodStreak >= MIN_STREAK_FOR_INTENTION || cycle.streaks.currentAnchorStreak >= MIN_STREAK_FOR_INTENTION) ? "space-y-3" : "flex gap-3"}>
         <StreakCard
           icon={<Flame className="h-4 w-4" />}
           label={t("streaks.mood")}
-          emoji="🔥"
           current={cycle.streaks.currentMoodStreak}
           best={cycle.streaks.bestMoodStreak}
           intention={cycle.streaks.moodStreakIntention}
@@ -490,7 +680,6 @@ export function HomePage() {
         <StreakCard
           icon={<AnchorIcon className="h-4 w-4" />}
           label={t("streaks.anchors")}
-          emoji="⚓"
           current={cycle.streaks.currentAnchorStreak}
           best={cycle.streaks.bestAnchorStreak}
           intention={cycle.streaks.anchorStreakIntention}
@@ -507,173 +696,120 @@ export function HomePage() {
         </p>
       )}
 
-      {/* Mood Selector */}
-      <div className="flex justify-between gap-2">
-        {moodConfig.map(({ key, emoji, color }) => (
-          <button
-            key={key}
-            onClick={() => cycle.handleMoodSelect(key)}
-            className={`flex flex-1 flex-col items-center gap-1 rounded-xl p-3 transition-all duration-300 ${
-              cycle.selectedMood === key
-                ? "ring-2 ring-primary ring-offset-2 scale-110 shadow-md"
-                : "hover:scale-105 hover:shadow-sm"
-            }`}
-            style={{ backgroundColor: color }}
-          >
-            <span className="text-2xl transition-transform duration-300">{emoji}</span>
-            <span className="text-xs font-medium text-foreground">{t(`mood.${key}`)}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Daily Intention */}
-      <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]">
-        <CardContent className="p-5">
-          <p className="mb-3 text-sm font-medium text-muted-foreground">{t("home.intention_label")}</p>
-          <div className="flex flex-wrap gap-2">
-            {buildSelectableIntentions(t, language, customIntentions).map((intention) => (
-              <button
-                key={intention.value}
-                onClick={() => cycle.saveAnchor({ daily_intention: intention.value })}
-                className={`rounded-full px-4 py-1.5 text-sm transition-all duration-200 ${
-                  cycle.anchor.daily_intention === intention.value
-                    ? "bg-primary text-primary-foreground shadow-md scale-105"
-                    : "bg-muted text-foreground hover:bg-accent hover:scale-105"
-                }`}
-              >
-                {intention.isCustom ? `✨ ${intention.label}` : intention.label}
-              </button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 3 Anchors */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h2 className="font-heading text-lg font-semibold">
-              {softModeActive && !softExpanded ? t("soft_mode.one_thing_title") : <>{t("home.anchors_title")} &#x2693;</>}
-            </h2>
-            {(!softModeActive || softExpanded) && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button className="text-muted-foreground hover:text-foreground transition-colors">
-                      <Info className="h-4 w-4" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">{t("home.why_three")}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-          </div>
-
-          {cycle.dayMode === "planning" && hasAnyAnchorText && (
-            <Button size="sm" onClick={cycle.attemptLockDay} className="gap-1.5 text-xs">
-              <Lock className="h-3.5 w-3.5" />
-              {t("home.start_my_day")}
-            </Button>
-          )}
-          {cycle.dayMode === "tracking" && (
-            <Button variant="ghost" size="sm" onClick={cycle.unlockDay} className="gap-1.5 text-xs text-muted-foreground">
-              <Pencil className="h-3.5 w-3.5" />
-              {t("home.edit")}
-            </Button>
-          )}
-        </div>
-
-        {cycle.dayMode === "planning" && (
-          <div className="space-y-3">
-            {softModeActive && !softExpanded ? (
-              <SoftAnchorPicker
-                defs={anchorDefs}
-                selected={softCategory ?? anchorDefs.find((d) => d.task)?.key ?? null}
-                onSelect={setSoftCategory}
-                onExpand={() => setSoftExpanded(true)}
-              />
-            ) : (
-              <>
-                <PlanningAnchorCard
-                  borderColor="var(--sage)"
-                  icon="&#x1F331;"
-                  title={t("anchors.future")}
-                  subtitle={t("anchors.future_sub")}
-                  task={cycle.anchor.future_task}
-                  onTaskChange={(v) => cycle.saveAnchor({ future_task: v })}
-                  onOpenSuggestions={() => setPickerAnchor("future")}
-                />
-                <PlanningAnchorCard
-                  borderColor="var(--rose-accent)"
-                  icon="&#x1F9E0;"
-                  title={t("anchors.mindbody")}
-                  subtitle={t("anchors.mindbody_sub")}
-                  task={cycle.anchor.mindbody_task}
-                  onTaskChange={(v) => cycle.saveAnchor({ mindbody_task: v })}
-                  onOpenSuggestions={() => setPickerAnchor("mindbody")}
-                />
-                <PlanningAnchorCard
-                  borderColor="var(--lavender)"
-                  icon="&#x1F30D;"
-                  title={t("anchors.life")}
-                  subtitle={t("anchors.life_sub")}
-                  task={cycle.anchor.life_task}
-                  onTaskChange={(v) => cycle.saveAnchor({ life_task: v })}
-                  onOpenSuggestions={() => setPickerAnchor("life")}
-                />
-              </>
-            )}
-
-            {hasAnyAnchorText && (
-              <Button onClick={cycle.attemptLockDay} className="w-full" size="lg">
-                <Lock className="mr-2 h-4 w-4" />
-                {t("home.lock_anchors_cta")}
-              </Button>
-            )}
-          </div>
-        )}
-
-        {cycle.dayMode === "tracking" && (
-          <div className="space-y-3">
-            {(softModeActive ? filledAnchorDefs : anchorDefs).map((d) => (
-              <TrackingAnchorCard
-                key={d.key}
-                borderColor={d.borderColor}
-                icon={d.icon}
-                title={d.title}
-                subtitle={d.subtitle}
-                task={d.task}
-                completed={d.completed}
-                onCheckChange={d.onCheckChange}
-                lockedAt={cycle.anchor.anchors_locked_at}
-              />
-            ))}
-
-            {(softModeActive ? softAllFilledDone : allAnchorsDone) && (
-              <div className="rounded-xl bg-sage-light/60 p-4 text-center">
-                <p className="text-sm font-medium text-primary">
-                  🎉 {t("home.all_anchors_done")}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Supportive Message */}
-      <Card className="border-0 bg-secondary shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]">
-        <CardContent className="flex items-start gap-3 p-5">
-          <Heart className="mt-0.5 h-5 w-5 shrink-0 text-rose-accent" />
-          <p className="font-heading text-sm italic text-foreground/80">
-            {t("home.supportive")} &#x1F338;
-          </p>
-        </CardContent>
-      </Card>
-
       <SosWidget />
     </div>
+  )
+}
+
+// Selection ring uses scale + shadow for feedback — dropped when
+// prefers-reduced-motion is on (Mission 7c), the ring/shadow themselves stay
+// since they're static, not animated.
+function prefersReducedMotionSafeScale(selected: boolean): string {
+  return selected
+    ? "ring-2 ring-anchor-orange ring-offset-2 shadow-md motion-safe:scale-110"
+    : "hover:shadow-sm motion-safe:hover:scale-105"
+}
+
+/* ─── Intention Hero Card ─── */
+interface IntentionHeroCardProps {
+  intention: string
+  loading: boolean
+  language: "en" | "sw"
+  customIntentions: CustomIntention[]
+  onSave: (value: string) => void
+}
+
+function IntentionHeroCard({ intention, loading, language, customIntentions, onSave }: IntentionHeroCardProps) {
+  const { t } = useTranslation()
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const [editing, setEditing] = useState(false)
+  const [pending, setPending] = useState("")
+  const [justSaved, setJustSaved] = useState(false)
+  const suppressSyncRef = useRef(false)
+
+  // Syncs from the persisted value — covers both the initial load and the
+  // Circle shared-intention one-shot prefill (see HomePage's own effect for
+  // that), but is suppressed for the ~1.2s success flash right after this
+  // card's own save so the confirmation isn't cut short by its own update.
+  useEffect(() => {
+    if (suppressSyncRef.current) return
+    setPending(intention || "")
+    setEditing(!intention)
+  }, [intention])
+
+  function handleConfirm() {
+    if (!pending) return
+    suppressSyncRef.current = true
+    onSave(pending)
+    Haptics.impact({ style: ImpactStyle.Light }).catch(() => {})
+    setJustSaved(true)
+    setTimeout(() => {
+      setJustSaved(false)
+      setEditing(false)
+      suppressSyncRef.current = false
+    }, 1200)
+  }
+
+  const activeLabel = intentionLabel(t, intention, language, customIntentions)
+  const selectable = buildSelectableIntentions(t, language, customIntentions)
+
+  return (
+    <Card className="border-0 overflow-hidden rounded-anchor-card-lg bg-gradient-to-br from-card to-anchor-surface-2 dark:to-anchor-gradient-dark shadow-[0_2px_16px_rgba(0,0,0,0.06)]">
+      <CardContent className="space-y-4 p-anchor-3">
+        <div className="flex items-center gap-1.5">
+          <AppIcon icon="intention" size={20} className="text-primary" decorative />
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t("home.intention_label")}</p>
+        </div>
+
+        {loading ? (
+          <div className={`h-14 rounded-xl bg-muted/50 ${prefersReducedMotion ? "" : "animate-pulse"}`} />
+        ) : !editing && intention ? (
+          <div className="flex items-center justify-between gap-3">
+            <p className="min-w-0 truncate font-heading text-xl font-semibold text-foreground">{activeLabel}</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setEditing(true)}
+              className="min-h-11 shrink-0 text-xs text-muted-foreground"
+            >
+              {t("home.intention_change")}
+            </Button>
+          </div>
+        ) : (
+          <>
+            <p className="font-heading text-lg font-semibold text-foreground">{t("home.intention_hero_prompt")}</p>
+            <div className="flex flex-wrap gap-2">
+              {selectable.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setPending(option.value)}
+                  className={`min-h-11 rounded-full px-4 py-1.5 text-sm transition-all duration-200 ${
+                    pending === option.value
+                      ? "bg-anchor-green text-anchor-background shadow-md motion-safe:scale-105"
+                      : "bg-muted text-foreground hover:bg-accent motion-safe:hover:scale-105"
+                  }`}
+                >
+                  {option.isCustom ? `✨ ${option.label}` : option.label}
+                </button>
+              ))}
+            </div>
+            <Button
+              onClick={handleConfirm}
+              disabled={!pending || justSaved}
+              className="min-h-12 w-full rounded-anchor-card-lg bg-anchor-green text-anchor-background hover:bg-anchor-green/90 disabled:opacity-40"
+            >
+              {justSaved ? (
+                <span className="flex items-center gap-1.5">
+                  <Check className="h-4 w-4" /> {t("home.intention_saved")}
+                </span>
+              ) : (
+                t("home.intention_set_cta")
+              )}
+            </Button>
+          </>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -681,7 +817,6 @@ export function HomePage() {
 interface StreakCardProps {
   icon: ReactNode
   label: string
-  emoji: string
   current: number
   best: number
   intention: string | null
@@ -691,7 +826,7 @@ interface StreakCardProps {
   celebratedBg: string
 }
 
-function StreakCard({ icon, label, emoji, current, best, intention, customIntentions, activeBg, activeText, celebratedBg }: StreakCardProps) {
+function StreakCard({ icon, label, current, best, intention, customIntentions, activeBg, activeText, celebratedBg }: StreakCardProps) {
   const { t, i18n } = useTranslation()
   const celebrated = current >= MIN_STREAK_FOR_INTENTION
   // Un streak vient de se terminer : jamais culpabilisant, juste une phrase discrète en
@@ -705,7 +840,7 @@ function StreakCard({ icon, label, emoji, current, best, intention, customIntent
 
   return (
     <Card
-      className={`flex-1 border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all duration-500 ${
+      className={`flex-1 border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all duration-500 ${
         celebrated ? celebratedBg : current > 0 ? activeBg : "bg-muted/30"
       }`}
     >
@@ -716,18 +851,14 @@ function StreakCard({ icon, label, emoji, current, best, intention, customIntent
               <span className={activeText}>{icon}</span>
               <span className="text-xs font-medium text-muted-foreground">{label}</span>
             </div>
-            <p className="text-sm font-semibold leading-snug text-foreground">
-              {sentence} {emoji}
-            </p>
+            <p className="text-sm font-semibold leading-snug text-foreground">{sentence}</p>
           </div>
         ) : (
           <>
             <span className={current > 0 ? activeText : "text-muted-foreground"}>{icon}</span>
             <div>
               <p className="text-xs text-muted-foreground">{label}</p>
-              <p className="text-sm font-semibold text-foreground">
-                {current > 0 ? `${current} ${emoji}` : "—"}
-              </p>
+              <p className="text-sm font-semibold text-foreground">{current > 0 ? current : "—"}</p>
               {justEnded && (
                 <p className="mt-0.5 text-[10px] italic text-muted-foreground">{t("streaks.rest_is_alignment")}</p>
               )}
@@ -742,7 +873,7 @@ function StreakCard({ icon, label, emoji, current, best, intention, customIntent
 /* ─── Planning Card ─── */
 interface PlanningAnchorCardProps {
   borderColor: string
-  icon: string
+  icon: AppIconSource
   title: string
   subtitle: string
   task: string
@@ -754,13 +885,13 @@ function PlanningAnchorCard({ borderColor, icon, title, subtitle, task, onTaskCh
   const { t } = useTranslation()
   return (
     <Card
-      className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]"
+      className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]"
       style={{ borderLeft: `4px solid ${borderColor}` }}
     >
       <CardContent className="p-5">
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-lg">{icon}</span>
+            <AppIcon icon={icon} size={20} decorative style={{ color: borderColor }} />
             <div>
               <p className="text-sm font-semibold text-foreground">{title}</p>
               <p className="text-xs text-muted-foreground">{subtitle}</p>
@@ -768,17 +899,17 @@ function PlanningAnchorCard({ borderColor, icon, title, subtitle, task, onTaskCh
           </div>
           <button
             onClick={onOpenSuggestions}
-            className="shrink-0 rounded-full px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex min-h-11 shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             aria-label={t("move.suggestions_button")}
           >
-            &#x1F4A1; {t("move.suggestions_button")}
+            <Lightbulb className="h-3.5 w-3.5" /> {t("move.suggestions_button")}
           </button>
         </div>
         <Input
           value={task}
           onChange={(e) => onTaskChange(e.target.value)}
           placeholder={t("home.anchor_placeholder")}
-          className="border-0 bg-muted/50 px-3 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
+          className="border-0 rounded-anchor-input bg-muted/50 px-3 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
         />
       </CardContent>
     </Card>
@@ -788,7 +919,7 @@ function PlanningAnchorCard({ borderColor, icon, title, subtitle, task, onTaskCh
 /* ─── Soft Mode: single-anchor picker ─── */
 interface SoftAnchorDef {
   key: "future" | "mindbody" | "life"
-  icon: string
+  icon: AppIconSource
   borderColor: string
   title: string
   subtitle: string
@@ -812,20 +943,20 @@ function SoftAnchorPicker({ defs, selected, onSelect, onExpand }: SoftAnchorPick
   const chosen = defs.find((d) => d.key === selected) ?? null
 
   return (
-    <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+    <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
       <CardContent className="p-5 space-y-4">
         <div className="flex gap-2">
           {defs.map((d) => (
             <button
               key={d.key}
               onClick={() => onSelect(d.key)}
-              className={`flex-1 rounded-full px-3 py-2 text-xs font-medium transition-all duration-200 ${
+              className={`flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium transition-all duration-200 ${
                 selected === d.key
-                  ? "bg-primary text-primary-foreground shadow-md scale-105"
-                  : "bg-muted text-foreground hover:bg-accent hover:scale-105"
+                  ? "bg-primary text-primary-foreground shadow-md motion-safe:scale-105"
+                  : "bg-muted text-foreground hover:bg-accent motion-safe:hover:scale-105"
               }`}
             >
-              {d.icon} {d.title}
+              <AppIcon icon={d.icon} size={20} decorative /> {d.title}
             </button>
           ))}
         </div>
@@ -834,14 +965,14 @@ function SoftAnchorPicker({ defs, selected, onSelect, onExpand }: SoftAnchorPick
             value={chosen.task}
             onChange={(e) => chosen.onTaskChange(e.target.value)}
             placeholder={t("home.anchor_placeholder")}
-            className="border-0 bg-muted/50 px-3 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
+            className="border-0 rounded-anchor-input bg-muted/50 px-3 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
           />
         )}
         <Button
           variant="ghost"
           size="sm"
           onClick={onExpand}
-          className="px-0 text-xs text-primary hover:bg-transparent hover:underline"
+          className="min-h-11 px-0 text-xs text-primary hover:bg-transparent hover:underline"
         >
           {t("soft_mode.add_more")}
         </Button>
@@ -853,7 +984,7 @@ function SoftAnchorPicker({ defs, selected, onSelect, onExpand }: SoftAnchorPick
 /* ─── Tracking Card ─── */
 interface TrackingAnchorCardProps {
   borderColor: string
-  icon: string
+  icon: AppIconSource
   title: string
   subtitle: string
   task: string
@@ -889,7 +1020,7 @@ function TrackingAnchorCard({
 
   return (
     <Card
-      className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)] relative overflow-hidden"
+      className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)] relative overflow-hidden"
       style={{
         borderLeft: `4px solid ${borderColor}`,
         backgroundColor: completed ? "var(--sage-light)" : undefined,
@@ -906,7 +1037,7 @@ function TrackingAnchorCard({
 
       <CardContent className="p-5">
         <div className="mb-2 flex items-center gap-2">
-          <span className="text-lg">{icon}</span>
+          <AppIcon icon={icon} size={20} decorative style={{ color: borderColor }} />
           <div className="flex-1">
             <p className="text-sm font-semibold text-foreground">{title}</p>
             <p className="text-xs text-muted-foreground">{subtitle}</p>
@@ -927,7 +1058,7 @@ function TrackingAnchorCard({
       </CardContent>
 
       {showNudge && (
-        <div className="absolute bottom-2 left-2 right-2 z-20 rounded-lg bg-peach/90 px-3 py-2 text-center text-xs font-medium text-foreground dark:text-background shadow-md animate-in fade-in slide-in-from-bottom-2">
+        <div className="absolute bottom-2 left-2 right-2 z-20 rounded-lg bg-peach/90 px-3 py-2 text-center text-xs font-medium text-background shadow-md animate-in fade-in slide-in-from-bottom-2">
           {t("timegate.anchor_wait")}
         </div>
       )}

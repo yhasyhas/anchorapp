@@ -48,17 +48,57 @@
   --color-mood-stressed: var(--mood-stressed);
   --font-heading: var(--font-heading);
   --font-body: var(--font-body);
+
+  /* Anchor design tokens (Mission 2 — additive layer, not yet wired into
+     --background/--primary/etc. The dark-first palette from Ruth's guide;
+     the mirrored light palette is proposed in CARTOGRAPHIE.md but not
+     applied. These become available now as bg-anchor-*, text-anchor-*,
+     rounded-anchor-*, p-anchor-*, text-anchor-greeting utilities for the
+     icon set (Mission 3) and the future Home redesign, without changing
+     how any existing screen renders today. */
+  --color-anchor-background: var(--anchor-background);
+  --color-anchor-surface: var(--anchor-surface);
+  --color-anchor-surface-2: var(--anchor-surface-2);
+  --color-anchor-gradient-dark: var(--anchor-gradient-dark);
+  --color-anchor-green: var(--anchor-green);
+  --color-anchor-warm-cream: var(--anchor-warm-cream);
+  --color-anchor-orange: var(--anchor-orange);
+  --color-anchor-lavender: var(--anchor-lavender);
+  --color-anchor-pink: var(--anchor-pink);
+  --color-anchor-soft-green: var(--anchor-soft-green);
+
+  --spacing-anchor-1: var(--anchor-space-1);
+  --spacing-anchor-2: var(--anchor-space-2);
+  --spacing-anchor-3: var(--anchor-space-3);
+  --spacing-anchor-4: var(--anchor-space-4);
+  --spacing-anchor-5: var(--anchor-space-5);
+  --spacing-anchor-6: var(--anchor-space-6);
+  --spacing-anchor-7: var(--anchor-space-7);
+
+  --radius-anchor-card-lg: var(--anchor-radius-card-lg);
+  --radius-anchor-input: var(--anchor-radius-input);
+  --radius-anchor-control-sm: var(--anchor-radius-control-sm);
+
+  --text-anchor-greeting: var(--anchor-text-greeting-size);
+  --text-anchor-greeting--line-height: var(--anchor-text-greeting-line);
+  --text-anchor-section: var(--anchor-text-section-size);
+  --text-anchor-section--line-height: var(--anchor-text-section-line);
+  --text-anchor-body: var(--anchor-text-body-size);
+  --text-anchor-body--line-height: var(--anchor-text-body-line);
 }
 
 :root {
   --radius: 1.25rem;
-  --background: #F9F7F2;
+  /* Light theme — mirror palette validated in CARTOGRAPHIE.md Mission 2,
+     same hue families as the dark palette below, recalibrated for AA
+     contrast on a light background. */
+  --background: #FAF8F4;
   --foreground: #3D3D3D;
-  --card: #FDFBF7;
+  --card: #FFFFFF;
   --card-foreground: #3D3D3D;
   --popover: #FFFFFF;
   --popover-foreground: #3D3D3D;
-  --primary: #7A8B6E;
+  --primary: #5F7A4B;
   --primary-foreground: #FFFFFF;
   --secondary: #F5F1E8;
   --secondary-foreground: #3D3D3D;
@@ -70,69 +110,114 @@
   --destructive-foreground: #3D3D3D;
   --border: #E8E4DC;
   --input: #E8E4DC;
-  --ring: #7A8B6E;
-  --chart-1: #7A8B6E;
-  --chart-2: #E8C4C4;
-  --chart-3: #D4C5E8;
-  --chart-4: #F5D5C5;
-  --chart-5: #F5D5D5;
+  --ring: #5F7A4B;
+  --chart-1: #5F7A4B;
+  --chart-2: #C24E77;
+  --chart-3: #7C55D6;
+  --chart-4: #B96A2C;
+  --chart-5: #4C8F63;
   --sidebar: #F5F1E8;
   --sidebar-foreground: #3D3D3D;
-  --sidebar-primary: #7A8B6E;
+  --sidebar-primary: #5F7A4B;
   --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #E8EDE5;
   --sidebar-accent-foreground: #3D3D3D;
   --sidebar-border: #E8E4DC;
-  --sidebar-ring: #7A8B6E;
-  --sage: #7A8B6E;
+  --sidebar-ring: #5F7A4B;
+  --sage: #5F7A4B;
   --sage-light: #E8EDE5;
-  --rose-accent: #E8C4C4;
-  --lavender: #D4C5E8;
-  --peach: #F5D5C5;
+  --rose-accent: #C24E77;
+  --lavender: #7C55D6;
+  --peach: #B96A2C;
   --mood-stressed: #F5D5D5;
   --font-heading: "Playfair Display", serif;
   --font-body: "Inter", sans-serif;
+
+  /* Anchor design tokens (Mission 2) — flat brand constants from Ruth's
+     dark-first guide, same value regardless of the active .dark/:root
+     theme for now. Not consumed by --background/--primary/etc.; see the
+     @theme inline block above for the generated Tailwind utilities. */
+  --anchor-background: #0F0F10;
+  --anchor-surface: #17171A;
+  --anchor-surface-2: #1F1F23;
+  --anchor-gradient-dark: #2A2A31;
+  --anchor-green: #A7C48C;
+  --anchor-warm-cream: #F2D8B6;
+  --anchor-orange: #E9B072;
+  --anchor-lavender: #B78CFF;
+  --anchor-pink: #F48FB1;
+  --anchor-soft-green: #8FD3A1;
+
+  /* 8pt spacing grid */
+  --anchor-space-1: 0.5rem;   /* 8px */
+  --anchor-space-2: 1rem;     /* 16px */
+  --anchor-space-3: 1.5rem;   /* 24px */
+  --anchor-space-4: 2rem;     /* 32px */
+  --anchor-space-5: 2.5rem;   /* 40px */
+  --anchor-space-6: 3rem;     /* 48px */
+  --anchor-space-7: 4rem;     /* 64px */
+
+  /* Radius scale */
+  --anchor-radius-card-lg: 1.5rem;    /* 24px — major cards */
+  --anchor-radius-input: 1rem;        /* 16px — inputs */
+  --anchor-radius-control-sm: 0.75rem; /* 12px — small controls */
+
+  /* Typography scale (Playfair Display greeting/section, Inter body) */
+  --anchor-text-greeting-size: 2rem;      /* 32px */
+  --anchor-text-greeting-line: 2.5rem;    /* 40px */
+  --anchor-text-section-size: 1.75rem;    /* 28px */
+  --anchor-text-section-line: 2.25rem;    /* 36px */
+  --anchor-text-body-size: 0.875rem;      /* 14px */
+  --anchor-text-body-line: 1.25rem;       /* 20px */
 }
 
 .dark {
-  --background: #1C1B1A;
-  --foreground: #EAE6DD;
-  --card: #242220;
-  --card-foreground: #EAE6DD;
-  --popover: #2B2926;
-  --popover-foreground: #EAE6DD;
-  --primary: #93A67F;
-  --primary-foreground: #1C1B1A;
-  --secondary: #232120;
-  --secondary-foreground: #EAE6DD;
-  --muted: #232120;
-  --muted-foreground: #A69F93;
-  --accent: #2E3A29;
-  --accent-foreground: #EAE6DD;
-  --destructive: #B8726E;
-  --destructive-foreground: #FBF1EF;
-  --border: #37342F;
-  --input: #37342F;
-  --ring: #93A67F;
-  --chart-1: #93A67F;
-  --chart-2: #D08C8C;
-  --chart-3: #B39BDB;
-  --chart-4: #D9A26E;
-  --chart-5: #D98C99;
-  --sidebar: #201F1D;
-  --sidebar-foreground: #EAE6DD;
-  --sidebar-primary: #93A67F;
-  --sidebar-primary-foreground: #1C1B1A;
-  --sidebar-accent: #2E3A29;
-  --sidebar-accent-foreground: #EAE6DD;
-  --sidebar-border: #37342F;
-  --sidebar-ring: #93A67F;
-  --sage: #93A67F;
-  --sage-light: #2E3A29;
-  --rose-accent: #C98A87;
-  --lavender: #A98FD1;
-  --peach: #C9895B;
-  --mood-stressed: #C36E78;
+  /* Ruth's dark-first guide — official dark theme. Semantic tokens mapped
+     onto the anchor-* constants declared in :root above (background→
+     anchor-background, card→anchor-surface, popover/secondary/muted→
+     anchor-surface-2, accent/border/input→anchor-gradient-dark) so every
+     component consuming --background/--primary/etc. follows without
+     per-component edits. See CARTOGRAPHIE.md Mission 1 for the contrast
+     verification and the 3 export/canvas files that intentionally do NOT
+     follow this (pdf/palette.ts, wrapped-share.ts, letter-share.ts). */
+  --background: #0F0F10;
+  --foreground: #F2D8B6;
+  --card: #17171A;
+  --card-foreground: #F2D8B6;
+  --popover: #1F1F23;
+  --popover-foreground: #F2D8B6;
+  --primary: #A7C48C;
+  --primary-foreground: #0F0F10;
+  --secondary: #1F1F23;
+  --secondary-foreground: #F2D8B6;
+  --muted: #1F1F23;
+  --muted-foreground: #B5AC9C;
+  --accent: #2A2A31;
+  --accent-foreground: #F2D8B6;
+  --destructive: #D97A6E;
+  --destructive-foreground: #0F0F10;
+  --border: #2A2A31;
+  --input: #2A2A31;
+  --ring: #A7C48C;
+  --chart-1: #A7C48C;
+  --chart-2: #F48FB1;
+  --chart-3: #B78CFF;
+  --chart-4: #E9B072;
+  --chart-5: #8FD3A1;
+  --sidebar: #17171A;
+  --sidebar-foreground: #F2D8B6;
+  --sidebar-primary: #A7C48C;
+  --sidebar-primary-foreground: #0F0F10;
+  --sidebar-accent: #1F1F23;
+  --sidebar-accent-foreground: #F2D8B6;
+  --sidebar-border: #2A2A31;
+  --sidebar-ring: #A7C48C;
+  --sage: #A7C48C;
+  --sage-light: #202A1D;
+  --rose-accent: #F48FB1;
+  --lavender: #B78CFF;
+  --peach: #E9B072;
+  --mood-stressed: #C2705F;
 }
 
 @layer base {

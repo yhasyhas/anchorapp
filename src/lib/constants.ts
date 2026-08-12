@@ -16,12 +16,15 @@ export const colors = {
   moodStressed: "var(--mood-stressed)",
 } as const
 
+// `icon` is an AppIcon signature name (src/components/icons/app-icon.tsx) —
+// consumers render <AppIcon icon={icon} .../>. Previously an emoji string;
+// see CARTOGRAPHIE.md Mission 4 for the swap to signature mood-face icons.
 export const moodConfig = [
-  { key: "great" as const, emoji: "\u{1F60A}", color: colors.moodGreat },
-  { key: "okay" as const, emoji: "\u{1F642}", color: colors.moodOkay },
-  { key: "meh" as const, emoji: "\u{1F610}", color: colors.moodMeh },
-  { key: "low" as const, emoji: "\u{1F641}", color: colors.moodLow },
-  { key: "stressed" as const, emoji: "\u{1F623}", color: colors.moodStressed },
+  { key: "great" as const, icon: "mood-great" as const, color: colors.moodGreat },
+  { key: "okay" as const, icon: "mood-okay" as const, color: colors.moodOkay },
+  { key: "meh" as const, icon: "mood-meh" as const, color: colors.moodMeh },
+  { key: "low" as const, icon: "mood-low" as const, color: colors.moodLow },
+  { key: "stressed" as const, icon: "mood-stressed" as const, color: colors.moodStressed },
 ] as const
 
 export const moodToValue: Record<string, number> = {

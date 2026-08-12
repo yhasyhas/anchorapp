@@ -120,7 +120,7 @@ export function WrappedPage() {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background px-6 text-center">
         <p className="text-sm text-muted-foreground">{t("wrapped.not_found")}</p>
-        <Button variant="outline" onClick={() => navigate("/wrapped")}>
+        <Button variant="outline" className="rounded-anchor-card-lg" onClick={() => navigate("/wrapped")}>
           {t("wrapped.back_to_list")}
         </Button>
       </div>
@@ -141,7 +141,7 @@ export function WrappedPage() {
         <button
           onClick={() => navigate("/wrapped")}
           aria-label={t("wrapped.close")}
-          className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <X className="h-5 w-5" />
         </button>
@@ -159,7 +159,7 @@ export function WrappedPage() {
       </div>
 
       <div className="flex justify-center pb-8 pt-2">
-        <Button variant="outline" size="sm" onClick={handleShare} disabled={sharing} className="gap-1.5">
+        <Button variant="outline" size="sm" onClick={handleShare} disabled={sharing} className="min-h-11 gap-1.5">
           {sharing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
           {t("wrapped.share")}
         </Button>

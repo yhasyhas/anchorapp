@@ -21,9 +21,12 @@ type ThemeProviderState = {
 const COLOR_SCHEME_QUERY = "(prefers-color-scheme: dark)"
 const THEME_VALUES: Theme[] = ["dark", "light", "system"]
 const THEME_COLOR_META_ID = "theme-color-meta"
+// Resynced with src/index.css's :root/.dark on the Mission 1 theme flip —
+// light still mirrors --primary, dark still mirrors --background, same
+// mapping as before, just the new hex values (see CARTOGRAPHIE.md).
 const THEME_COLORS: Record<ResolvedTheme, string> = {
-  light: "#7A8B6E",
-  dark: "#1C1B1A",
+  light: "#6E8A55",
+  dark: "#0F0F10",
 }
 
 const ThemeProviderContext = React.createContext<

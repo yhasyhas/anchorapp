@@ -1,9 +1,11 @@
 import { useTranslation } from "react-i18next"
+import { Brain, Globe } from "lucide-react"
+import type { AppIconSource } from "@/components/icons/app-icon"
 import type { DailyAnchor } from "@/types"
 
 export interface AnchorDef {
   key: "future" | "mindbody" | "life"
-  icon: string
+  icon: AppIconSource
   borderColor: string
   title: string
   subtitle: string
@@ -35,8 +37,8 @@ export function useAnchorDefs(anchor: DailyAnchor, saveAnchor: (updates: Partial
   const anchorDefs: AnchorDef[] = [
     {
       key: "future",
-      icon: "\u{1F331}",
-      borderColor: "var(--sage)",
+      icon: "anchor-mark",
+      borderColor: "var(--anchor-green)",
       title: t("anchors.future"),
       subtitle: t("anchors.future_sub"),
       task: anchor.future_task,
@@ -46,8 +48,8 @@ export function useAnchorDefs(anchor: DailyAnchor, saveAnchor: (updates: Partial
     },
     {
       key: "mindbody",
-      icon: "\u{1F9E0}",
-      borderColor: "var(--rose-accent)",
+      icon: Brain,
+      borderColor: "var(--anchor-pink)",
       title: t("anchors.mindbody"),
       subtitle: t("anchors.mindbody_sub"),
       task: anchor.mindbody_task,
@@ -57,8 +59,8 @@ export function useAnchorDefs(anchor: DailyAnchor, saveAnchor: (updates: Partial
     },
     {
       key: "life",
-      icon: "\u{1F30D}",
-      borderColor: "var(--lavender)",
+      icon: Globe,
+      borderColor: "var(--anchor-lavender)",
       title: t("anchors.life"),
       subtitle: t("anchors.life_sub"),
       task: anchor.life_task,

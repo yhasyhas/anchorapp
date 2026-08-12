@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Heart, Moon, Mic, Square, Play, Trash2, Sparkles } from "lucide-react"
+import { AppIcon } from "@/components/icons/app-icon"
 import { moodConfig } from "@/lib/constants"
 import { isCheckInTime } from "@/lib/utils"
 import { EveningReleaseAnimation } from "@/components/anchor/evening-release-animation"
@@ -90,25 +91,26 @@ export function CheckInPage() {
       </div>
 
       {/* Evening Mood Selector */}
-      <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+      <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
         <CardContent className="p-5">
           <div className="mb-3 flex items-center gap-2">
             <Moon className="h-4 w-4 text-primary" />
             <p className="text-sm font-medium text-foreground">{t("checkin.evening_mood_label")}</p>
           </div>
           <div className="flex justify-between gap-2">
-            {moodConfig.map(({ key, emoji, color }) => (
+            {moodConfig.map(({ key, icon, color }) => (
               <button
                 key={key}
                 onClick={() => cycle.updateField("evening_mood", key)}
+                aria-pressed={cycle.checkIn.evening_mood === key}
                 className={`flex flex-1 flex-col items-center gap-1 rounded-xl p-2.5 transition-all duration-300 ${
                   cycle.checkIn.evening_mood === key
-                    ? "ring-2 ring-primary ring-offset-2 scale-110 shadow-md"
+                    ? "ring-2 ring-anchor-orange ring-offset-2 scale-110 shadow-md"
                     : "hover:scale-105 hover:shadow-sm"
                 }`}
                 style={{ backgroundColor: color }}
               >
-                <span className="text-xl">{emoji}</span>
+                <AppIcon icon={icon} size={20} active={cycle.checkIn.evening_mood === key} decorative className="text-foreground" />
                 <span className="text-[10px] font-medium text-foreground">{t(`mood.${key}`)}</span>
               </button>
             ))}
@@ -130,12 +132,12 @@ export function CheckInPage() {
       </Card>
 
       {/* Reflection 1 */}
-      <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+      <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
         <CardContent className="p-5">
           <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span>{softModeActive && cycle.personalQuestion ? "✨" : "\u{1F33F}"}</span>
-              <p className="text-sm font-medium text-foreground">{softModeActive ? softQuestion : q1}</p>
+              <p className="font-heading text-base font-medium text-foreground">{softModeActive ? softQuestion : q1}</p>
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
               {softModeActive && cycle.personalQuestion && (
@@ -161,7 +163,7 @@ export function CheckInPage() {
                   key={chip}
                   type="button"
                   onClick={() => cycle.updateField("what_matters", chip)}
-                  className="rounded-full bg-muted px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-sage-light"
+                  className="min-h-11 rounded-full bg-muted px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-sage-light"
                 >
                   {chip}
                 </button>
@@ -174,9 +176,9 @@ export function CheckInPage() {
               size="sm"
               onClick={cycle.handleAddToJar}
               disabled={cycle.jarAdded || cycle.addingToJar}
-              className="mt-2 gap-1.5 px-0 text-xs text-primary hover:bg-transparent hover:underline disabled:opacity-60"
+              className="mt-2 min-h-11 gap-1.5 px-0 text-xs text-primary hover:bg-transparent hover:underline disabled:opacity-60"
             >
-              🫙 {cycle.jarAdded ? t("jar.added_from_checkin") : t("jar.add_from_checkin")}
+              <AppIcon icon="gratitude-jar" size={20} decorative /> {cycle.jarAdded ? t("jar.added_from_checkin") : t("jar.add_from_checkin")}
             </Button>
           )}
         </CardContent>
@@ -185,12 +187,12 @@ export function CheckInPage() {
       {!softModeActive && (
         <>
           {/* Reflection 2 */}
-          <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+          <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
             <CardContent className="p-5">
               <div className="mb-2 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span>{cycle.personalQuestion ? "✨" : "☁️"}</span>
-                  <p className="text-sm font-medium text-foreground">{q2Display}</p>
+                  <p className="font-heading text-base font-medium text-foreground">{q2Display}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
                   {cycle.personalQuestion && (
@@ -216,7 +218,7 @@ export function CheckInPage() {
                       key={chip}
                       type="button"
                       onClick={() => cycle.updateField("what_avoiding", chip)}
-                      className="rounded-full bg-muted px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-sage-light"
+                      className="min-h-11 rounded-full bg-muted px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-sage-light"
                     >
                       {chip}
                     </button>
@@ -227,12 +229,12 @@ export function CheckInPage() {
           </Card>
 
           {/* Reflection 3 */}
-          <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+          <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
             <CardContent className="p-5">
               <div className="mb-2 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span>&#x1F338;</span>
-                  <p className="text-sm font-medium text-foreground">{t("checkin.what_felt_real")}</p>
+                  <p className="font-heading text-base font-medium text-foreground">{t("checkin.what_felt_real")}</p>
                 </div>
                 <Badge variant="secondary" className="text-[10px]">
                   {t("checkin.reflection")} 3
@@ -251,7 +253,7 @@ export function CheckInPage() {
                       key={chip}
                       type="button"
                       onClick={() => cycle.updateField("what_felt_real", chip)}
-                      className="rounded-full bg-muted px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-sage-light"
+                      className="min-h-11 rounded-full bg-muted px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-sage-light"
                     >
                       {chip}
                     </button>
@@ -264,7 +266,7 @@ export function CheckInPage() {
       )}
 
       {/* Voice Note Section */}
-      <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+      <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
         <CardContent className="p-5">
           <div className="mb-3 flex items-center gap-2">
             <Mic className="h-4 w-4 text-primary" />
@@ -305,7 +307,7 @@ export function CheckInPage() {
                 <button
                   onClick={cycle.togglePlay}
                   aria-label={cycle.isPlaying ? t("checkin.pause_voice_note") : t("checkin.play_voice_note")}
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground hover:scale-105 transition-transform"
+                  className="flex min-h-11 min-w-11 items-center justify-center rounded-full bg-primary text-primary-foreground hover:scale-105 transition-transform"
                 >
                   {cycle.isPlaying ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4 ml-0.5" />}
                 </button>
@@ -316,7 +318,7 @@ export function CheckInPage() {
                 <button
                   onClick={cycle.deleteVoiceNote}
                   aria-label={t("checkin.delete_voice_note")}
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                  className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -345,7 +347,7 @@ export function CheckInPage() {
       </Card>
 
       {/* Evening Release */}
-      <Card className="relative overflow-hidden border-0 bg-secondary shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+      <Card className="relative overflow-hidden border-0 rounded-anchor-card-lg bg-secondary shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
         <EveningReleaseAnimation active={cycle.released} />
         <CardContent className="relative p-5 text-center">
           <Moon className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
@@ -357,7 +359,7 @@ export function CheckInPage() {
             size="sm"
             onClick={cycle.handleRelease}
             disabled={cycle.released}
-            className="mt-3 border-primary/20 text-primary transition-all hover:bg-primary/5"
+            className="mt-3 min-h-11 border-primary/20 text-primary transition-all hover:bg-primary/5"
           >
             {cycle.released ? "✓ " : ""}{t("checkin.release_button")}
           </Button>

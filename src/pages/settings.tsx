@@ -138,13 +138,13 @@ export function SettingsPage() {
         </div>
 
         {/* Language */}
-        <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+        <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5">
             <Label className="mb-3 block text-sm font-medium">{t("settings.language")}</Label>
             <div className="flex gap-3">
               <button
                 onClick={() => handleLanguageChange("en")}
-                className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+                className={`min-h-11 flex-1 rounded-anchor-control-sm px-4 py-2.5 text-sm font-medium transition-colors ${
                   i18n.language === "en"
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-foreground"
@@ -154,7 +154,7 @@ export function SettingsPage() {
               </button>
               <button
                 onClick={() => handleLanguageChange("sw")}
-                className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+                className={`min-h-11 flex-1 rounded-anchor-control-sm px-4 py-2.5 text-sm font-medium transition-colors ${
                   i18n.language === "sw"
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-foreground"
@@ -167,7 +167,7 @@ export function SettingsPage() {
         </Card>
 
         {/* Appearance */}
-        <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+        <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5">
             <Label className="mb-3 block text-sm font-medium">{t("settings.theme")}</Label>
             <ModeToggle />
@@ -175,7 +175,7 @@ export function SettingsPage() {
         </Card>
 
         {/* Profile */}
-        <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+        <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5">
             <Label className="mb-3 block text-sm font-medium">{t("settings.name")}</Label>
             <div className="flex gap-2">
@@ -183,7 +183,7 @@ export function SettingsPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
-              <Button onClick={handleNameSave} size="sm">
+              <Button onClick={handleNameSave} size="sm" className="min-h-11">
                 {t("settings.save")}
               </Button>
             </div>
@@ -191,7 +191,7 @@ export function SettingsPage() {
         </Card>
 
         {/* AI Insights Settings */}
-        <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+        <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5 space-y-5">
             <div className="flex items-center gap-2">
               <Brain className="h-4 w-4 text-primary" />
@@ -252,7 +252,7 @@ export function SettingsPage() {
         <JournalExportSection />
 
         {/* Raw JSON export */}
-        <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+        <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5">
             <Button variant="outline" className="w-full" onClick={handleExport}>
               {t("settings.export_json")}
@@ -261,7 +261,7 @@ export function SettingsPage() {
         </Card>
 
         {/* About */}
-        <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+        <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5">
             <p className="text-sm font-medium">{t("settings.about")}</p>
             <Separator className="my-3" />

@@ -3,15 +3,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Sparkles } from "lucide-react"
-
-const categoryIcons: Record<string, string> = {
-  physical: "\u{1F333}",
-  novelty: "\u{1FA91}",
-  social: "\u{1F48C}",
-  mindful: "\u{1F3A7}",
-  creative: "\u{1F3A8}",
-  rest: "\u{1F6CC}",
-}
+import { AppIcon } from "@/components/icons/app-icon"
+import { moveCategoryIcons, DEFAULT_MOVE_CATEGORY_ICON } from "@/lib/move-category-icons"
 
 interface MoveOfTheDayCardProps {
   title: string
@@ -32,7 +25,7 @@ export function MoveOfTheDayCard({ title, category, isAiGenerated, correlationHi
   const { t } = useTranslation()
 
   return (
-    <Card className="border-0 bg-gradient-to-br from-lavender/30 to-peach/20 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+    <Card className="border-0 rounded-anchor-card-lg bg-gradient-to-br from-anchor-lavender/30 to-anchor-orange/20 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
       <CardContent className="p-4">
         <div className="mb-2 flex items-center justify-between">
           <p className="text-xs font-medium text-muted-foreground">{t("move.home_card_title")}</p>
@@ -44,12 +37,12 @@ export function MoveOfTheDayCard({ title, category, isAiGenerated, correlationHi
           )}
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-lg">{categoryIcons[category] ?? "\u{1F333}"}</span>
+          <AppIcon icon={moveCategoryIcons[category] ?? DEFAULT_MOVE_CATEGORY_ICON} size={20} decorative className="text-primary" />
           <p className="text-sm font-medium text-foreground">{title}</p>
         </div>
         {correlationHint && <p className="mt-2 text-xs text-muted-foreground">{correlationHint}</p>}
         {ctaTarget && (
-          <Button size="sm" className="mt-3 w-full" onClick={() => onAdd(ctaTarget)}>
+          <Button size="sm" className="mt-3 min-h-11 w-full rounded-anchor-card-lg" onClick={() => onAdd(ctaTarget)}>
             {ctaTarget === "life" ? t("move.home_card_cta") : t("move.home_card_cta_mindbody")}
           </Button>
         )}

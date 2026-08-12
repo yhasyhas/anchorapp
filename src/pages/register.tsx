@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Anchor } from "lucide-react"
+import { AppIcon } from "@/components/icons/app-icon"
 
 export function RegisterPage() {
   const { t } = useTranslation()
@@ -39,10 +39,10 @@ export function RegisterPage() {
 
   return (
     <div className="flex min-h-svh items-center justify-center bg-background px-6">
-      <Card className="w-full max-w-sm border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+      <Card className="w-full max-w-sm border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
         <CardHeader className="text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-sage-light">
-            <Anchor className="h-6 w-6 text-primary" />
+            <AppIcon icon="anchor-mark" decorative className="text-primary" />
           </div>
           <CardTitle className="font-heading text-2xl font-semibold">
             {t("auth.register")}

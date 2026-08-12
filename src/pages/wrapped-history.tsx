@@ -59,7 +59,7 @@ export function WrappedHistoryPage() {
       </div>
 
       {loading ? (
-        <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+        <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5">
             <div className="flex items-center justify-center gap-2 py-4">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -71,7 +71,7 @@ export function WrappedHistoryPage() {
         <div className="space-y-3">
           {recaps.map((recap) => (
             <Link key={recap.id} to={`/wrapped/${recap.month_start}`}>
-              <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]">
+              <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]">
                 <CardContent className="p-5">
                   <p className="text-xs font-medium text-muted-foreground">{monthLabel(recap.month_start, i18n.language)}</p>
                   <p className="mt-1.5 font-heading text-base italic leading-relaxed text-foreground/90">
@@ -83,7 +83,7 @@ export function WrappedHistoryPage() {
           ))}
         </div>
       ) : (
-        <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+        <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5">
             <EmptyState icon="seedling" titleKey="wrapped.empty" descriptionKey="wrapped.empty_sub" />
           </CardContent>

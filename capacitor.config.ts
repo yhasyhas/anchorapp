@@ -10,7 +10,7 @@ const config: CapacitorConfig = {
       // once React has mounted, instead of racing a fixed duration against
       // the app's own load time.
       launchAutoHide: false,
-      backgroundColor: '#F9F7F2',
+      backgroundColor: '#FAF8F4',
     },
   },
 };

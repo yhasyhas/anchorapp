@@ -1,16 +1,9 @@
 import { useTranslation } from "react-i18next"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Star } from "lucide-react"
+import { AppIcon } from "@/components/icons/app-icon"
+import { moveCategoryIcons, DEFAULT_MOVE_CATEGORY_ICON } from "@/lib/move-category-icons"
 import type { MoveSuggestion } from "@/types"
-
-const categoryIcons: Record<string, string> = {
-  physical: "\u{1F333}",
-  novelty: "\u{1FA91}",
-  social: "\u{1F48C}",
-  mindful: "\u{1F3A7}",
-  creative: "\u{1F3A8}",
-  rest: "\u{1F6CC}",
-}
 
 interface MovePickerSheetProps {
   open: boolean
@@ -32,7 +25,7 @@ export function MovePickerSheet({ open, onOpenChange, anchorLabel, suggestions, 
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[70vh] overflow-y-auto rounded-t-2xl">
+      <SheetContent side="bottom" className="max-h-[70vh] overflow-y-auto rounded-t-anchor-card-lg">
         <SheetHeader>
           <SheetTitle className="font-heading">{t("move.picker_title", { anchor: anchorLabel })}</SheetTitle>
         </SheetHeader>
@@ -47,9 +40,9 @@ export function MovePickerSheet({ open, onOpenChange, anchorLabel, suggestions, 
                 onPick(suggestion.title)
                 onOpenChange(false)
               }}
-              className="flex w-full items-center gap-3 rounded-xl bg-muted/50 px-4 py-3 text-left transition-colors hover:bg-accent"
+              className="flex min-h-11 w-full items-center gap-3 rounded-anchor-input bg-muted/50 px-4 py-3 text-left transition-colors hover:bg-accent"
             >
-              <span className="text-lg">{categoryIcons[suggestion.category] ?? "\u{1F333}"}</span>
+              <AppIcon icon={moveCategoryIcons[suggestion.category] ?? DEFAULT_MOVE_CATEGORY_ICON} size={20} decorative className="text-primary" />
               <span className="flex-1 text-sm font-medium text-foreground">{suggestion.title}</span>
               {suggestion.is_favorite && <Star className="h-4 w-4 shrink-0 text-primary" fill="currentColor" />}
             </button>

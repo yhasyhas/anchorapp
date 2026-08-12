@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Loader2 } from "lucide-react"
-import { JarIcon } from "@/components/anchor/jar-icon"
+import { AppIcon } from "@/components/icons/app-icon"
 import { GratitudeDropCard } from "@/components/anchor/gratitude-drop-card"
 import { countGratitudes, listGratitudes } from "@/lib/gratitude"
 import type { Gratitude } from "@/types"
@@ -64,7 +64,7 @@ export function JarPage() {
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <div className="flex items-center gap-2">
-        <JarIcon className="h-6 w-6 text-primary" />
+        <AppIcon icon="gratitude-jar" decorative className="text-primary" />
         <div>
           <h1 className="font-heading text-2xl font-bold">{t("jar.page_title")}</h1>
           {count !== null && count > 0 && (
@@ -80,7 +80,7 @@ export function JarPage() {
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : entries.length === 0 ? (
-        <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+        <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5">
             <EmptyState icon="seedling" titleKey="jar.empty_title" descriptionKey="jar.empty_desc" />
           </CardContent>
@@ -89,7 +89,7 @@ export function JarPage() {
         <>
           <div className="space-y-2">
             {entries.map((g) => (
-              <Card key={g.id} className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+              <Card key={g.id} className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
                 <CardContent className="p-4">
                   <p className="text-sm text-foreground">{g.text}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{formatDate(g.created_at, i18n.language)}</p>

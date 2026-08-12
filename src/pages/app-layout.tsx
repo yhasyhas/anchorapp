@@ -6,12 +6,14 @@ import { Capacitor } from "@capacitor/core"
 import { Network } from "@capacitor/network"
 import { isOnline, processSyncQueue, getPendingSyncCount, SYNC_QUEUE_CHANGED_EVENT } from "@/lib/offline-sync"
 import { useAuth } from "@/lib/auth-context"
+import { usePrefersReducedMotion } from "@/hooks/use-reduced-motion"
 import { PauseModal, type PauseOption } from "@/components/anchor/pause-modal"
 import { PauseBreathing } from "@/components/anchor/pause-breathing"
 import { PauseFocusSession } from "@/components/anchor/pause-focus-session"
 import { PauseRecenter } from "@/components/anchor/pause-recenter"
 import { InstallPrompt } from "@/components/pwa/install-prompt"
 import { Spinner } from "@/components/ui/spinner"
+import { AppIcon } from "@/components/icons/app-icon"
 
 const navItems = [
   { path: "/", icon: Home, labelKey: "home.title" },
@@ -24,6 +26,7 @@ export function AppLayout() {
   const { t } = useTranslation()
   const { user } = useAuth()
   const location = useLocation()
+  const prefersReducedMotion = usePrefersReducedMotion()
   const [online, setOnline] = useState(isOnline())
   const [showPauseMenu, setShowPauseMenu] = useState(false)
   const [activePause, setActivePause] = useState<PauseOption | null>(null)
@@ -115,21 +118,44 @@ export function AppLayout() {
         </Suspense>
       </main>
 
-      {/* Tab Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 border-t border-border/60 bg-card/95 backdrop-blur-md">
+      {/* Tab Bar — safe-area padding is a no-op fallback to 0 unless the
+          device reports a bottom inset (e.g. Android gesture nav), see
+          CARTOGRAPHIE.md Mission 7d. */}
+      <nav
+        className="fixed bottom-0 left-0 right-0 border-t border-border/60 bg-card/95 backdrop-blur-md"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
         <div className="mx-auto flex max-w-lg items-center justify-around py-2">
           {navItems.map(({ path, icon: Icon, labelKey }) => (
             <NavLink
               key={path}
               to={path}
               className={({ isActive }) =>
-                `flex flex-col items-center gap-1 px-3 py-2 text-xs transition-all duration-200 ${
+                `relative flex flex-col items-center gap-1 px-3 py-2 text-xs transition-all duration-200 ${
                   isActive ? "text-primary scale-105" : "text-muted-foreground hover:text-foreground"
                 }`
               }
             >
-              <Icon className="h-5 w-5 transition-transform duration-200" />
-              <span>{t(labelKey)}</span>
+              {({ isActive }) => (
+                <>
+                  <AppIcon
+                    icon={Icon}
+                    size={20}
+                    active={isActive}
+                    decorative
+                    className="transition-transform duration-200"
+                  />
+                  <span>{t(labelKey)}</span>
+                  {isActive && (
+                    <span
+                      aria-hidden="true"
+                      className={`absolute -bottom-0.5 h-1 w-1 rounded-full bg-primary ${
+                        prefersReducedMotion ? "" : "animate-pulse"
+                      }`}
+                    />
+                  )}
+                </>
+              )}
             </NavLink>
           ))}
         </div>
@@ -138,10 +164,11 @@ export function AppLayout() {
       {/* Pause Floating Button */}
       <button
         onClick={() => setShowPauseMenu(true)}
-        className="fixed bottom-20 right-6 flex h-12 w-12 items-center justify-center rounded-full bg-secondary shadow-[0_2px_10px_rgba(0,0,0,0.08)] transition-all hover:scale-110 hover:shadow-[0_4px_15px_rgba(0,0,0,0.12)] active:scale-95"
+        className="fixed right-6 flex h-12 w-12 items-center justify-center rounded-full bg-secondary shadow-[0_2px_10px_rgba(0,0,0,0.08)] transition-all hover:scale-110 hover:shadow-[0_4px_15px_rgba(0,0,0,0.12)] active:scale-95"
+        style={{ bottom: "calc(5rem + env(safe-area-inset-bottom))" }}
         aria-label={t("pause.title")}
       >
-        <span className="text-lg">&#x2601;&#xFE0F;</span>
+        <AppIcon icon="pause" decorative />
       </button>
 
       <PauseModal

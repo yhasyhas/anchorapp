@@ -466,6 +466,64 @@ Non modifiés (vérifié explicitement, hors périmètre) : `src/lib/wrapped-sha
 
 ---
 
+## Lot 4 — Icônes, densité Home, tap feedback, navigation persistante (2026-08-12)
+
+Contrairement aux lots précédents (planifiés en une passe), ce lot a été mené au fil de plusieurs demandes successives de l'utilisateur dans la même session — le découpage ci-dessous reflète l'ordre réel des chantiers plutôt qu'une liste de missions numérotées à l'avance.
+
+### Icônes signature étendues
+
+4 nouvelles icônes signature, même langage visuel que l'existant (`SignatureSvg`, 24×24, `currentColor`, remplissage doux sur `active`) :
+- `mindbody.tsx` — cœur + ligne de pulsation, remplace le `Brain` lucide pour la catégorie d'ancre Mind/Body (le `Brain` générique reste utilisé tel quel pour le concept IA de Settings/Patterns, sémantiquement différent).
+- `life.tsx` — boussole, remplace `Globe`, fait écho à la famille nautique de l'ancre plutôt qu'à un globe terrestre générique.
+- `streak.tsx` — flamme dessinée main, remplace `Flame`.
+- `wrapped.tsx` — pile de cartes + étoile, remplace `PartyPopper`, évoque le format réel de la feature (deck de cartes swipable).
+
+`anchor-mark` (déjà existant) réutilisé à la place du `Anchor` lucide générique dans la barre de progression du cycle quotidien et le streak d'ancres. Header de Home : icônes Lettres/Circle/Bocal recolorées chacune dans la teinte déjà associée à leur feature ailleurs dans l'app (lavande, rose, vert) au lieu d'un gris uniforme.
+
+- Fichiers : `src/components/icons/signature/{mindbody,life,streak,wrapped}.tsx` (nouveaux), `signature/index.ts`, `app-icon.tsx` (registre), `src/hooks/use-anchor-defs.ts`, `src/pages/move.tsx`, `src/pages/home.tsx`, `src/pages/wrapped-history.tsx`.
+
+### Densité de la Home
+
+Panneau « Progression du cycle » et les 2 cartes streaks — auparavant 2-3 blocs séparément ombrés — regroupés en une section « Aujourd'hui » plus légère (`space-y-3` au lieu du `space-y-6` habituel de la page) : le panneau de progression perd sa propre `Card`/ombre (devient un panneau plat teinté, sert d'en-tête à la section), les streaks gardent leur `Card` individuelle — leur couleur de fond est un vrai signal d'état (actif/célébré), pas de la déco. Pur changement de conteneur : `cycleComplete`/`moodDone`/`anchorsDone`/props `StreakCard` strictement inchangés.
+
+**Bug trouvé et corrigé pendant la vérification device** (voir Vérifications ci-dessous) : `IntentionHeroCard` utilisait `to-anchor-surface-2` (constante plate réservée au thème sombre, `#1F1F23`) comme couleur de fin de dégradé même en thème clair, au lieu du blanc→crème documenté en Missions 5-11. Résultat : la carte d'intention — la plus visible de la Home — s'affichait avec un dégradé quasi-noir en thème clair. Corrigé en `to-secondary` (token clair équivalent, `#F5F1E8`), confirmé visuellement avant/après sur émulateur.
+
+- Fichier : `src/pages/home.tsx`.
+
+### Qualité tactile — boutons et champs
+
+- `src/components/ui/button.tsx` — `motion-safe:active:scale-[0.97]` ajouté à `buttonVariants` (base, toutes variantes/tailles) : aucun bouton de l'app n'avait de retour visuel au tap, seulement du `hover:` qui ne se déclenche quasiment jamais sur écran tactile (app Capacitor Android-first). Un seul changement dans le composant partagé, bénéficie à tous les boutons — même logique que le fix transverse des touch targets (Lot 3).
+- `src/components/ui/input.tsx` — même plancher `min-h-11` (44px) que `button.tsx` avait reçu en Lot 3, jamais appliqué à `<Input>` : celui-ci restait à `h-9` (36px) partout (ancre du jour, intention, nom Settings, gratitude, note d'humeur du soir...).
+- `src/components/anchor/gratitude-drop-card.tsx` — l'animation « goutte dans le bocal » (`@keyframes jar-drop`) ne respectait pas `prefers-reduced-motion`, contrairement à toutes les autres animations décoratives de l'app (confetti, etc.). Gated derrière `usePrefersReducedMotion()`.
+
+### Navigation — accès rapide persistant
+
+Lettres/Circle/Wrapped/Bocal/Réglages n'étaient accessibles que depuis le header de Home — en changeant d'onglet (Patterns/Check-in/Move) il fallait repasser par Home pour les atteindre. Nouveau composant `src/components/anchor/quick-access-bar.tsx` (pur composant de présentation, extrait du header de Home), rendu une seule fois dans `src/pages/app-layout.tsx` — qui ne démonte jamais entre les onglets, contrairement aux pages elles-mêmes — plutôt que dupliqué par page. En flux normal au-dessus de `<main>`, pas en `fixed` (même technique que la bannière offline déjà existante), avec `padding-top: env(safe-area-inset-top)`.
+
+- `src/hooks/use-home-badges.ts` — accepte désormais un `refreshKey` optionnel (route pathname, passé par `AppLayout`) : les 3 effects de badge (lettre non lue, invitation Circle, encouragement non lu) se ré-exécutent à chaque navigation au lieu d'une seule fois par connexion — compense le fait qu'`AppLayout` ne démonte jamais, contrairement à `HomePage` avant (qui rafraîchissait les badges à chaque retour sur Home simplement en se remontant). La génération Wrapped (`ensureWrappedGenerated`) reste `[user]`-only, pas un badge, pas besoin de re-check à chaque tab switch.
+- Vérifié qu'aucun écran plein écran (`WrappedPage` en `fixed inset-0 z-50`, les rituels Pause en `z-40`) n'est perturbé — ils recouvrent déjà la tab bar du bas de la même façon.
+- Fichiers : `src/components/anchor/quick-access-bar.tsx` (nouveau), `src/pages/app-layout.tsx`, `src/hooks/use-home-badges.ts`, `src/pages/home.tsx` (header simplifié, ne garde que le message d'accueil).
+
+### Polish Settings / Check-in / Jar
+
+- Settings → nom : `handleNameSave` a désormais un état `savingName`/`nameJustSaved` (spinner pendant l'appel, confirmation « Saved » + coche 2s, bouton désactivé si le champ est vide).
+- Settings → export JSON : nouveau `handleExportClick` (wrapper autour de `handleExport`) ajoute spinner + désactivation pendant l'opération, toast succès/erreur.
+- Settings → Danger Zone : `Card` recolorée en bordure gauche destructive (`borderLeft: 4px solid var(--destructive)`, même langage que les cartes ancres) au lieu d'un style `border`/`shadow-none` isolé, pour rejoindre la convention `border-0` + ombre douce du reste de la page.
+- Check-in → les 3 champs de réflexion (`what_matters`/`what_avoiding`/`what_felt_real`) ont des placeholders contextuels au lieu du `"..."` générique.
+- Jar → suppression d'une entrée possible : `deleteGratitude(id)` ajouté à `src/lib/gratitude.ts` — la policy RLS `DELETE` existait déjà dans la migration d'origine (« a dropped moment is a snapshot she can remove, not rewrite ») mais n'avait jamais été exposée dans l'UI. Bouton corbeille par entrée dans `jar.tsx`, suppression directe sans dialogue de confirmation (même logique que la suppression de note vocale déjà existante en Check-in), toast de confirmation.
+- Fichiers : `src/pages/settings.tsx`, `src/pages/checkin.tsx`, `src/pages/jar.tsx`, `src/lib/gratitude.ts`, `src/locales/en.json`, `src/locales/sw.json` (+9 clés : `settings.export_json_success`/`_error`, `settings.name_saved`, `checkin.what_matters_placeholder`, `checkin.what_avoiding_placeholder`, `checkin.what_felt_real_placeholder`, `jar.delete_entry`, `jar.delete_success`, `jar.delete_error`).
+
+### Vérifications de fin de lot (Lot 4)
+
+- `npm run typecheck` → aucune erreur, à chaque étape.
+- `npm run build` → succès, à chaque étape.
+- `npm run check-i18n` → 707 clés (698 avant ce lot), EN/SW synchronisés, toutes les clés statiques utilisées existent.
+- `npm run check-duplicates` → paires de logique dupliquée toujours comportementalement identiques.
+- **Vérification device réelle effectuée** — contrairement à tous les lots précédents, qui n'avaient accès à aucun navigateur/simulateur dans leur environnement. Build natif Android (`npx cap sync android` + `gradlew assembleDebug`) installé sur l'émulateur `Medium_Phone_API_36.1` avec un compte de test déjà existant sur l'appareil. Confirmé via `adb`/`uiautomator` : la quick access bar apparaît sur Home, Patterns, Move et Check-in ; navigation Check-in → Lettres fonctionnelle ; zéro erreur JS/WebView en logcat sur tout le parcours. Fix du dégradé `IntentionHeroCard` confirmé visuellement par screenshot avant/après (dégradé quasi-noir en clair → crème comme prévu).
+- Commit `959284d` sur `feature/capacitor-mobile`.
+
+---
+
 ## Journal des changements
 
 *(mis à jour à la fin de chaque mission, fichier par fichier)*
@@ -511,3 +569,5 @@ Non modifiés (vérifié explicitement, hors périmètre) : `src/lib/wrapped-sha
 - Vérification visuelle écran par écran (clair/sombre, device réel) : **non effectuée** — aucun navigateur/simulateur disponible dans cet environnement. Points de vigilance listés ci-dessus à vérifier avant merge.
 
 - **Lot 3 — Propagation du design system** (2026-08-12) : détail complet, écran par écran, dans la section « Lot 3 » ci-dessus. Résumé : fix contraste `--primary` clair (≈4.80:1), fix touch targets transverse (`button.tsx`), Check-in/Move/Letters/Circle/Pause/Jar/Wrapped/Settings/Patterns/Auth alignés sur les tokens et `<AppIcon>` du Home refondu, zéro emoji-icône structurel résiduel dans les 6 domaines ciblés (mood, Move, lettres, Circle, Pause, jar).
+
+- **Lot 4 — Icônes, densité Home, tap feedback, navigation persistante** (2026-08-12) : détail complet dans la section « Lot 4 » ci-dessus. Résumé : 4 nouvelles icônes signature (mindbody/life/streak/wrapped), fusion Progression du cycle + streaks en une section plus légère, fix d'un bug réel de dégradé clair sur `IntentionHeroCard` (trouvé pendant la vérification device), `motion-safe:active:scale` app-wide sur `<Button>`, plancher 44px étendu à `<Input>`, Lettres/Circle/Wrapped/Bocal/Réglages déplacés du header de Home vers une barre persistante dans `AppLayout` (accessible depuis tous les onglets), suppression d'entrées ajoutée au Bocal de gratitude, retours de sauvegarde/chargement ajoutés à Settings (nom, export JSON). **Première vérification sur device réel** de toute la série de lots (émulateur Android via adb/uiautomator) — tous les lots précédents n'avaient eu accès qu'à un audit statique.

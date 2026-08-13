@@ -27,6 +27,19 @@ export const moodConfig = [
   { key: "stressed" as const, icon: "mood-stressed" as const, color: colors.moodStressed },
 ] as const
 
+// Per-mood ink stroke color — anchor-redesign-spec.md section 3's table.
+// Distinct from moodConfig's `color` above (the old pill-background
+// palette, still used by checkin.tsx's evening mood picker) — this is the
+// new signature-icon stroke color, shared by home.tsx's mood card and
+// patterns.tsx's bar chart so both stay in sync.
+export const moodInk: Record<"great" | "okay" | "meh" | "low" | "stressed", string> = {
+  great: "#8A2E10",
+  okay: "#3A2E24",
+  meh: "#A38B6D",
+  low: "#B08A8A",
+  stressed: "#C97A5E",
+}
+
 export const moodToValue: Record<string, number> = {
   great: 5,
   okay: 4,

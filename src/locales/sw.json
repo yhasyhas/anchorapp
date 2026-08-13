@@ -65,6 +65,7 @@
     "error_load": "Imeshindikana kupakia mifumo yako",
     "error_ai": "Imeshindikana kutengeneza maarifa ya AI",
     "mood_label": "Hisia",
+    "narrative_best_day": "Siku yako bora wiki hii ilikuwa {{day}}, ukijisikia {{mood}}.",
     "days": {
       "sun": "Jpi",
       "mon": "Jtt",

@@ -41,7 +41,7 @@ import {
 import { AppIcon } from "@/components/icons/app-icon"
 import type { AppIconSource } from "@/components/icons/app-icon"
 import { isSpeechSynthesisAvailable, speak, stopSpeaking } from "@/lib/speech"
-import { moodConfig } from "@/lib/constants"
+import { moodConfig, moodInk } from "@/lib/constants"
 import { canCheckAnchors, getTimeUntilAnchorCheck } from "@/lib/utils"
 import { usePrefersReducedMotion } from "@/hooks/use-reduced-motion"
 import { OnboardingModal } from "@/components/onboarding/onboarding-modal"
@@ -75,17 +75,8 @@ function intentionLabel(
   return resolved ? resolved.toLowerCase() : null
 }
 
-// Per-mood ink stroke color — anchor-redesign-spec.md section 3's table.
-// Distinct from moodConfig's `color` (src/lib/constants.ts, the old pill-
-// background palette still used by checkin.tsx's own mood picker) — kept
-// local to this card rather than touching that shared constant.
-const MOOD_INK: Record<"great" | "okay" | "meh" | "low" | "stressed", string> = {
-  great: "#8A2E10",
-  okay: "#3A2E24",
-  meh: "#A38B6D",
-  low: "#B08A8A",
-  stressed: "#C97A5E",
-}
+// Soft tinted-circle background for the selected mood (moodInk itself now
+// lives in src/lib/constants.ts, shared with patterns.tsx's bar chart).
 const MOOD_WASH: Record<"great" | "okay" | "meh" | "low" | "stressed", string> = {
   great: "rgba(138,46,16,0.1)",
   okay: "rgba(58,46,36,0.1)",
@@ -352,10 +343,10 @@ export function HomePage() {
                   }`}
                   style={{ backgroundColor: selected ? MOOD_WASH[key] : "transparent" }}
                 >
-                  <AppIcon icon={icon} size={24} active={selected} decorative style={{ color: MOOD_INK[key] }} />
+                  <AppIcon icon={icon} size={24} active={selected} decorative style={{ color: moodInk[key] }} />
                   <span
                     className={`text-[11px] font-medium ${selected ? "" : "text-muted-foreground"}`}
-                    style={selected ? { color: MOOD_INK[key] } : undefined}
+                    style={selected ? { color: moodInk[key] } : undefined}
                   >
                     {t(`mood.${key}`)}
                   </span>

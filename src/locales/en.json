@@ -65,6 +65,7 @@
     "error_load": "Could not load your patterns",
     "error_ai": "Could not generate AI insights",
     "mood_label": "Mood",
+    "narrative_best_day": "Your best day this week was {{day}}, feeling {{mood}}.",
     "days": {
       "sun": "Sun",
       "mon": "Mon",

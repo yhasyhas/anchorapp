@@ -52,6 +52,11 @@ export function CheckInPage() {
   )
 
   if (!isEvening) {
+    // Same hoursUntilEvening calc as before (19 mirrors utils.ts's
+    // isCheckInTime window start), just read as a fraction of the
+    // midnight→evening span instead of a raw hour count.
+    const progressFraction = Math.min(1, Math.max(0, (19 - hoursUntilEvening) / 19))
+
     return (
       <div className="mx-auto max-w-lg flex min-h-[60vh] flex-col items-center justify-center space-y-6 px-6 text-center">
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-lavender/30">
@@ -65,11 +70,38 @@ export function CheckInPage() {
             {t("timegate.evening_message")}
           </p>
         </div>
-        <div className="rounded-full bg-secondary px-4 py-2 text-xs font-medium text-muted-foreground">
-          {hoursUntilEvening > 0
-            ? t("timegate.hours_until", { hours: hoursUntilEvening, plural: hoursUntilEvening > 1 ? 's' : '' })
-            : t("timegate.soon")}
+
+        {/* Segmented progress toward the evening check-in window (section 6)
+            — replaces the old "About X hours to go" pill: same info, read as
+            a promise filling up rather than a wait dragging on. The hours
+            text moves to this bar's aria-label so it's still announced. */}
+        <div
+          className="w-full max-w-xs"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(progressFraction * 100)}
+          aria-label={
+            hoursUntilEvening > 0
+              ? t("timegate.hours_until", { hours: hoursUntilEvening, plural: hoursUntilEvening > 1 ? "s" : "" })
+              : t("timegate.soon")
+          }
+        >
+          <div className="flex gap-1.5">
+            {Array.from({ length: 5 }).map((_, i) => {
+              const segmentFill = Math.min(1, Math.max(0, progressFraction * 5 - i))
+              return (
+                <div key={i} className="h-2 flex-1 overflow-hidden rounded-full bg-border">
+                  <div
+                    className="h-full rounded-full bg-lavender transition-all duration-700 ease-out motion-reduce:transition-none"
+                    style={{ width: `${segmentFill * 100}%` }}
+                  />
+                </div>
+              )
+            })}
+          </div>
         </div>
+
         <p className="text-xs text-muted-foreground italic">
           {t("timegate.evening_sub")}
         </p>

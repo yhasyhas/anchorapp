@@ -29,7 +29,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import {
   Info,
   Heart,
-  Sparkles,
   Lock,
   Pencil,
   Sun,
@@ -60,7 +59,7 @@ import { JarOpeningModal } from "@/components/anchor/jar-opening-modal"
 import { SoftModeNudgeCard } from "@/components/anchor/soft-mode-nudge-card"
 import { SoftModeBadge } from "@/components/anchor/soft-mode-badge"
 import { useSoftMode } from "@/hooks/use-soft-mode"
-import { useAnchorDefs } from "@/hooks/use-anchor-defs"
+import { useAnchorDefs, type AnchorDef } from "@/hooks/use-anchor-defs"
 import { useNudgeArbitration } from "@/hooks/use-nudge-arbitration"
 import { useDailyCycle } from "@/hooks/use-daily-cycle"
 import type { TFunction } from "i18next"
@@ -74,6 +73,25 @@ function intentionLabel(
 ): string | null {
   const resolved = resolveIntentionLabel(t, rawIntention, language, customIntentions)
   return resolved ? resolved.toLowerCase() : null
+}
+
+// Per-mood ink stroke color — anchor-redesign-spec.md section 3's table.
+// Distinct from moodConfig's `color` (src/lib/constants.ts, the old pill-
+// background palette still used by checkin.tsx's own mood picker) — kept
+// local to this card rather than touching that shared constant.
+const MOOD_INK: Record<"great" | "okay" | "meh" | "low" | "stressed", string> = {
+  great: "#8A2E10",
+  okay: "#3A2E24",
+  meh: "#A38B6D",
+  low: "#B08A8A",
+  stressed: "#C97A5E",
+}
+const MOOD_WASH: Record<"great" | "okay" | "meh" | "low" | "stressed", string> = {
+  great: "rgba(138,46,16,0.1)",
+  okay: "rgba(58,46,36,0.1)",
+  meh: "rgba(163,139,109,0.1)",
+  low: "rgba(176,138,138,0.1)",
+  stressed: "rgba(201,122,94,0.1)",
 }
 
 function getGreetingKey(): string {
@@ -245,6 +263,12 @@ export function HomePage() {
   const [pickerAnchor, setPickerAnchor] = useState<AnchorCategory | null>(null)
   const pickerSuggestions = pickerAnchor ? poolFor(pickerAnchor) : []
 
+  // Which anchor chip's editor is open below the new horizontal chip row
+  // (section 5) — purely a UI selection, same category as pickerAnchor
+  // above; saveAnchor/onTaskChange themselves are untouched.
+  const [expandedAnchor, setExpandedAnchor] = useState<AnchorCategory>("future")
+  const currentPlanningDef = anchorDefs.find((d) => d.key === expandedAnchor) ?? anchorDefs[0]
+
   function handlePickMove(title: string) {
     if (!pickerAnchor) return
     const field = pickerAnchor === "future" ? "future_task" : pickerAnchor === "mindbody" ? "mindbody_task" : "life_task"
@@ -308,24 +332,61 @@ export function HomePage() {
         onSave={handleSaveIntention}
       />
 
-      {/* ── Mood selector — 1 tap, all 5 visible, no scroll needed at 390px ── */}
-      <div className="flex justify-between gap-2">
-        {moodConfig.map(({ key, icon, color }) => (
-          <button
-            key={key}
-            onClick={() => cycle.handleMoodSelect(key)}
-            aria-pressed={cycle.selectedMood === key}
-            aria-label={t(`mood.${key}`)}
-            className={`flex min-h-11 flex-1 flex-col items-center gap-1 rounded-xl p-3 transition-all duration-200 ${
-              prefersReducedMotionSafeScale(cycle.selectedMood === key)
-            }`}
-            style={{ backgroundColor: color }}
-          >
-            <AppIcon icon={icon} active={cycle.selectedMood === key} decorative className="text-foreground" />
-            <span className="text-xs font-medium text-foreground">{t(`mood.${key}`)}</span>
-          </button>
-        ))}
-      </div>
+      {/* ── Mood + daily quote — fused into one card per section 5 (was two
+          separate blocks: the bare mood row here, and the Companion card
+          much further down the page). Companion's own loading/speech-toggle
+          logic is untouched, only relocated + restyled. ── */}
+      <Card className="border-0 overflow-hidden rounded-anchor-card-lg shadow-[0_2px_16px_rgba(0,0,0,0.06)]">
+        <CardContent className="space-y-4 p-anchor-3">
+          <div className="flex justify-between gap-1">
+            {moodConfig.map(({ key, icon }) => {
+              const selected = cycle.selectedMood === key
+              return (
+                <button
+                  key={key}
+                  onClick={() => cycle.handleMoodSelect(key)}
+                  aria-pressed={selected}
+                  aria-label={t(`mood.${key}`)}
+                  className={`flex min-h-11 flex-1 flex-col items-center gap-1 rounded-2xl py-2 transition-transform duration-200 ${
+                    selected ? "motion-safe:scale-105" : "motion-safe:hover:scale-105"
+                  }`}
+                  style={{ backgroundColor: selected ? MOOD_WASH[key] : "transparent" }}
+                >
+                  <AppIcon icon={icon} size={24} active={selected} decorative style={{ color: MOOD_INK[key] }} />
+                  <span
+                    className={`text-[11px] font-medium ${selected ? "" : "text-muted-foreground"}`}
+                    style={selected ? { color: MOOD_INK[key] } : undefined}
+                  >
+                    {t(`mood.${key}`)}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="border-t border-border" />
+
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                {cycle.loadingCompanion ? t("companion.loading") : t("companion.title")}
+              </p>
+              <p className="mt-1 font-heading text-sm italic leading-snug text-foreground/90">
+                {cycle.companionMsg || t("companion.default_message")}
+              </p>
+            </div>
+            {isSpeechSynthesisAvailable() && !cycle.loadingCompanion && (
+              <button
+                onClick={handleToggleCompanionSpeech}
+                aria-label={t(isSpeakingCompanion ? "companion.stop" : "companion.listen")}
+                className="mt-0.5 flex min-h-11 min-w-11 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {isSpeakingCompanion ? <Square className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+              </button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* ── 3 Anchors ── */}
       <div className="space-y-4">
@@ -375,32 +436,15 @@ export function HomePage() {
               />
             ) : (
               <>
+                <AnchorChipRow defs={anchorDefs} expanded={expandedAnchor} onExpand={setExpandedAnchor} />
                 <PlanningAnchorCard
-                  borderColor="var(--anchor-green)"
-                  icon="anchor-mark"
-                  title={t("anchors.future")}
-                  subtitle={t("anchors.future_sub")}
-                  task={cycle.anchor.future_task}
-                  onTaskChange={(v) => cycle.saveAnchor({ future_task: v })}
-                  onOpenSuggestions={() => setPickerAnchor("future")}
-                />
-                <PlanningAnchorCard
-                  borderColor="var(--anchor-pink)"
-                  icon="mindbody"
-                  title={t("anchors.mindbody")}
-                  subtitle={t("anchors.mindbody_sub")}
-                  task={cycle.anchor.mindbody_task}
-                  onTaskChange={(v) => cycle.saveAnchor({ mindbody_task: v })}
-                  onOpenSuggestions={() => setPickerAnchor("mindbody")}
-                />
-                <PlanningAnchorCard
-                  borderColor="var(--anchor-lavender)"
-                  icon="life"
-                  title={t("anchors.life")}
-                  subtitle={t("anchors.life_sub")}
-                  task={cycle.anchor.life_task}
-                  onTaskChange={(v) => cycle.saveAnchor({ life_task: v })}
-                  onOpenSuggestions={() => setPickerAnchor("life")}
+                  borderColor={currentPlanningDef.borderColor}
+                  icon={currentPlanningDef.icon}
+                  title={currentPlanningDef.title}
+                  subtitle={currentPlanningDef.subtitle}
+                  task={currentPlanningDef.task}
+                  onTaskChange={currentPlanningDef.onTaskChange}
+                  onOpenSuggestions={() => setPickerAnchor(currentPlanningDef.key)}
                 />
               </>
             )}
@@ -416,19 +460,11 @@ export function HomePage() {
 
         {cycle.dayMode === "tracking" && (
           <div className="space-y-3">
-            {(softModeActive ? filledAnchorDefs : anchorDefs).map((d) => (
-              <TrackingAnchorCard
-                key={d.key}
-                borderColor={d.borderColor}
-                icon={d.icon}
-                title={d.title}
-                subtitle={d.subtitle}
-                task={d.task}
-                completed={d.completed}
-                onCheckChange={d.onCheckChange}
-                lockedAt={cycle.anchor.anchors_locked_at}
-              />
-            ))}
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {(softModeActive ? filledAnchorDefs : anchorDefs).map((d) => (
+                <TrackingAnchorChip key={d.key} def={d} lockedAt={cycle.anchor.anchors_locked_at} />
+              ))}
+            </div>
 
             {(softModeActive ? softAllFilledDone : allAnchorsDone) && (
               <div className="rounded-anchor-card-lg bg-sage-light/60 p-4 text-center">
@@ -458,33 +494,11 @@ export function HomePage() {
         </div>
       </div>
 
-      {/* ── Affirmation / Companion — one voice, fused per Mission 6 ── */}
-      <Card className="border-0 overflow-hidden rounded-anchor-card-lg bg-gradient-to-br from-sage-light/60 to-lavender/30 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
-        <CardContent className="flex items-center gap-3 p-4">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
-            <Sparkles className="h-4 w-4 text-primary" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-medium text-muted-foreground">
-              {cycle.loadingCompanion ? t("companion.loading") : t("companion.title")}
-            </p>
-            <p className="text-sm text-foreground/90 leading-snug font-medium">
-              {cycle.companionMsg || t("companion.default_message")}
-            </p>
-          </div>
-          {isSpeechSynthesisAvailable() && !cycle.loadingCompanion && (
-            <button
-              onClick={handleToggleCompanionSpeech}
-              aria-label={t(isSpeakingCompanion ? "companion.stop" : "companion.listen")}
-              className="min-h-11 min-w-11 shrink-0 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {isSpeakingCompanion ? <Square className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-            </button>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Supportive Message — kept mounted per CARTOGRAPHIE.md (f) contract */}
+      {/* Supportive Message — kept mounted per CARTOGRAPHIE.md (f) contract.
+          Deliberately still its own separate card, not merged with the
+          Companion message above (now living in the mood card) — that
+          contract explicitly calls out Companion + Supportive as two
+          intentionally distinct voices, see CARTOGRAPHIE.md Mission 6. */}
       <Card className="border-0 rounded-anchor-card-lg bg-secondary shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]">
         <CardContent className="flex items-start gap-3 p-5">
           <Heart className="mt-0.5 h-5 w-5 shrink-0 text-rose-accent" />
@@ -633,15 +647,6 @@ export function HomePage() {
       <SosWidget />
     </div>
   )
-}
-
-// Selection ring uses scale + shadow for feedback — dropped when
-// prefers-reduced-motion is on (Mission 7c), the ring/shadow themselves stay
-// since they're static, not animated.
-function prefersReducedMotionSafeScale(selected: boolean): string {
-  return selected
-    ? "ring-2 ring-anchor-orange ring-offset-2 shadow-md motion-safe:scale-110"
-    : "hover:shadow-sm motion-safe:hover:scale-105"
 }
 
 /* ─── Intention Hero Card ─── */
@@ -915,87 +920,104 @@ function SoftAnchorPicker({ defs, selected, onSelect, onExpand }: SoftAnchorPick
   )
 }
 
-/* ─── Tracking Card ─── */
-interface TrackingAnchorCardProps {
-  borderColor: string
-  icon: AppIconSource
-  title: string
-  subtitle: string
-  task: string
-  completed: boolean
-  onCheckChange: (value: boolean) => void
+/* ─── Anchor chip row (planning) ───
+   Horizontal scrollable selector per section 5 — replaces the old 3
+   stacked full-width PlanningAnchorCards. Tapping a chip only changes
+   which one is expanded in the editor card rendered below it in home.tsx;
+   task text, onTaskChange, onOpenSuggestions are all untouched, just fed
+   from whichever def is currently selected. */
+interface AnchorChipRowProps {
+  defs: AnchorDef[]
+  expanded: AnchorCategory
+  onExpand: (key: AnchorCategory) => void
+}
+
+function AnchorChipRow({ defs, expanded, onExpand }: AnchorChipRowProps) {
+  return (
+    <div className="flex gap-3 overflow-x-auto pb-1">
+      {defs.map((d) => {
+        const active = d.key === expanded
+        return (
+          <button
+            key={d.key}
+            onClick={() => onExpand(d.key)}
+            aria-pressed={active}
+            className={`flex w-[112px] shrink-0 flex-col items-start gap-1.5 rounded-anchor-card-lg p-3 text-left shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-colors ${
+              active ? "bg-accent" : "bg-card"
+            }`}
+            style={{ borderLeft: `3px solid ${d.borderColor}` }}
+          >
+            <AppIcon icon={d.icon} size={20} decorative style={{ color: d.borderColor }} />
+            <span className="text-xs font-semibold text-foreground">{d.title}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ─── Tracking chip (replaces the old full-width TrackingAnchorCard) ───
+   Same width/shape as the planning chip above, but the chip itself is the
+   full interactive unit (tap toggles completion) since there's no
+   separate "open editor" step in tracking mode. canCheckAnchors/
+   getTimeUntilAnchorCheck/handleCheck timegate logic is unchanged from
+   the card it replaces. */
+interface TrackingAnchorChipProps {
+  def: AnchorDef
   lockedAt: string | null
 }
 
-function TrackingAnchorCard({
-  borderColor,
-  icon,
-  title,
-  subtitle,
-  task,
-  completed,
-  onCheckChange,
-  lockedAt,
-}: TrackingAnchorCardProps) {
+function TrackingAnchorChip({ def, lockedAt }: TrackingAnchorChipProps) {
   const { t } = useTranslation()
+  const { borderColor, icon, title, task, completed, onCheckChange } = def
   const canCheck = canCheckAnchors(lockedAt)
   const timeLeft = getTimeUntilAnchorCheck(lockedAt)
   const [showNudge, setShowNudge] = useState(false)
 
-  const handleCheck = (v: boolean) => {
+  const handleCheck = () => {
     if (!canCheck) {
       setShowNudge(true)
       setTimeout(() => setShowNudge(false), 3000)
       return
     }
-    onCheckChange(v)
+    onCheckChange(!completed)
     Haptics.impact({ style: ImpactStyle.Light }).catch(() => {})
   }
 
   return (
-    <Card
-      className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)] relative overflow-hidden"
+    <button
+      onClick={handleCheck}
+      aria-pressed={completed}
+      aria-label={`${title}${task ? `: ${task}` : ""}`}
+      className="relative flex w-[112px] shrink-0 flex-col items-start gap-1.5 rounded-anchor-card-lg p-3 text-left shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-opacity"
       style={{
-        borderLeft: `4px solid ${borderColor}`,
-        backgroundColor: completed ? "var(--sage-light)" : undefined,
-        opacity: !canCheck && !completed ? 0.85 : 1,
+        borderLeft: `3px solid ${borderColor}`,
+        backgroundColor: completed ? "var(--sage-light)" : "var(--card)",
+        opacity: !canCheck && !completed ? 0.7 : 1,
       }}
     >
-      {!canCheck && !completed && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/40 backdrop-blur-[1px] rounded-lg">
-          <div className="rounded-full bg-secondary/90 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm">
-            ⏳ {t("timegate.time_left", { time: timeLeft })}
-          </div>
-        </div>
+      <div className="flex w-full items-center justify-between">
+        <AppIcon icon={icon} size={20} decorative style={{ color: borderColor }} />
+        <Checkbox checked={completed} className="pointer-events-none h-4 w-4" />
+      </div>
+      <span className="text-xs font-semibold text-foreground">{title}</span>
+      <span className={`line-clamp-2 text-[10px] ${completed ? "text-muted-foreground line-through" : "text-muted-foreground"}`}>
+        {task || t("home.no_task_set")}
+      </span>
+      {!canCheck && !completed && !showNudge && (
+        <span
+          className="absolute right-1.5 top-1.5 rounded-full bg-secondary/90 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground shadow-sm"
+          aria-hidden="true"
+        >
+          ⏳ {timeLeft}
+        </span>
       )}
 
-      <CardContent className="p-5">
-        <div className="mb-2 flex items-center gap-2">
-          <AppIcon icon={icon} size={20} decorative style={{ color: borderColor }} />
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-foreground">{title}</p>
-            <p className="text-xs text-muted-foreground">{subtitle}</p>
-          </div>
-          <Checkbox
-            checked={completed}
-            onCheckedChange={(v) => handleCheck(v === true)}
-            className="h-5 w-5 transition-all duration-200 data-[state=checked]:scale-110 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
-          />
-        </div>
-        {task ? (
-          <p className={`text-sm pl-1 ${completed ? "text-muted-foreground line-through" : "text-foreground"}`}>
-            {task}
-          </p>
-        ) : (
-          <p className="text-sm text-muted-foreground italic pl-1">{t("home.no_task_set")}</p>
-        )}
-      </CardContent>
-
       {showNudge && (
-        <div className="absolute bottom-2 left-2 right-2 z-20 rounded-lg bg-peach/90 px-3 py-2 text-center text-xs font-medium text-background shadow-md animate-in fade-in slide-in-from-bottom-2">
+        <div className="absolute inset-x-1 bottom-1 z-20 rounded-md bg-peach/90 px-1.5 py-1 text-center text-[9px] font-medium text-background shadow-md animate-in fade-in">
           {t("timegate.anchor_wait")}
         </div>
       )}
-    </Card>
+    </button>
   )
 }

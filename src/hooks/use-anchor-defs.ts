@@ -33,11 +33,16 @@ export interface UseAnchorDefsResult {
 export function useAnchorDefs(anchor: DailyAnchor, saveAnchor: (updates: Partial<DailyAnchor>) => void): UseAnchorDefsResult {
   const { t } = useTranslation()
 
+  // Icon + border color per anchor-redesign-spec.md section 3 ("Anchors")
+  // and section 1's role-consistent token pairs: anchor-orange = accent
+  // principal (Future), anchor-green = accent secondaire (Mind/Body),
+  // anchor-lavender = accent tertiaire (Life) — same role in light and dark,
+  // only the underlying hue changes (see src/index.css's .dark block).
   const anchorDefs: AnchorDef[] = [
     {
       key: "future",
-      icon: "anchor-mark",
-      borderColor: "var(--anchor-green)",
+      icon: "anchor-future",
+      borderColor: "var(--anchor-orange)",
       title: t("anchors.future"),
       subtitle: t("anchors.future_sub"),
       task: anchor.future_task,
@@ -47,8 +52,8 @@ export function useAnchorDefs(anchor: DailyAnchor, saveAnchor: (updates: Partial
     },
     {
       key: "mindbody",
-      icon: "mindbody",
-      borderColor: "var(--anchor-pink)",
+      icon: "anchor-mindbody",
+      borderColor: "var(--anchor-green)",
       title: t("anchors.mindbody"),
       subtitle: t("anchors.mindbody_sub"),
       task: anchor.mindbody_task,
@@ -58,7 +63,7 @@ export function useAnchorDefs(anchor: DailyAnchor, saveAnchor: (updates: Partial
     },
     {
       key: "life",
-      icon: "life",
+      icon: "anchor-life",
       borderColor: "var(--anchor-lavender)",
       title: t("anchors.life"),
       subtitle: t("anchors.life_sub"),

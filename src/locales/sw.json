@@ -150,6 +150,25 @@
     "picker_title": "Mapendekezo ya {{anchor}}",
     "picker_empty": "Bado hakuna mapendekezo — ongeza yako mwenyewe kwenye kichupo cha Sogeza."
   },
+  "nav": {
+    "more": "Zaidi"
+  },
+  "hub": {
+    "title": "Zaidi",
+    "settings": "Mipangilio",
+    "letters": "Barua",
+    "circle": "Mzunguko",
+    "jar": "Chombo",
+    "wrapped": "Wrapped",
+    "letters_status_new": "Barua mpya",
+    "letters_status_count": "Barua {{count}}",
+    "letters_status_empty": "Bado hakuna barua",
+    "circle_status_count": "{{count}} kwenye Mzunguko",
+    "circle_status_empty": "Tupu — alika",
+    "jar_status_count": "Matone {{count}}",
+    "wrapped_status_available": "{{month}} tayari",
+    "wrapped_status_next": "Mwezi ujao"
+  },
   "pause": {
     "title": "Chukua Mapumziko",
     "message": "Dakika chache za utulivu, kwa masharti yako.",

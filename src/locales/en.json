@@ -150,6 +150,25 @@
     "picker_title": "{{anchor}} suggestions",
     "picker_empty": "No suggestions yet — add your own on the Move tab."
   },
+  "nav": {
+    "more": "More"
+  },
+  "hub": {
+    "title": "More",
+    "settings": "Settings",
+    "letters": "Letters",
+    "circle": "Circle",
+    "jar": "Jar",
+    "wrapped": "Wrapped",
+    "letters_status_new": "New letter",
+    "letters_status_count": "{{count}} letters",
+    "letters_status_empty": "No letters yet",
+    "circle_status_count": "{{count}} in Circle",
+    "circle_status_empty": "Empty — invite",
+    "jar_status_count": "{{count}} drops",
+    "wrapped_status_available": "{{month}} ready",
+    "wrapped_status_next": "Next month"
+  },
   "pause": {
     "title": "Take a Pause",
     "message": "A few quiet minutes, on your terms.",

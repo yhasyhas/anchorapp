@@ -41,7 +41,7 @@ import {
 import { AppIcon } from "@/components/icons/app-icon"
 import type { AppIconSource } from "@/components/icons/app-icon"
 import { isSpeechSynthesisAvailable, speak, stopSpeaking } from "@/lib/speech"
-import { moodConfig, moodInk } from "@/lib/constants"
+import { moodConfig, moodInk, moodWash } from "@/lib/constants"
 import { canCheckAnchors, getTimeUntilAnchorCheck } from "@/lib/utils"
 import { usePrefersReducedMotion } from "@/hooks/use-reduced-motion"
 import { OnboardingModal } from "@/components/onboarding/onboarding-modal"
@@ -73,16 +73,6 @@ function intentionLabel(
 ): string | null {
   const resolved = resolveIntentionLabel(t, rawIntention, language, customIntentions)
   return resolved ? resolved.toLowerCase() : null
-}
-
-// Soft tinted-circle background for the selected mood (moodInk itself now
-// lives in src/lib/constants.ts, shared with patterns.tsx's bar chart).
-const MOOD_WASH: Record<"great" | "okay" | "meh" | "low" | "stressed", string> = {
-  great: "rgba(138,46,16,0.1)",
-  okay: "rgba(58,46,36,0.1)",
-  meh: "rgba(163,139,109,0.1)",
-  low: "rgba(176,138,138,0.1)",
-  stressed: "rgba(201,122,94,0.1)",
 }
 
 function getGreetingKey(): string {
@@ -341,7 +331,7 @@ export function HomePage() {
                   className={`flex min-h-11 flex-1 flex-col items-center gap-1 rounded-2xl py-2 transition-transform duration-200 ${
                     selected ? "motion-safe:scale-105" : "motion-safe:hover:scale-105"
                   }`}
-                  style={{ backgroundColor: selected ? MOOD_WASH[key] : "transparent" }}
+                  style={{ backgroundColor: selected ? moodWash[key] : "transparent" }}
                 >
                   <AppIcon icon={icon} size={24} active={selected} decorative style={{ color: moodInk[key] }} />
                   <span

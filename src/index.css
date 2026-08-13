@@ -134,6 +134,24 @@
   --font-heading: "Fraunces", serif;
   --font-body: "DM Sans", sans-serif;
 
+  /* Per-mood ink stroke + selected-wash — anchor-redesign-spec.md section 3's
+     mood color table (light values only; the spec gives no dark variant, so
+     these dark values are derived here — lightened to stay legible against
+     the dark "Nuit céleste" card, see .dark below). Distinct from
+     --mood-stressed above (the older pill-background token, still used by
+     checkin.tsx's own mood picker). Consumed via src/lib/constants.ts's
+     `moodInk`/`moodWash`, shared by home.tsx and patterns.tsx. */
+  --mood-ink-great: #8A2E10;
+  --mood-ink-okay: #3A2E24;
+  --mood-ink-meh: #A38B6D;
+  --mood-ink-low: #B08A8A;
+  --mood-ink-stressed: #C97A5E;
+  --mood-wash-great: rgba(138, 46, 16, 0.1);
+  --mood-wash-okay: rgba(58, 46, 36, 0.1);
+  --mood-wash-meh: rgba(163, 139, 109, 0.1);
+  --mood-wash-low: rgba(176, 138, 138, 0.1);
+  --mood-wash-stressed: rgba(201, 122, 94, 0.1);
+
   /* Anchor design tokens — anchor-redesign-spec.md section 1, "Mode clair".
      Not consumed by --background/--primary/etc.; see the @theme inline
      block above for the generated Tailwind utilities. Each token keeps its
@@ -219,6 +237,20 @@
   --lavender: #B78CFF;
   --peach: #E9B072;
   --mood-stressed: #C2705F;
+
+  /* Mood ink/wash, lightened for legibility on the dark "Nuit céleste" card
+     (#141838) — same hue family as each light-mode value above, not a
+     literal spec table (see :root comment). */
+  --mood-ink-great: #E08A5C;
+  --mood-ink-okay: #C9BFB0;
+  --mood-ink-meh: #B8A184;
+  --mood-ink-low: #C99FA0;
+  --mood-ink-stressed: #E0916F;
+  --mood-wash-great: rgba(224, 138, 92, 0.14);
+  --mood-wash-okay: rgba(201, 191, 176, 0.14);
+  --mood-wash-meh: rgba(184, 161, 132, 0.14);
+  --mood-wash-low: rgba(201, 159, 160, 0.14);
+  --mood-wash-stressed: rgba(224, 145, 111, 0.14);
 
   /* Anchor design tokens — "Nuit céleste" values, role-matched to the
      :root ("Papier rosé") definitions above (e.g. anchor-green stays the

@@ -31,13 +31,27 @@ export const moodConfig = [
 // Distinct from moodConfig's `color` above (the old pill-background
 // palette, still used by checkin.tsx's evening mood picker) — this is the
 // new signature-icon stroke color, shared by home.tsx's mood card and
-// patterns.tsx's bar chart so both stay in sync.
+// patterns.tsx's bar chart so both stay in sync. Values are CSS vars (see
+// src/index.css's --mood-ink-*) rather than literal hex so each mood stays
+// legible in both themes — the spec's table only gives light-mode values,
+// and the light hex applied directly in dark mode (e.g. "okay"'s near-black
+// #3A2E24) was nearly invisible against the dark card; darkmode audit fix.
 export const moodInk: Record<"great" | "okay" | "meh" | "low" | "stressed", string> = {
-  great: "#8A2E10",
-  okay: "#3A2E24",
-  meh: "#A38B6D",
-  low: "#B08A8A",
-  stressed: "#C97A5E",
+  great: "var(--mood-ink-great)",
+  okay: "var(--mood-ink-okay)",
+  meh: "var(--mood-ink-meh)",
+  low: "var(--mood-ink-low)",
+  stressed: "var(--mood-ink-stressed)",
+}
+
+// Soft tinted-circle background behind the selected mood in home.tsx's mood
+// card — same theme-aware-token treatment as moodInk above.
+export const moodWash: Record<"great" | "okay" | "meh" | "low" | "stressed", string> = {
+  great: "var(--mood-wash-great)",
+  okay: "var(--mood-wash-okay)",
+  meh: "var(--mood-wash-meh)",
+  low: "var(--mood-wash-low)",
+  stressed: "var(--mood-wash-stressed)",
 }
 
 export const moodToValue: Record<string, number> = {

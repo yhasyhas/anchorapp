@@ -542,7 +542,7 @@ export function CirclePage() {
       {members.length === 0 ? (
         <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5">
-            <EmptyState icon="seedling" titleKey="circle.empty_title" descriptionKey="circle.empty_desc" />
+            <EmptyState icon="empty-circle" titleKey="circle.empty_title" descriptionKey="circle.empty_desc" />
             <Link to="/settings">
               <Button className="mt-4 w-full">{t("circle.empty_cta")}</Button>
             </Link>

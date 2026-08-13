@@ -103,7 +103,7 @@ export function JarPage() {
       ) : entries.length === 0 ? (
         <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5">
-            <EmptyState icon="seedling" titleKey="jar.empty_title" descriptionKey="jar.empty_desc" />
+            <EmptyState icon="empty-jar" titleKey="jar.empty_title" descriptionKey="jar.empty_desc" />
           </CardContent>
         </Card>
       ) : (

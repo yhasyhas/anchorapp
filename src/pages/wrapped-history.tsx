@@ -86,7 +86,7 @@ export function WrappedHistoryPage() {
       ) : (
         <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5">
-            <EmptyState icon="seedling" titleKey="wrapped.empty" descriptionKey="wrapped.empty_sub" />
+            <EmptyState icon="empty-wrapped" titleKey="wrapped.empty" descriptionKey="wrapped.empty_sub" />
           </CardContent>
         </Card>
       )}

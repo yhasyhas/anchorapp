@@ -199,7 +199,7 @@ export function LettersPage() {
       ) : (
         <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5">
-            <EmptyState icon="flower" titleKey="letters.empty" descriptionKey="letters.empty_sub" />
+            <EmptyState icon="empty-letters" titleKey="letters.empty" descriptionKey="letters.empty_sub" />
           </CardContent>
         </Card>
       )}

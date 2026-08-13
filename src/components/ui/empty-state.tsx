@@ -1,7 +1,8 @@
 import { useTranslation } from "react-i18next"
+import { EmptyJarIcon, EmptyLettersIcon, EmptyCircleIcon, EmptyWrappedIcon } from "@/components/icons/signature"
 
 interface EmptyStateProps {
-  icon: "flower" | "cloud" | "moon" | "seedling"
+  icon: "flower" | "cloud" | "moon" | "seedling" | "empty-jar" | "empty-letters" | "empty-circle" | "empty-wrapped"
   titleKey: string
   descriptionKey?: string
 }
@@ -34,6 +35,16 @@ const icons = {
       <path d="M32 36c0-10-6-16-12-16 3 6 6 10 12 10z" fill="currentColor" opacity="0.6" />
     </svg>
   ),
+  // Per-section empty states (anchor-redesign-spec.md section 3) — reuse
+  // the signature icon components directly rather than AppIcon (whose
+  // `size` prop is restricted to 20|24 for inline UI icons, too small for
+  // this component's 64px illustrations). Tints match each section's old
+  // QuickAccessBar color (Jar=green, Letters=lavender, Circle=rose,
+  // Wrapped=peach) for continuity.
+  "empty-jar": <EmptyJarIcon size={64} aria-hidden className="text-anchor-green/60" />,
+  "empty-letters": <EmptyLettersIcon size={64} aria-hidden className="text-anchor-lavender/60" />,
+  "empty-circle": <EmptyCircleIcon size={64} aria-hidden className="text-rose-accent/60" />,
+  "empty-wrapped": <EmptyWrappedIcon size={64} aria-hidden className="text-peach/60" />,
 }
 
 export function EmptyState({ icon, titleKey, descriptionKey }: EmptyStateProps) {

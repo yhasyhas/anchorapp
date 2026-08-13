@@ -89,28 +89,29 @@
 
 :root {
   --radius: 1.25rem;
-  /* Light theme — mirror palette validated in CARTOGRAPHIE.md Mission 2,
-     same hue families as the dark palette below, recalibrated for AA
-     contrast on a light background. */
-  --background: #FAF8F4;
-  --foreground: #3D3D3D;
+  /* Light theme — "Papier rosé" palette, anchor-redesign-spec.md section 1
+     ("Mode clair"). Tokens without a direct role in that table (destructive,
+     chart-2..5, sidebar-*, sage/rose-accent/lavender/peach/mood-stressed)
+     are left on their previous values, out of scope for this pass. */
+  --background: #F7ECE6;
+  --foreground: #241C14;
   --card: #FFFFFF;
-  --card-foreground: #3D3D3D;
+  --card-foreground: #241C14;
   --popover: #FFFFFF;
-  --popover-foreground: #3D3D3D;
-  --primary: #5F7A4B;
+  --popover-foreground: #241C14;
+  --primary: #8A2E10;
   --primary-foreground: #FFFFFF;
-  --secondary: #F5F1E8;
-  --secondary-foreground: #3D3D3D;
-  --muted: #F5F1E8;
-  --muted-foreground: #8A8A8A;
-  --accent: #E8EDE5;
-  --accent-foreground: #3D3D3D;
+  --secondary: #FFFFFF;
+  --secondary-foreground: #241C14;
+  --muted: #F7ECE6;
+  --muted-foreground: #A0786C;
+  --accent: rgba(138, 46, 16, 0.12);
+  --accent-foreground: #8A2E10;
   --destructive: #E8C4C4;
   --destructive-foreground: #3D3D3D;
-  --border: #E8E4DC;
-  --input: #E8E4DC;
-  --ring: #5F7A4B;
+  --border: rgba(58, 46, 36, 0.14);
+  --input: rgba(58, 46, 36, 0.14);
+  --ring: #8A2E10;
   --chart-1: #5F7A4B;
   --chart-2: #C24E77;
   --chart-3: #7C55D6;
@@ -130,23 +131,25 @@
   --lavender: #7C55D6;
   --peach: #B96A2C;
   --mood-stressed: #F5D5D5;
-  --font-heading: "Playfair Display", serif;
-  --font-body: "Inter", sans-serif;
+  --font-heading: "Fraunces", serif;
+  --font-body: "DM Sans", sans-serif;
 
-  /* Anchor design tokens (Mission 2) — flat brand constants from Ruth's
-     dark-first guide, same value regardless of the active .dark/:root
-     theme for now. Not consumed by --background/--primary/etc.; see the
-     @theme inline block above for the generated Tailwind utilities. */
-  --anchor-background: #0F0F10;
-  --anchor-surface: #17171A;
-  --anchor-surface-2: #1F1F23;
-  --anchor-gradient-dark: #2A2A31;
-  --anchor-green: #A7C48C;
-  --anchor-warm-cream: #F2D8B6;
-  --anchor-orange: #E9B072;
-  --anchor-lavender: #B78CFF;
-  --anchor-pink: #F48FB1;
-  --anchor-soft-green: #8FD3A1;
+  /* Anchor design tokens — anchor-redesign-spec.md section 1, "Mode clair".
+     Not consumed by --background/--primary/etc.; see the @theme inline
+     block above for the generated Tailwind utilities. Each token keeps its
+     existing name/role across light and dark (see .dark below) even where
+     the color family changes, e.g. anchor-green = "accent secondaire" role
+     (sauge in light, lavande in dark) — only the color changes, per spec. */
+  --anchor-background: #F7ECE6;   /* Fond de page */
+  --anchor-surface: #FFFFFF;      /* Carte / surface */
+  --anchor-surface-2: #FFFFFF;    /* Carte / surface (no distinct 2nd tone in spec) */
+  --anchor-gradient-dark: #FFFFFF; /* only referenced via dark: variants; see .dark override */
+  --anchor-green: #587342;        /* Accent secondaire — sauge */
+  --anchor-warm-cream: #A0786C;   /* Texte tertiaire / hint */
+  --anchor-orange: #8A2E10;       /* Accent principal — terracotta */
+  --anchor-lavender: #6B5248;     /* Accent tertiaire — brun */
+  --anchor-pink: #8A2E10;         /* Accent principal — terracotta */
+  --anchor-soft-green: #587342;   /* Accent secondaire — sauge */
 
   /* 8pt spacing grid */
   --anchor-space-1: 0.5rem;   /* 8px */
@@ -162,7 +165,7 @@
   --anchor-radius-input: 1rem;        /* 16px — inputs */
   --anchor-radius-control-sm: 0.75rem; /* 12px — small controls */
 
-  /* Typography scale (Playfair Display greeting/section, Inter body) */
+  /* Typography scale (Fraunces greeting/section, DM Sans body) */
   --anchor-text-greeting-size: 2rem;      /* 32px */
   --anchor-text-greeting-line: 2.5rem;    /* 40px */
   --anchor-text-section-size: 1.75rem;    /* 28px */
@@ -172,33 +175,31 @@
 }
 
 .dark {
-  /* Ruth's dark-first guide — official dark theme. Semantic tokens mapped
-     onto the anchor-* constants declared in :root above (background→
-     anchor-background, card→anchor-surface, popover/secondary/muted→
-     anchor-surface-2, accent/border/input→anchor-gradient-dark) so every
-     component consuming --background/--primary/etc. follows without
-     per-component edits. See CARTOGRAPHIE.md Mission 1 for the contrast
-     verification and the 3 export/canvas files that intentionally do NOT
+  /* "Nuit céleste" — anchor-redesign-spec.md section 1, "Mode sombre".
+     Tokens without a direct role in that table (destructive, chart-2..5,
+     sidebar-*, sage/rose-accent/lavender/peach/mood-stressed) are left on
+     their previous values, out of scope for this pass. See CARTOGRAPHIE.md
+     Mission 1 for the 3 export/canvas files that intentionally do NOT
      follow this (pdf/palette.ts, wrapped-share.ts, letter-share.ts). */
-  --background: #0F0F10;
-  --foreground: #F2D8B6;
-  --card: #17171A;
-  --card-foreground: #F2D8B6;
-  --popover: #1F1F23;
-  --popover-foreground: #F2D8B6;
-  --primary: #A7C48C;
-  --primary-foreground: #0F0F10;
-  --secondary: #1F1F23;
-  --secondary-foreground: #F2D8B6;
-  --muted: #1F1F23;
-  --muted-foreground: #B5AC9C;
-  --accent: #2A2A31;
-  --accent-foreground: #F2D8B6;
+  --background: #0D1030;
+  --foreground: #E9E4F5;
+  --card: #141838;
+  --card-foreground: #E9E4F5;
+  --popover: #141838;
+  --popover-foreground: #E9E4F5;
+  --primary: #D4AF6A;
+  --primary-foreground: #0D1030;
+  --secondary: #141838;
+  --secondary-foreground: #E9E4F5;
+  --muted: #141838;
+  --muted-foreground: #7278A0;
+  --accent: rgba(212, 175, 106, 0.14);
+  --accent-foreground: #D4AF6A;
   --destructive: #D97A6E;
   --destructive-foreground: #0F0F10;
-  --border: #2A2A31;
-  --input: #2A2A31;
-  --ring: #A7C48C;
+  --border: rgba(139, 157, 195, 0.14);
+  --input: rgba(139, 157, 195, 0.14);
+  --ring: #D4AF6A;
   --chart-1: #A7C48C;
   --chart-2: #F48FB1;
   --chart-3: #B78CFF;
@@ -218,6 +219,20 @@
   --lavender: #B78CFF;
   --peach: #E9B072;
   --mood-stressed: #C2705F;
+
+  /* Anchor design tokens — "Nuit céleste" values, role-matched to the
+     :root ("Papier rosé") definitions above (e.g. anchor-green stays the
+     "accent secondaire" role but shifts from sauge to lavande). */
+  --anchor-background: #0D1030;   /* Fond de page */
+  --anchor-surface: #141838;      /* Carte / surface */
+  --anchor-surface-2: #141838;    /* Carte / surface */
+  --anchor-gradient-dark: #141838;
+  --anchor-green: #B78CFF;        /* Accent secondaire — lavande (Mind/Body) */
+  --anchor-warm-cream: #7278A0;   /* Texte secondaire (no distinct tertiary in spec) */
+  --anchor-orange: #D4AF6A;       /* Accent principal — or */
+  --anchor-lavender: #8B9DC3;     /* Accent tertiaire — bleu-gris (Life) */
+  --anchor-pink: #D4AF6A;         /* Accent principal — or */
+  --anchor-soft-green: #B78CFF;   /* Accent secondaire — lavande */
 }
 
 @layer base {

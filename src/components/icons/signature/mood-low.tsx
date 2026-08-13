@@ -3,10 +3,9 @@ import { SignatureSvg, type SignatureIconProps } from "./signature-svg"
 export function MoodLowIcon({ active, ...props }: SignatureIconProps) {
   return (
     <SignatureSvg {...props}>
-      <circle cx="12" cy="12" r="8.5" fill={active ? "currentColor" : "none"} fillOpacity={active ? 0.16 : 0} />
-      <path d="M8.1 10.2h1.8" />
-      <path d="M14.1 10.2h1.8" />
-      <path d="M8.3 15.3c1.4-1.6 5.9-1.6 7.3 0" />
+      <path d="M7 16.5c1.2-1.8 3-2.6 5-2.6s3.8.8 5 2.6" />
+      <circle cx="9" cy="9" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="9" r="0.9" fill="currentColor" stroke="none" />
     </SignatureSvg>
   )
 }

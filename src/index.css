@@ -78,6 +78,7 @@
   --radius-anchor-card-lg: var(--anchor-radius-card-lg);
   --radius-anchor-input: var(--anchor-radius-input);
   --radius-anchor-control-sm: var(--anchor-radius-control-sm);
+  --radius-anchor-modal: var(--anchor-radius-modal);
 
   --text-anchor-greeting: var(--anchor-text-greeting-size);
   --text-anchor-greeting--line-height: var(--anchor-text-greeting-line);
@@ -104,7 +105,11 @@
   --secondary: #FFFFFF;
   --secondary-foreground: #241C14;
   --muted: #F7ECE6;
-  --muted-foreground: #A0786C;
+  /* Darkened from the spec's literal #A0786C — that value is 3.89:1 on
+     white (#FFFFFF, this app's --card), below WCAG AA's 4.5:1 for normal
+     text. #8F6A5E keeps the same warm taupe hue at ~4.78:1. Flagged to the
+     user per anchor-redesign-spec.md section 10's own instruction to do so. */
+  --muted-foreground: #8F6A5E;
   --accent: rgba(138, 46, 16, 0.12);
   --accent-foreground: #8A2E10;
   --destructive: #E8C4C4;
@@ -178,10 +183,15 @@
   --anchor-space-6: 3rem;     /* 48px */
   --anchor-space-7: 4rem;     /* 64px */
 
-  /* Radius scale */
-  --anchor-radius-card-lg: 1.5rem;    /* 24px — major cards */
+  /* Radius scale — anchor-redesign-spec.md section 10 "Rayons de bordure":
+     chips/pill buttons 12px (control-sm, already matched this — just
+     under-used until this pass), cards 18px (card-lg, was 24px), modals/
+     sheets 20-24px (new modal token), icon buttons round 50% (plain
+     rounded-full, no dedicated token needed). */
+  --anchor-radius-card-lg: 1.125rem;  /* 18px — cards */
   --anchor-radius-input: 1rem;        /* 16px — inputs */
-  --anchor-radius-control-sm: 0.75rem; /* 12px — small controls */
+  --anchor-radius-control-sm: 0.75rem; /* 12px — chips / pill buttons */
+  --anchor-radius-modal: 1.375rem;    /* 22px — modals / sheets */
 
   /* Typography scale (Fraunces greeting/section, DM Sans body) */
   --anchor-text-greeting-size: 2rem;      /* 32px */

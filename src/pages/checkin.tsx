@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next"
+import { Haptics, ImpactStyle } from "@capacitor/haptics"
 import { useAuth } from "@/lib/auth-context"
 import { getSoftModeQuestion } from "@/lib/checkin-questions"
 import { getQuickReplyChips } from "@/lib/checkin-chips"
@@ -133,12 +134,15 @@ export function CheckInPage() {
             {moodConfig.map(({ key, icon, color }) => (
               <button
                 key={key}
-                onClick={() => cycle.updateField("evening_mood", key)}
+                onClick={() => {
+                  cycle.updateField("evening_mood", key)
+                  Haptics.impact({ style: ImpactStyle.Light }).catch(() => {})
+                }}
                 aria-pressed={cycle.checkIn.evening_mood === key}
-                className={`flex flex-1 flex-col items-center gap-1 rounded-xl p-2.5 transition-all duration-300 ${
+                className={`flex min-h-11 flex-1 flex-col items-center gap-1 rounded-anchor-control-sm p-2.5 motion-safe:transition-all motion-safe:duration-300 ${
                   cycle.checkIn.evening_mood === key
-                    ? "ring-2 ring-anchor-orange ring-offset-2 scale-110 shadow-md"
-                    : "hover:scale-105 hover:shadow-sm"
+                    ? "ring-2 ring-anchor-orange ring-offset-2 motion-safe:scale-110 shadow-md"
+                    : "motion-safe:hover:scale-105 hover:shadow-sm"
                 }`}
                 style={{ backgroundColor: color }}
               >
@@ -309,6 +313,7 @@ export function CheckInPage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={cycle.isRecording ? cycle.stopRecording : cycle.startRecording}
+                aria-label={t(cycle.isRecording ? "checkin.stop_recording" : "checkin.start_recording")}
                 className={`flex h-12 w-12 items-center justify-center rounded-full transition-all ${
                   cycle.isRecording
                     ? "bg-destructive text-white dark:text-background animate-pulse"

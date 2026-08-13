@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
+import { Haptics, ImpactStyle } from "@capacitor/haptics"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -26,6 +27,7 @@ export function GratitudeDropCard() {
       await addGratitude(trimmed)
       setText("")
       setDropping(true)
+      Haptics.impact({ style: ImpactStyle.Light }).catch(() => {})
       setTimeout(() => setDropping(false), 700)
       toast.success(t("jar.drop_success"))
     } catch (err) {

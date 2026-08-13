@@ -328,7 +328,7 @@ export function HomePage() {
                   onClick={() => cycle.handleMoodSelect(key)}
                   aria-pressed={selected}
                   aria-label={t(`mood.${key}`)}
-                  className={`flex min-h-11 flex-1 flex-col items-center gap-1 rounded-2xl py-2 transition-transform duration-200 ${
+                  className={`flex min-h-11 flex-1 flex-col items-center gap-1 rounded-anchor-control-sm py-2 motion-safe:transition-transform motion-safe:duration-200 ${
                     selected ? "motion-safe:scale-105" : "motion-safe:hover:scale-105"
                   }`}
                   style={{ backgroundColor: selected ? moodWash[key] : "transparent" }}
@@ -923,7 +923,7 @@ function AnchorChipRow({ defs, expanded, onExpand }: AnchorChipRowProps) {
             key={d.key}
             onClick={() => onExpand(d.key)}
             aria-pressed={active}
-            className={`flex w-[112px] shrink-0 flex-col items-start gap-1.5 rounded-anchor-card-lg p-3 text-left shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-colors ${
+            className={`flex w-[112px] shrink-0 flex-col items-start gap-1.5 rounded-anchor-control-sm p-3 text-left shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-colors ${
               active ? "bg-accent" : "bg-card"
             }`}
             style={{ borderLeft: `3px solid ${d.borderColor}` }}
@@ -970,7 +970,7 @@ function TrackingAnchorChip({ def, lockedAt }: TrackingAnchorChipProps) {
       onClick={handleCheck}
       aria-pressed={completed}
       aria-label={`${title}${task ? `: ${task}` : ""}`}
-      className="relative flex w-[112px] shrink-0 flex-col items-start gap-1.5 rounded-anchor-card-lg p-3 text-left shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-opacity"
+      className="relative flex w-[112px] shrink-0 flex-col items-start gap-1.5 rounded-anchor-control-sm p-3 text-left shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-opacity"
       style={{
         borderLeft: `3px solid ${borderColor}`,
         backgroundColor: completed ? "var(--sage-light)" : "var(--card)",

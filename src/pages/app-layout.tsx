@@ -186,7 +186,7 @@ export function AppLayout() {
               key={path}
               to={path}
               end={path === "/"}
-              className="flex flex-col items-center gap-1 px-2 py-1 text-[11px] font-medium"
+              className="flex min-h-11 min-w-11 flex-col items-center justify-center gap-1 px-2 py-1 text-[11px] font-medium"
             >
               {({ isActive }) => (
                 <>
@@ -207,7 +207,7 @@ export function AppLayout() {
             onClick={() => setShowHubModal(true)}
             aria-haspopup="dialog"
             aria-expanded={showHubModal}
-            className="flex flex-col items-center gap-1 px-2 py-1 text-[11px] font-medium"
+            className="flex min-h-11 min-w-11 flex-col items-center justify-center gap-1 px-2 py-1 text-[11px] font-medium"
           >
             <span
               className={`relative flex h-9 w-9 items-center justify-center rounded-full ${

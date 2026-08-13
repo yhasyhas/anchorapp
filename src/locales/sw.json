@@ -94,6 +94,8 @@
     "voice_note": "Ujumbe wa Sauti",
     "recording": "Inarekodi... sekunde {{seconds}} / 60",
     "tap_to_record": "Gusa ili kurekodi tafakari ya sekunde 60",
+    "start_recording": "Anza kurekodi",
+    "stop_recording": "Simamisha kurekodi",
     "voice_recorded": "Ujumbe wa sauti umerekodiwa",
     "ready_to_play": "Tayari kuchezwa",
     "playing": "Inacheza...",

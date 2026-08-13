@@ -94,6 +94,8 @@
     "voice_note": "Voice Note",
     "recording": "Recording... {{seconds}}s / 60s",
     "tap_to_record": "Tap to record a 60-second voice reflection",
+    "start_recording": "Start recording",
+    "stop_recording": "Stop recording",
     "voice_recorded": "Voice note recorded",
     "ready_to_play": "Ready to play",
     "playing": "Playing...",

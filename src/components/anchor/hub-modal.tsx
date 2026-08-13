@@ -73,7 +73,7 @@ export function HubModal({
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto rounded-t-anchor-card-lg">
+      <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto rounded-t-anchor-modal">
         <SheetHeader>
           <SheetTitle className="font-heading text-lg">{t("hub.title")}</SheetTitle>
         </SheetHeader>

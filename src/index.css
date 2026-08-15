@@ -25,6 +25,7 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-destructive-strong: var(--destructive-strong);
+  --color-destructive-solid: var(--destructive-solid);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -120,6 +121,14 @@
      red hue darkened for text/border use (Settings "Danger zone"), ~6.4:1
      on --card. */
   --destructive-strong: #A13F3F;
+  /* --destructive-solid: same color as --destructive-strong, but declared as
+     its own token and held constant across themes (see .dark below) — it's
+     a filled button background paired with fixed white text (Settings
+     "Delete my account" confirm), not page text-on-card, so it doesn't need
+     --destructive-strong's light/dark split; that split is tuned for
+     legibility against --card and would actually fail here in dark mode
+     (dark --destructive-strong is a light coral, ~3:1 with white text). */
+  --destructive-solid: #A13F3F;
   --border: rgba(58, 46, 36, 0.14);
   --input: rgba(58, 46, 36, 0.14);
   --ring: #8A2E10;
@@ -234,6 +243,9 @@
   /* Already ~5.7:1 on --card in dark mode, no lighter/darker split needed
      here — see the light-mode --destructive-strong comment above. */
   --destructive-strong: #D97A6E;
+  /* Deliberately identical to the light value — see the light-mode
+     --destructive-solid comment above. */
+  --destructive-solid: #A13F3F;
   --border: rgba(139, 157, 195, 0.14);
   --input: rgba(139, 157, 195, 0.14);
   --ring: #D4AF6A;

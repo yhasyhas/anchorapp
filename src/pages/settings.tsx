@@ -356,7 +356,7 @@ export function SettingsPage() {
                   <AlertDialogAction
                     onClick={handleDeleteAccount}
                     disabled={!canConfirmDelete || deleting}
-                    className="bg-destructive text-white hover:bg-destructive/90"
+                    className="bg-destructive-solid text-white hover:bg-destructive-solid/90"
                   >
                     {deleting ? t("settings.danger_delete_deleting") : t("settings.danger_delete_confirm_action")}
                   </AlertDialogAction>

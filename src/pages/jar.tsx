@@ -85,7 +85,7 @@ export function JarPage() {
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <div className="flex items-center gap-2">
-        <AppIcon icon="gratitude-jar" decorative className="text-primary" />
+        <AppIcon icon="hub-jar" decorative className="text-primary" />
         <div>
           <h1 className="font-heading text-2xl font-bold">{t("jar.page_title")}</h1>
           {count !== null && count > 0 && (

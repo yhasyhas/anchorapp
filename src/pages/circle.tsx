@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
-import { Heart, HeartHandshake, Loader2, Mail, Mic, Square, Play, Trash2, Gift, PartyPopper, Sparkles } from "lucide-react"
+import { HeartHandshake, Loader2, Mail, Mic, Square, Play, Trash2, Gift, PartyPopper, Sparkles } from "lucide-react"
 import { AppIcon } from "@/components/icons/app-icon"
 import { useAuth } from "@/lib/auth-context"
 import { Card, CardContent } from "@/components/ui/card"
@@ -533,7 +533,7 @@ export function CirclePage() {
     <div className="mx-auto max-w-lg space-y-6">
       <div>
         <div className="flex items-center gap-2">
-          <Heart className="h-5 w-5 text-primary" />
+          <AppIcon icon="hub-circle" decorative className="h-5 w-5 text-primary" />
           <h1 className="font-heading text-2xl font-bold">{t("circle.page_title")}</h1>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">{t("circle.page_subtitle")}</p>

@@ -6,9 +6,6 @@ import { getWeekKey } from "@/lib/ai-service"
 import { getMemberNames } from "@/lib/circle"
 import { getActiveSharedIntentions } from "@/lib/circle-intentions"
 import {
-  resolveMoveReason,
-  pickFeaturedSuggestion,
-  getMoveMoodCorrelation,
   buildVisibleSuggestions,
   materializeDefaultSuggestions,
   filterByAnchorCategory,
@@ -16,7 +13,6 @@ import {
   usedTitlesForToday,
   getRecentlyUsedTitles,
 } from "@/lib/move-selection"
-import { MoveOfTheDayCard } from "@/components/anchor/move-of-the-day-card"
 import { MovePickerSheet } from "@/components/anchor/move-picker-sheet"
 import { MIN_STREAK_FOR_INTENTION } from "@/lib/streaks"
 import { resolveIntentionLabel, buildSelectableIntentions } from "@/lib/intentions"
@@ -191,14 +187,12 @@ export function HomePage() {
     showWrappedTeaser
   )
 
-  // "Move of the day" + planning picker — same shared selection logic as
-  // src/pages/move.tsx (src/lib/move-selection.ts), fed from state
-  // useDailyCycle already loads (recentMoods, recentAnchors, streaks,
-  // moveSuggestions). Only shown before the day is locked in.
+  // Planning picker — same shared selection logic as src/pages/move.tsx
+  // (src/lib/move-selection.ts), fed from state useDailyCycle already loads
+  // (recentAnchors, moveSuggestions).
   const moveWeekKey = getWeekKey()
   const defaultMoveSuggestions = materializeDefaultSuggestions(t)
   const allVisibleMoveSuggestions = buildVisibleSuggestions(cycle.moveSuggestions, moveWeekKey, defaultMoveSuggestions)
-  const moveReason = resolveMoveReason({ recentMoods: cycle.recentMoods, currentAnchorStreak: cycle.streaks.currentAnchorStreak })
 
   // Point 1b: a suggestion already sitting in one of today's 3 anchors must
   // never be offered again for another. Point 1c: soft-prefer suggestions
@@ -212,30 +206,6 @@ export function HomePage() {
     const deduped = excludeUsedTitles(categoryPool, usedTodayTitles)
     const varied = excludeUsedTitles(deduped, recentlyUsedTitles)
     return varied.length > 0 ? varied : deduped
-  }
-
-  // Point 1a: only ever pick from suggestions tagged with the SAME
-  // anchor_category as the field being targeted — this is what stops e.g. a
-  // "stretch" (mindbody) suggestion from ever landing on the Life card.
-  const moveCtaTarget: "life" | "mindbody" | undefined = !cycle.anchor.life_task
-    ? "life"
-    : !cycle.anchor.mindbody_task
-      ? "mindbody"
-      : undefined
-
-  const featuredMovePick =
-    moveReason !== "absence" && moveCtaTarget ? pickFeaturedSuggestion(poolFor(moveCtaTarget), moveReason) : null
-  const featuredMoveTitle = moveReason === "absence" ? t("move.absence_fallback") : featuredMovePick?.title
-  const featuredMoveCategory = moveReason === "absence" ? "physical" : featuredMovePick?.category ?? "physical"
-  const featuredMoveIsAi = featuredMovePick?.generated_by === "ai"
-  const moveCorrelationHint = featuredMoveTitle
-    ? getMoveMoodCorrelation(featuredMoveTitle, cycle.recentAnchors, cycle.recentCheckInMoods)
-    : null
-
-  function handleAddMoveToAnchor(target: "life" | "mindbody") {
-    if (!featuredMoveTitle) return
-    if (target === "life") cycle.saveAnchor({ life_task: featuredMoveTitle })
-    else cycle.saveAnchor({ mindbody_task: featuredMoveTitle })
   }
 
   // Point 2: the suggestions picker on each planning anchor card, filtered to
@@ -513,17 +483,6 @@ export function HomePage() {
       />
       {activeNudge === "wrapped_teaser" && (
         <p className="text-center text-xs italic text-muted-foreground">{t("wrapped.teaser")}</p>
-      )}
-
-      {featuredMoveTitle && !cycle.anchor.anchors_locked_at && (
-        <MoveOfTheDayCard
-          title={featuredMoveTitle}
-          category={featuredMoveCategory}
-          isAiGenerated={featuredMoveIsAi}
-          correlationHint={moveCorrelationHint}
-          ctaTarget={moveCtaTarget}
-          onAdd={handleAddMoveToAnchor}
-        />
       )}
 
       {/* Daily Cycle progress + Streaks — grouped into one lighter-weight "Today"

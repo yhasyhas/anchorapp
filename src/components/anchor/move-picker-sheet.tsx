@@ -18,8 +18,8 @@ interface MovePickerSheetProps {
 // anchor_category and deduped against whatever's already sitting in the
 // OTHER 2 anchors today (see src/lib/move-selection.ts's filterByAnchorCategory
 // / excludeUsedTitles, applied by the caller before this list ever reaches
-// here — this component is purely presentational, same split as
-// MoveOfTheDayCard). 1 tap fills the field; still editable afterwards.
+// here — this component is purely presentational). 1 tap fills the field;
+// still editable afterwards.
 export function MovePickerSheet({ open, onOpenChange, anchorLabel, suggestions, onPick }: MovePickerSheetProps) {
   const { t } = useTranslation()
 

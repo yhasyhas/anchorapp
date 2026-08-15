@@ -60,8 +60,8 @@ export function CheckInPage() {
 
     return (
       <div className="mx-auto max-w-lg flex min-h-[60vh] flex-col items-center justify-center space-y-6 px-6 text-center">
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-lavender/30">
-          <Moon className="h-10 w-10 text-lavender" />
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+          <Moon className="h-10 w-10 text-primary" />
         </div>
         <div>
           <h2 className="font-heading text-xl font-semibold text-foreground">

@@ -574,11 +574,11 @@ export function HomePage() {
 
             <div className="flex flex-col items-center gap-1.5">
               <div className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-500 ${
-                cycle.checkInDone ? "bg-lavender text-white dark:text-background shadow-md scale-110" : "bg-muted text-muted-foreground"
+                cycle.checkInDone ? "bg-primary text-primary-foreground shadow-md scale-110" : "bg-muted text-muted-foreground"
               }`}>
                 <Moon className="h-4 w-4" />
               </div>
-              <span className={`text-[10px] font-medium ${cycle.checkInDone ? "text-lavender" : "text-muted-foreground"}`}>
+              <span className={`text-[10px] font-medium ${cycle.checkInDone ? "text-primary" : "text-muted-foreground"}`}>
                 {t("daily_cycle.checkin")}
               </span>
             </div>

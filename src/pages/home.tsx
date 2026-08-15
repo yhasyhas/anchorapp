@@ -274,6 +274,68 @@ export function HomePage() {
         )}
       </div>
 
+      {/* ── Daily Cycle — compact horizontal frieze, moved up next to the
+          greeting per the post-rebuild visual audit (previously sat near
+          the bottom of the page, after Quick Actions/Affirmation/nudges).
+          Pure position change: cycleComplete/moodDone/anchorsDone/checkInDone
+          are computed the same as before, untouched. ── */}
+      <div className={`rounded-anchor-card-lg p-4 transition-colors duration-500 ${cycleComplete ? "bg-sage-light/40" : "bg-muted/30"}`}>
+        <p className="mb-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          {t("daily_cycle.title")}
+        </p>
+
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col items-center gap-1.5">
+            <div className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-500 ${
+              moodDone ? "bg-peach text-white dark:text-background shadow-md scale-110" : "bg-muted text-muted-foreground"
+            }`}>
+              <Sun className="h-4 w-4" />
+            </div>
+            <span className={`text-[10px] font-medium ${moodDone ? "text-peach" : "text-muted-foreground"}`}>
+              {t("daily_cycle.mood")}
+            </span>
+          </div>
+
+          <div className={`h-0.5 flex-1 mx-2 rounded-full transition-all duration-500 ${
+            moodDone ? "bg-peach/60" : "bg-muted"
+          }`} />
+
+          <div className="flex flex-col items-center gap-1.5">
+            <div className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-500 ${
+              anchorsDone ? "bg-primary text-primary-foreground shadow-md scale-110" : "bg-muted text-muted-foreground"
+            }`}>
+              <AppIcon icon="anchor-mark" decorative className="h-4 w-4" />
+            </div>
+            <span className={`text-[10px] font-medium ${anchorsDone ? "text-primary" : "text-muted-foreground"}`}>
+              {t("daily_cycle.anchors")}
+            </span>
+          </div>
+
+          <div className={`h-0.5 flex-1 mx-2 rounded-full transition-all duration-500 ${
+            anchorsDone ? "bg-primary/60" : "bg-muted"
+          }`} />
+
+          <div className="flex flex-col items-center gap-1.5">
+            <div className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-500 ${
+              cycle.checkInDone ? "bg-primary text-primary-foreground shadow-md scale-110" : "bg-muted text-muted-foreground"
+            }`}>
+              <Moon className="h-4 w-4" />
+            </div>
+            <span className={`text-[10px] font-medium ${cycle.checkInDone ? "text-primary" : "text-muted-foreground"}`}>
+              {t("daily_cycle.checkin")}
+            </span>
+          </div>
+        </div>
+
+        {cycleComplete && (
+          <div className="mt-3 text-center">
+            <p className="text-xs font-medium text-primary animate-pulse">
+              ✨ {t("daily_cycle.complete")}
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* ── Intention Hero ── */}
       <IntentionHeroCard
         intention={cycle.anchor.daily_intention}
@@ -485,73 +547,9 @@ export function HomePage() {
         <p className="text-center text-xs italic text-muted-foreground">{t("wrapped.teaser")}</p>
       )}
 
-      {/* Daily Cycle progress + Streaks — grouped into one lighter-weight "Today"
-          section (tight internal space-y-3 instead of the page's usual
-          space-y-6) rather than 2-3 separately shadowed Cards: the progress
-          panel drops its own Card/shadow (flat tinted panel instead) so it
-          reads as this section's header rather than another stacked card,
-          while StreakCard below keeps its own Card — its background color is
-          real state (active/celebrated), not just decoration. Pure container
-          change: cycleComplete/moodDone/anchorsDone/checkInDone and every
-          StreakCard prop are untouched. */}
-      <div className="space-y-3">
-      <div className={`rounded-anchor-card-lg p-4 transition-colors duration-500 ${cycleComplete ? "bg-sage-light/40" : "bg-muted/30"}`}>
-          <p className="mb-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            {t("daily_cycle.title")}
-          </p>
-
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col items-center gap-1.5">
-              <div className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-500 ${
-                moodDone ? "bg-peach text-white dark:text-background shadow-md scale-110" : "bg-muted text-muted-foreground"
-              }`}>
-                <Sun className="h-4 w-4" />
-              </div>
-              <span className={`text-[10px] font-medium ${moodDone ? "text-peach" : "text-muted-foreground"}`}>
-                {t("daily_cycle.mood")}
-              </span>
-            </div>
-
-            <div className={`h-0.5 flex-1 mx-2 rounded-full transition-all duration-500 ${
-              moodDone ? "bg-peach/60" : "bg-muted"
-            }`} />
-
-            <div className="flex flex-col items-center gap-1.5">
-              <div className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-500 ${
-                anchorsDone ? "bg-primary text-primary-foreground shadow-md scale-110" : "bg-muted text-muted-foreground"
-              }`}>
-                <AppIcon icon="anchor-mark" decorative className="h-4 w-4" />
-              </div>
-              <span className={`text-[10px] font-medium ${anchorsDone ? "text-primary" : "text-muted-foreground"}`}>
-                {t("daily_cycle.anchors")}
-              </span>
-            </div>
-
-            <div className={`h-0.5 flex-1 mx-2 rounded-full transition-all duration-500 ${
-              anchorsDone ? "bg-primary/60" : "bg-muted"
-            }`} />
-
-            <div className="flex flex-col items-center gap-1.5">
-              <div className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-500 ${
-                cycle.checkInDone ? "bg-primary text-primary-foreground shadow-md scale-110" : "bg-muted text-muted-foreground"
-              }`}>
-                <Moon className="h-4 w-4" />
-              </div>
-              <span className={`text-[10px] font-medium ${cycle.checkInDone ? "text-primary" : "text-muted-foreground"}`}>
-                {t("daily_cycle.checkin")}
-              </span>
-            </div>
-          </div>
-
-          {cycleComplete && (
-            <div className="mt-3 text-center">
-              <p className="text-xs font-medium text-primary animate-pulse">
-                ✨ {t("daily_cycle.complete")}
-              </p>
-            </div>
-          )}
-      </div>
-
+      {/* Streaks — the Daily Cycle progress frieze that used to sit here moved
+          up next to the greeting (post-rebuild visual audit). Pure position
+          change: every StreakCard prop is untouched. */}
       <div className={(cycle.streaks.currentMoodStreak >= MIN_STREAK_FOR_INTENTION || cycle.streaks.currentAnchorStreak >= MIN_STREAK_FOR_INTENTION) ? "space-y-3" : "flex gap-3"}>
         <StreakCard
           icon={<AppIcon icon="streak" decorative className="h-4 w-4" />}
@@ -575,7 +573,6 @@ export function HomePage() {
           activeText="text-primary"
           celebratedBg="bg-gradient-to-br from-sage-light/70 to-lavender/25"
         />
-      </div>
       </div>
 
       {cycle.graceGift && (

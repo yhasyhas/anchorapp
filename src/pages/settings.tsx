@@ -316,10 +316,10 @@ export function SettingsPage() {
             soft-shadow card convention used everywhere else on this page. */}
         <Card
           className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]"
-          style={{ borderLeft: "4px solid var(--destructive)" }}
+          style={{ borderLeft: "4px solid var(--destructive-strong)" }}
         >
           <CardContent className="p-5 space-y-3">
-            <p className="text-sm font-medium text-destructive">{t("settings.danger_title")}</p>
+            <p className="text-sm font-medium text-destructive-strong">{t("settings.danger_title")}</p>
             <p className="text-xs text-muted-foreground leading-relaxed">{t("settings.danger_delete_desc")}</p>
             <AlertDialog
               open={deleteDialogOpen}
@@ -329,7 +329,7 @@ export function SettingsPage() {
               }}
             >
               <AlertDialogTrigger asChild>
-                <Button variant="outline" className="w-full border-destructive/40 text-destructive hover:bg-destructive/10">
+                <Button variant="outline" className="w-full border-destructive-strong/40 text-destructive-strong hover:bg-destructive-strong/10">
                   {t("settings.danger_delete_button")}
                 </Button>
               </AlertDialogTrigger>

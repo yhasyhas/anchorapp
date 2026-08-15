@@ -24,6 +24,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-strong: var(--destructive-strong);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -114,6 +115,11 @@
   --accent-foreground: #8A2E10;
   --destructive: #E8C4C4;
   --destructive-foreground: #3D3D3D;
+  /* --destructive is a light fill, only ~1.6:1 against white/--card — fine
+     as a background but unusable as text. --destructive-strong is the same
+     red hue darkened for text/border use (Settings "Danger zone"), ~6.4:1
+     on --card. */
+  --destructive-strong: #A13F3F;
   --border: rgba(58, 46, 36, 0.14);
   --input: rgba(58, 46, 36, 0.14);
   --ring: #8A2E10;
@@ -225,6 +231,9 @@
   --accent-foreground: #D4AF6A;
   --destructive: #D97A6E;
   --destructive-foreground: #0F0F10;
+  /* Already ~5.7:1 on --card in dark mode, no lighter/darker split needed
+     here — see the light-mode --destructive-strong comment above. */
+  --destructive-strong: #D97A6E;
   --border: rgba(139, 157, 195, 0.14);
   --input: rgba(139, 157, 195, 0.14);
   --ring: #D4AF6A;

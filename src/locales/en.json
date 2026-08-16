@@ -1,4 +1,7 @@
 {
+  "a11y": {
+    "skip_to_content": "Skip to main content"
+  },
   "home": {
     "greeting": "Good morning",
     "greeting_afternoon": "Good afternoon",

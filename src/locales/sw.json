@@ -1,4 +1,7 @@
 {
+  "a11y": {
+    "skip_to_content": "Ruka hadi maudhui makuu"
+  },
   "home": {
     "greeting": "Habari za asubuhi",
     "greeting_afternoon": "Habari za mchana",

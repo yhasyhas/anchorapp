@@ -24,6 +24,8 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-strong: var(--destructive-strong);
+  --color-destructive-solid: var(--destructive-solid);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -48,91 +50,252 @@
   --color-mood-stressed: var(--mood-stressed);
   --font-heading: var(--font-heading);
   --font-body: var(--font-body);
+
+  /* Anchor design tokens (Mission 2 — additive layer, not yet wired into
+     --background/--primary/etc. The dark-first palette from Ruth's guide;
+     the mirrored light palette is proposed in CARTOGRAPHIE.md but not
+     applied. These become available now as bg-anchor-*, text-anchor-*,
+     rounded-anchor-*, p-anchor-*, text-anchor-greeting utilities for the
+     icon set (Mission 3) and the future Home redesign, without changing
+     how any existing screen renders today. */
+  --color-anchor-background: var(--anchor-background);
+  --color-anchor-surface: var(--anchor-surface);
+  --color-anchor-surface-2: var(--anchor-surface-2);
+  --color-anchor-gradient-dark: var(--anchor-gradient-dark);
+  --color-anchor-green: var(--anchor-green);
+  --color-anchor-warm-cream: var(--anchor-warm-cream);
+  --color-anchor-orange: var(--anchor-orange);
+  --color-anchor-lavender: var(--anchor-lavender);
+  --color-anchor-pink: var(--anchor-pink);
+  --color-anchor-soft-green: var(--anchor-soft-green);
+
+  --spacing-anchor-1: var(--anchor-space-1);
+  --spacing-anchor-2: var(--anchor-space-2);
+  --spacing-anchor-3: var(--anchor-space-3);
+  --spacing-anchor-4: var(--anchor-space-4);
+  --spacing-anchor-5: var(--anchor-space-5);
+  --spacing-anchor-6: var(--anchor-space-6);
+  --spacing-anchor-7: var(--anchor-space-7);
+
+  --radius-anchor-card-lg: var(--anchor-radius-card-lg);
+  --radius-anchor-input: var(--anchor-radius-input);
+  --radius-anchor-control-sm: var(--anchor-radius-control-sm);
+  --radius-anchor-modal: var(--anchor-radius-modal);
+
+  --text-anchor-greeting: var(--anchor-text-greeting-size);
+  --text-anchor-greeting--line-height: var(--anchor-text-greeting-line);
+  --text-anchor-section: var(--anchor-text-section-size);
+  --text-anchor-section--line-height: var(--anchor-text-section-line);
+  --text-anchor-body: var(--anchor-text-body-size);
+  --text-anchor-body--line-height: var(--anchor-text-body-line);
 }
 
 :root {
   --radius: 1.25rem;
-  --background: #F9F7F2;
-  --foreground: #3D3D3D;
-  --card: #FDFBF7;
-  --card-foreground: #3D3D3D;
+  /* Light theme — "Papier rosé" palette, anchor-redesign-spec.md section 1
+     ("Mode clair"). Tokens without a direct role in that table (destructive,
+     chart-2..5, sidebar-*, sage/rose-accent/lavender/peach/mood-stressed)
+     are left on their previous values, out of scope for this pass. */
+  --background: #F7ECE6;
+  --foreground: #241C14;
+  --card: #FFFFFF;
+  --card-foreground: #241C14;
   --popover: #FFFFFF;
-  --popover-foreground: #3D3D3D;
-  --primary: #7A8B6E;
+  --popover-foreground: #241C14;
+  --primary: #8A2E10;
   --primary-foreground: #FFFFFF;
-  --secondary: #F5F1E8;
-  --secondary-foreground: #3D3D3D;
-  --muted: #F5F1E8;
-  --muted-foreground: #8A8A8A;
-  --accent: #E8EDE5;
-  --accent-foreground: #3D3D3D;
+  --secondary: #FFFFFF;
+  --secondary-foreground: #241C14;
+  --muted: #F7ECE6;
+  /* Darkened from the spec's literal #A0786C — that value is 3.89:1 on
+     white (#FFFFFF, this app's --card), below WCAG AA's 4.5:1 for normal
+     text. #8F6A5E keeps the same warm taupe hue at ~4.78:1. Flagged to the
+     user per anchor-redesign-spec.md section 10's own instruction to do so. */
+  --muted-foreground: #8F6A5E;
+  --accent: rgba(138, 46, 16, 0.12);
+  --accent-foreground: #8A2E10;
   --destructive: #E8C4C4;
   --destructive-foreground: #3D3D3D;
-  --border: #E8E4DC;
-  --input: #E8E4DC;
-  --ring: #7A8B6E;
-  --chart-1: #7A8B6E;
-  --chart-2: #E8C4C4;
-  --chart-3: #D4C5E8;
-  --chart-4: #F5D5C5;
-  --chart-5: #F5D5D5;
+  /* --destructive is a light fill, only ~1.6:1 against white/--card — fine
+     as a background but unusable as text. --destructive-strong is the same
+     red hue darkened for text/border use (Settings "Danger zone"), ~6.4:1
+     on --card. */
+  --destructive-strong: #A13F3F;
+  /* --destructive-solid: same color as --destructive-strong, but declared as
+     its own token and held constant across themes (see .dark below) — it's
+     a filled button background paired with fixed white text (Settings
+     "Delete my account" confirm), not page text-on-card, so it doesn't need
+     --destructive-strong's light/dark split; that split is tuned for
+     legibility against --card and would actually fail here in dark mode
+     (dark --destructive-strong is a light coral, ~3:1 with white text). */
+  --destructive-solid: #A13F3F;
+  --border: rgba(58, 46, 36, 0.14);
+  --input: rgba(58, 46, 36, 0.14);
+  --ring: #8A2E10;
+  --chart-1: #5F7A4B;
+  --chart-2: #C24E77;
+  --chart-3: #7C55D6;
+  --chart-4: #B96A2C;
+  --chart-5: #4C8F63;
   --sidebar: #F5F1E8;
   --sidebar-foreground: #3D3D3D;
-  --sidebar-primary: #7A8B6E;
+  --sidebar-primary: #5F7A4B;
   --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #E8EDE5;
   --sidebar-accent-foreground: #3D3D3D;
   --sidebar-border: #E8E4DC;
-  --sidebar-ring: #7A8B6E;
-  --sage: #7A8B6E;
+  --sidebar-ring: #5F7A4B;
+  --sage: #5F7A4B;
   --sage-light: #E8EDE5;
-  --rose-accent: #E8C4C4;
-  --lavender: #D4C5E8;
-  --peach: #F5D5C5;
+  --rose-accent: #C24E77;
+  --lavender: #7C55D6;
+  --peach: #B96A2C;
   --mood-stressed: #F5D5D5;
-  --font-heading: "Playfair Display", serif;
-  --font-body: "Inter", sans-serif;
+  --font-heading: "Fraunces", serif;
+  --font-body: "DM Sans", sans-serif;
+
+  /* Per-mood ink stroke + selected-wash — anchor-redesign-spec.md section 3's
+     mood color table (light values only; the spec gives no dark variant, so
+     these dark values are derived here — lightened to stay legible against
+     the dark "Nuit céleste" card, see .dark below). Distinct from
+     --mood-stressed above (the older pill-background token, still used by
+     checkin.tsx's own mood picker). Consumed via src/lib/constants.ts's
+     `moodInk`/`moodWash`, shared by home.tsx and patterns.tsx. */
+  --mood-ink-great: #8A2E10;
+  --mood-ink-okay: #3A2E24;
+  --mood-ink-meh: #A38B6D;
+  --mood-ink-low: #B08A8A;
+  --mood-ink-stressed: #C97A5E;
+  --mood-wash-great: rgba(138, 46, 16, 0.1);
+  --mood-wash-okay: rgba(58, 46, 36, 0.1);
+  --mood-wash-meh: rgba(163, 139, 109, 0.1);
+  --mood-wash-low: rgba(176, 138, 138, 0.1);
+  --mood-wash-stressed: rgba(201, 122, 94, 0.1);
+
+  /* Anchor design tokens — anchor-redesign-spec.md section 1, "Mode clair".
+     Not consumed by --background/--primary/etc.; see the @theme inline
+     block above for the generated Tailwind utilities. Each token keeps its
+     existing name/role across light and dark (see .dark below) even where
+     the color family changes, e.g. anchor-green = "accent secondaire" role
+     (sauge in light, lavande in dark) — only the color changes, per spec. */
+  --anchor-background: #F7ECE6;   /* Fond de page */
+  --anchor-surface: #FFFFFF;      /* Carte / surface */
+  --anchor-surface-2: #FFFFFF;    /* Carte / surface (no distinct 2nd tone in spec) */
+  --anchor-gradient-dark: #FFFFFF; /* only referenced via dark: variants; see .dark override */
+  --anchor-green: #587342;        /* Accent secondaire — sauge */
+  --anchor-warm-cream: #A0786C;   /* Texte tertiaire / hint */
+  --anchor-orange: #8A2E10;       /* Accent principal — terracotta */
+  --anchor-lavender: #6B5248;     /* Accent tertiaire — brun */
+  --anchor-pink: #8A2E10;         /* Accent principal — terracotta */
+  --anchor-soft-green: #587342;   /* Accent secondaire — sauge */
+
+  /* 8pt spacing grid */
+  --anchor-space-1: 0.5rem;   /* 8px */
+  --anchor-space-2: 1rem;     /* 16px */
+  --anchor-space-3: 1.5rem;   /* 24px */
+  --anchor-space-4: 2rem;     /* 32px */
+  --anchor-space-5: 2.5rem;   /* 40px */
+  --anchor-space-6: 3rem;     /* 48px */
+  --anchor-space-7: 4rem;     /* 64px */
+
+  /* Radius scale — anchor-redesign-spec.md section 10 "Rayons de bordure":
+     chips/pill buttons 12px (control-sm, already matched this — just
+     under-used until this pass), cards 18px (card-lg, was 24px), modals/
+     sheets 20-24px (new modal token), icon buttons round 50% (plain
+     rounded-full, no dedicated token needed). */
+  --anchor-radius-card-lg: 1.125rem;  /* 18px — cards */
+  --anchor-radius-input: 1rem;        /* 16px — inputs */
+  --anchor-radius-control-sm: 0.75rem; /* 12px — chips / pill buttons */
+  --anchor-radius-modal: 1.375rem;    /* 22px — modals / sheets */
+
+  /* Typography scale (Fraunces greeting/section, DM Sans body) */
+  --anchor-text-greeting-size: 2rem;      /* 32px */
+  --anchor-text-greeting-line: 2.5rem;    /* 40px */
+  --anchor-text-section-size: 1.75rem;    /* 28px */
+  --anchor-text-section-line: 2.25rem;    /* 36px */
+  --anchor-text-body-size: 0.875rem;      /* 14px */
+  --anchor-text-body-line: 1.25rem;       /* 20px */
 }
 
 .dark {
-  --background: #1C1B1A;
-  --foreground: #EAE6DD;
-  --card: #242220;
-  --card-foreground: #EAE6DD;
-  --popover: #2B2926;
-  --popover-foreground: #EAE6DD;
-  --primary: #93A67F;
-  --primary-foreground: #1C1B1A;
-  --secondary: #232120;
-  --secondary-foreground: #EAE6DD;
-  --muted: #232120;
-  --muted-foreground: #A69F93;
-  --accent: #2E3A29;
-  --accent-foreground: #EAE6DD;
-  --destructive: #B8726E;
-  --destructive-foreground: #FBF1EF;
-  --border: #37342F;
-  --input: #37342F;
-  --ring: #93A67F;
-  --chart-1: #93A67F;
-  --chart-2: #D08C8C;
-  --chart-3: #B39BDB;
-  --chart-4: #D9A26E;
-  --chart-5: #D98C99;
-  --sidebar: #201F1D;
-  --sidebar-foreground: #EAE6DD;
-  --sidebar-primary: #93A67F;
-  --sidebar-primary-foreground: #1C1B1A;
-  --sidebar-accent: #2E3A29;
-  --sidebar-accent-foreground: #EAE6DD;
-  --sidebar-border: #37342F;
-  --sidebar-ring: #93A67F;
-  --sage: #93A67F;
-  --sage-light: #2E3A29;
-  --rose-accent: #C98A87;
-  --lavender: #A98FD1;
-  --peach: #C9895B;
-  --mood-stressed: #C36E78;
+  /* "Nuit céleste" — anchor-redesign-spec.md section 1, "Mode sombre".
+     Tokens without a direct role in that table (destructive, chart-2..5,
+     sidebar-*, sage/rose-accent/lavender/peach/mood-stressed) are left on
+     their previous values, out of scope for this pass. See CARTOGRAPHIE.md
+     Mission 1 for the 3 export/canvas files that intentionally do NOT
+     follow this (pdf/palette.ts, wrapped-share.ts, letter-share.ts). */
+  --background: #0D1030;
+  --foreground: #E9E4F5;
+  --card: #141838;
+  --card-foreground: #E9E4F5;
+  --popover: #141838;
+  --popover-foreground: #E9E4F5;
+  --primary: #D4AF6A;
+  --primary-foreground: #0D1030;
+  --secondary: #141838;
+  --secondary-foreground: #E9E4F5;
+  --muted: #141838;
+  --muted-foreground: #7278A0;
+  --accent: rgba(212, 175, 106, 0.14);
+  --accent-foreground: #D4AF6A;
+  --destructive: #D97A6E;
+  --destructive-foreground: #0F0F10;
+  /* Already ~5.7:1 on --card in dark mode, no lighter/darker split needed
+     here — see the light-mode --destructive-strong comment above. */
+  --destructive-strong: #D97A6E;
+  /* Deliberately identical to the light value — see the light-mode
+     --destructive-solid comment above. */
+  --destructive-solid: #A13F3F;
+  --border: rgba(139, 157, 195, 0.14);
+  --input: rgba(139, 157, 195, 0.14);
+  --ring: #D4AF6A;
+  --chart-1: #A7C48C;
+  --chart-2: #F48FB1;
+  --chart-3: #B78CFF;
+  --chart-4: #E9B072;
+  --chart-5: #8FD3A1;
+  --sidebar: #17171A;
+  --sidebar-foreground: #F2D8B6;
+  --sidebar-primary: #A7C48C;
+  --sidebar-primary-foreground: #0F0F10;
+  --sidebar-accent: #1F1F23;
+  --sidebar-accent-foreground: #F2D8B6;
+  --sidebar-border: #2A2A31;
+  --sidebar-ring: #A7C48C;
+  --sage: #A7C48C;
+  --sage-light: #202A1D;
+  --rose-accent: #F48FB1;
+  --lavender: #B78CFF;
+  --peach: #E9B072;
+  --mood-stressed: #C2705F;
+
+  /* Mood ink/wash, lightened for legibility on the dark "Nuit céleste" card
+     (#141838) — same hue family as each light-mode value above, not a
+     literal spec table (see :root comment). */
+  --mood-ink-great: #E08A5C;
+  --mood-ink-okay: #C9BFB0;
+  --mood-ink-meh: #B8A184;
+  --mood-ink-low: #C99FA0;
+  --mood-ink-stressed: #E0916F;
+  --mood-wash-great: rgba(224, 138, 92, 0.14);
+  --mood-wash-okay: rgba(201, 191, 176, 0.14);
+  --mood-wash-meh: rgba(184, 161, 132, 0.14);
+  --mood-wash-low: rgba(201, 159, 160, 0.14);
+  --mood-wash-stressed: rgba(224, 145, 111, 0.14);
+
+  /* Anchor design tokens — "Nuit céleste" values, role-matched to the
+     :root ("Papier rosé") definitions above (e.g. anchor-green stays the
+     "accent secondaire" role but shifts from sauge to lavande). */
+  --anchor-background: #0D1030;   /* Fond de page */
+  --anchor-surface: #141838;      /* Carte / surface */
+  --anchor-surface-2: #141838;    /* Carte / surface */
+  --anchor-gradient-dark: #141838;
+  --anchor-green: #B78CFF;        /* Accent secondaire — lavande (Mind/Body) */
+  --anchor-warm-cream: #7278A0;   /* Texte secondaire (no distinct tertiary in spec) */
+  --anchor-orange: #D4AF6A;       /* Accent principal — or */
+  --anchor-lavender: #8B9DC3;     /* Accent tertiaire — bleu-gris (Life) */
+  --anchor-pink: #D4AF6A;         /* Accent principal — or */
+  --anchor-soft-green: #B78CFF;   /* Accent secondaire — lavande */
 }
 
 @layer base {

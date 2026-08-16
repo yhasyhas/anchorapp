@@ -3,6 +3,17 @@
   <head>
     <meta charset="UTF-8" />
 
+    <!-- Anti-FOUC: paint the correct background immediately, before the main
+         stylesheet loads (Vite emits the built <link rel="stylesheet"> after
+         the deferred module script tag, so on a slow connection there can be
+         a flash of unstyled white before the first styled paint). Keyed off
+         the same html.dark class the theme script below adds synchronously
+         pre-paint, so both themes are covered from the very first frame. -->
+    <style>
+      html, body { background-color: #F7ECE6; }
+      html.dark, html.dark body { background-color: #0D1030; }
+    </style>
+
     <!-- Favicons -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
@@ -12,8 +23,8 @@
     <!-- PWA manifest -->
     <link rel="manifest" href="/manifest.json" />
 
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#7A8B6E" id="theme-color-meta" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#8A2E10" id="theme-color-meta" />
     <meta name="description" content="A gentle life alignment system. Supportive, not demanding." />
     <title>Anchor — Life Alignment</title>
 
@@ -46,7 +57,7 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Fraunces:ital,wght@0,500;1,500&display=swap" rel="stylesheet">
 
     <!-- Anti-FOUC: apply the resolved theme class and status-bar color before first paint -->
     <script>
@@ -59,7 +70,7 @@
             : theme;
           document.documentElement.classList.add(resolved);
           var meta = document.getElementById("theme-color-meta");
-          if (meta) meta.setAttribute("content", resolved === "dark" ? "#1C1B1A" : "#7A8B6E");
+          if (meta) meta.setAttribute("content", resolved === "dark" ? "#0D1030" : "#8A2E10");
         } catch (e) {}
       })();
     </script>

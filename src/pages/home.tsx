@@ -230,7 +230,7 @@ export function HomePage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-6">
+    <div className="mx-auto max-w-lg space-y-6 lg:max-w-[1000px] lg:grid lg:grid-cols-12 lg:gap-6 lg:space-y-0 lg:px-4">
       <ConfettiBurst active={cycle.showConfetti} />
       <OnboardingModal />
       <MorningRitual onComplete={() => {}} />
@@ -260,7 +260,7 @@ export function HomePage() {
       />
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between lg:col-span-12">
         <div>
           <h1 className="font-heading text-2xl font-bold text-foreground">
             {t(getGreetingKey())}{firstName ? `, ${firstName}` : ""} &#x1F33B;
@@ -335,35 +335,48 @@ export function HomePage() {
         </div>
       </div>
 
-      <CircleInviteNudge />
+      <div className="lg:col-span-12">
+        <CircleInviteNudge />
+      </div>
 
       {/* Single nudge slot — at most one of these renders per visit, see
           the activeNudge priority order above. GratitudeReminderCard and
           PushNudge stay mounted even when suppressed so their own
           eligibility checks keep running (and can win the slot on a later
-          render once Soft Mode / higher-priority nudges clear). */}
-      {activeNudge === "soft_enter" && (
-        <SoftModeNudgeCard variant="enter" onAccept={acceptSoftMode} onDismiss={dismissSoftEnterNudge} />
-      )}
-      {activeNudge === "soft_exit" && (
-        <SoftModeNudgeCard variant="exit" onAccept={exitSoftMode} onDismiss={dismissSoftExitNudge} />
-      )}
-      <GratitudeReminderCard
-        todayMood={cycle.selectedMood}
-        onVisibilityChange={setGratitudeNudgeWants}
-        suppressed={activeNudge !== null && activeNudge !== "gratitude"}
-      />
-      <PushNudge
-        active={cycleComplete}
-        onVisibilityChange={setPushNudgeWants}
-        suppressed={activeNudge !== null && activeNudge !== "push"}
-      />
-      {activeNudge === "wrapped_teaser" && (
-        <p className="text-center text-xs italic text-muted-foreground">{t("wrapped.teaser")}</p>
-      )}
+          render once Soft Mode / higher-priority nudges clear). Grouped
+          under one wrapper on desktop purely so the grid only has to place
+          a single item for this slot instead of five. */}
+      <div className="space-y-6 lg:col-span-12">
+        {activeNudge === "soft_enter" && (
+          <SoftModeNudgeCard variant="enter" onAccept={acceptSoftMode} onDismiss={dismissSoftEnterNudge} />
+        )}
+        {activeNudge === "soft_exit" && (
+          <SoftModeNudgeCard variant="exit" onAccept={exitSoftMode} onDismiss={dismissSoftExitNudge} />
+        )}
+        <GratitudeReminderCard
+          todayMood={cycle.selectedMood}
+          onVisibilityChange={setGratitudeNudgeWants}
+          suppressed={activeNudge !== null && activeNudge !== "gratitude"}
+        />
+        <PushNudge
+          active={cycleComplete}
+          onVisibilityChange={setPushNudgeWants}
+          suppressed={activeNudge !== null && activeNudge !== "push"}
+        />
+        {activeNudge === "wrapped_teaser" && (
+          <p className="text-center text-xs italic text-muted-foreground">{t("wrapped.teaser")}</p>
+        )}
+      </div>
 
+      {/* Row 1 (desktop, ≥1024px, anchor-web-spec.md section 3): mood +
+          companion "citation" stacked in the left ~1.3fr column (approximated
+          as 7/12 columns since Tailwind's grid needs integer spans — see
+          the matching Daily Cycle card below and the Mood Selector further
+          down, which shares this column via the same explicit row/col so it
+          visually joins this card despite sitting later in the DOM (its
+          natural position stays untouched below 1024px). */}
       {/* Companion */}
-      <Card className="border-0 bg-gradient-to-br from-sage-light/60 to-lavender/30 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+      <Card className="border-0 bg-gradient-to-br from-sage-light/60 to-lavender/30 shadow-[0_2px_10px_rgba(0,0,0,0.04)] lg:col-start-1 lg:col-span-7 lg:row-start-4">
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
@@ -393,18 +406,20 @@ export function HomePage() {
       </Card>
 
       {featuredMoveTitle && !cycle.anchor.anchors_locked_at && (
-        <MoveOfTheDayCard
-          title={featuredMoveTitle}
-          category={featuredMoveCategory}
-          isAiGenerated={featuredMoveIsAi}
-          correlationHint={moveCorrelationHint}
-          ctaTarget={moveCtaTarget}
-          onAdd={handleAddMoveToAnchor}
-        />
+        <div className="lg:col-span-12">
+          <MoveOfTheDayCard
+            title={featuredMoveTitle}
+            category={featuredMoveCategory}
+            isAiGenerated={featuredMoveIsAi}
+            correlationHint={moveCorrelationHint}
+            ctaTarget={moveCtaTarget}
+            onAdd={handleAddMoveToAnchor}
+          />
+        </div>
       )}
 
-      {/* Daily Cycle */}
-      <Card className={`border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] ${cycleComplete ? "bg-sage-light/40" : "bg-card"}`}>
+      {/* Daily Cycle — right column of row 1, see the Companion card above */}
+      <Card className={`border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] lg:col-start-8 lg:col-span-5 lg:row-start-4 ${cycleComplete ? "bg-sage-light/40" : "bg-card"}`}>
         <CardContent className="p-4">
           <p className="mb-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
             {t("daily_cycle.title")}
@@ -463,17 +478,26 @@ export function HomePage() {
         </CardContent>
       </Card>
 
+      {/* Row 3 (desktop): "quick actions" — Journal + Set intention side by
+          side, per anchor-web-spec.md section 3. Daily Intention (below)
+          shares this row via the same explicit row/col despite sitting
+          later in the DOM — its natural position stays untouched below
+          1024px. */}
       {/* One-Sentence Journal — a bonus, not part of the daily cycle */}
-      <JournalCard />
+      <div className="lg:col-start-1 lg:col-span-6 lg:row-start-7">
+        <JournalCard />
+      </div>
 
       {/* Gratitude jar — same "small bonus habit" slot as the journal */}
-      <GratitudeDropCard />
+      <div className="lg:col-span-12">
+        <GratitudeDropCard />
+      </div>
 
       {/* Streaks — mechanical count below MIN_STREAK_FOR_INTENTION, meaningful sentence
           above it (celebrated state: warmer card, dominant intention of the streak
           period). Stacked full-width instead of side-by-side once either card celebrates,
           so the sentence has room to breathe. */}
-      <div className={(cycle.streaks.currentMoodStreak >= MIN_STREAK_FOR_INTENTION || cycle.streaks.currentAnchorStreak >= MIN_STREAK_FOR_INTENTION) ? "space-y-3" : "flex gap-3"}>
+      <div className={`lg:col-span-12 ${(cycle.streaks.currentMoodStreak >= MIN_STREAK_FOR_INTENTION || cycle.streaks.currentAnchorStreak >= MIN_STREAK_FOR_INTENTION) ? "space-y-3" : "flex gap-3"}`}>
         <StreakCard
           icon={<Flame className="h-4 w-4" />}
           label={t("streaks.mood")}
@@ -501,13 +525,13 @@ export function HomePage() {
       </div>
 
       {cycle.graceGift && (
-        <p className="text-center text-xs italic text-muted-foreground">
+        <p className="text-center text-xs italic text-muted-foreground lg:col-span-12">
           &#x1F381; {t("circle.grace_gift_badge", { name: graceGiftSenderName || t("settings.circle_member_fallback") })}
         </p>
       )}
 
-      {/* Mood Selector */}
-      <div className="flex justify-between gap-2">
+      {/* Mood Selector — left column of row 1, joins the Companion card above */}
+      <div className="flex justify-between gap-2 lg:col-start-1 lg:col-span-7 lg:row-start-5">
         {moodConfig.map(({ key, emoji, color }) => (
           <button
             key={key}
@@ -525,8 +549,8 @@ export function HomePage() {
         ))}
       </div>
 
-      {/* Daily Intention */}
-      <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]">
+      {/* Daily Intention — right half of row 3, see the Journal card above */}
+      <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)] lg:col-start-7 lg:col-span-6 lg:row-start-7">
         <CardContent className="p-5">
           <p className="mb-3 text-sm font-medium text-muted-foreground">{t("home.intention_label")}</p>
           <div className="flex flex-wrap gap-2">
@@ -547,8 +571,9 @@ export function HomePage() {
         </CardContent>
       </Card>
 
-      {/* 3 Anchors */}
-      <div className="space-y-4">
+      {/* 3 Anchors — row 2 (desktop): header stays full-width, the 3 cards
+          below become an equal 3-column grid (anchor-web-spec.md section 3). */}
+      <div className="space-y-4 lg:col-span-12">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h2 className="font-heading text-lg font-semibold">
@@ -585,48 +610,56 @@ export function HomePage() {
         </div>
 
         {cycle.dayMode === "planning" && (
-          <div className="space-y-3">
+          <div className="space-y-3 lg:grid lg:grid-cols-12 lg:gap-4 lg:space-y-0">
             {softModeActive && !softExpanded ? (
-              <SoftAnchorPicker
-                defs={anchorDefs}
-                selected={softCategory ?? anchorDefs.find((d) => d.task)?.key ?? null}
-                onSelect={setSoftCategory}
-                onExpand={() => setSoftExpanded(true)}
-              />
+              <div className="lg:col-span-12">
+                <SoftAnchorPicker
+                  defs={anchorDefs}
+                  selected={softCategory ?? anchorDefs.find((d) => d.task)?.key ?? null}
+                  onSelect={setSoftCategory}
+                  onExpand={() => setSoftExpanded(true)}
+                />
+              </div>
             ) : (
               <>
-                <PlanningAnchorCard
-                  borderColor="var(--sage)"
-                  icon="&#x1F331;"
-                  title={t("anchors.future")}
-                  subtitle={t("anchors.future_sub")}
-                  task={cycle.anchor.future_task}
-                  onTaskChange={(v) => cycle.saveAnchor({ future_task: v })}
-                  onOpenSuggestions={() => setPickerAnchor("future")}
-                />
-                <PlanningAnchorCard
-                  borderColor="var(--rose-accent)"
-                  icon="&#x1F9E0;"
-                  title={t("anchors.mindbody")}
-                  subtitle={t("anchors.mindbody_sub")}
-                  task={cycle.anchor.mindbody_task}
-                  onTaskChange={(v) => cycle.saveAnchor({ mindbody_task: v })}
-                  onOpenSuggestions={() => setPickerAnchor("mindbody")}
-                />
-                <PlanningAnchorCard
-                  borderColor="var(--lavender)"
-                  icon="&#x1F30D;"
-                  title={t("anchors.life")}
-                  subtitle={t("anchors.life_sub")}
-                  task={cycle.anchor.life_task}
-                  onTaskChange={(v) => cycle.saveAnchor({ life_task: v })}
-                  onOpenSuggestions={() => setPickerAnchor("life")}
-                />
+                <div className="lg:col-span-4">
+                  <PlanningAnchorCard
+                    borderColor="var(--sage)"
+                    icon="&#x1F331;"
+                    title={t("anchors.future")}
+                    subtitle={t("anchors.future_sub")}
+                    task={cycle.anchor.future_task}
+                    onTaskChange={(v) => cycle.saveAnchor({ future_task: v })}
+                    onOpenSuggestions={() => setPickerAnchor("future")}
+                  />
+                </div>
+                <div className="lg:col-span-4">
+                  <PlanningAnchorCard
+                    borderColor="var(--rose-accent)"
+                    icon="&#x1F9E0;"
+                    title={t("anchors.mindbody")}
+                    subtitle={t("anchors.mindbody_sub")}
+                    task={cycle.anchor.mindbody_task}
+                    onTaskChange={(v) => cycle.saveAnchor({ mindbody_task: v })}
+                    onOpenSuggestions={() => setPickerAnchor("mindbody")}
+                  />
+                </div>
+                <div className="lg:col-span-4">
+                  <PlanningAnchorCard
+                    borderColor="var(--lavender)"
+                    icon="&#x1F30D;"
+                    title={t("anchors.life")}
+                    subtitle={t("anchors.life_sub")}
+                    task={cycle.anchor.life_task}
+                    onTaskChange={(v) => cycle.saveAnchor({ life_task: v })}
+                    onOpenSuggestions={() => setPickerAnchor("life")}
+                  />
+                </div>
               </>
             )}
 
             {hasAnyAnchorText && (
-              <Button onClick={cycle.attemptLockDay} className="w-full" size="lg">
+              <Button onClick={cycle.attemptLockDay} className="w-full lg:col-span-12" size="lg">
                 <Lock className="mr-2 h-4 w-4" />
                 {t("home.lock_anchors_cta")}
               </Button>
@@ -635,23 +668,24 @@ export function HomePage() {
         )}
 
         {cycle.dayMode === "tracking" && (
-          <div className="space-y-3">
+          <div className="space-y-3 lg:grid lg:grid-cols-12 lg:gap-4 lg:space-y-0">
             {(softModeActive ? filledAnchorDefs : anchorDefs).map((d) => (
-              <TrackingAnchorCard
-                key={d.key}
-                borderColor={d.borderColor}
-                icon={d.icon}
-                title={d.title}
-                subtitle={d.subtitle}
-                task={d.task}
-                completed={d.completed}
-                onCheckChange={d.onCheckChange}
-                lockedAt={cycle.anchor.anchors_locked_at}
-              />
+              <div key={d.key} className="lg:col-span-4">
+                <TrackingAnchorCard
+                  borderColor={d.borderColor}
+                  icon={d.icon}
+                  title={d.title}
+                  subtitle={d.subtitle}
+                  task={d.task}
+                  completed={d.completed}
+                  onCheckChange={d.onCheckChange}
+                  lockedAt={cycle.anchor.anchors_locked_at}
+                />
+              </div>
             ))}
 
             {(softModeActive ? softAllFilledDone : allAnchorsDone) && (
-              <div className="rounded-xl bg-sage-light/60 p-4 text-center">
+              <div className="rounded-xl bg-sage-light/60 p-4 text-center lg:col-span-12">
                 <p className="text-sm font-medium text-primary">
                   🎉 {t("home.all_anchors_done")}
                 </p>
@@ -662,7 +696,7 @@ export function HomePage() {
       </div>
 
       {/* Supportive Message */}
-      <Card className="border-0 bg-secondary shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]">
+      <Card className="border-0 bg-secondary shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)] lg:col-span-12">
         <CardContent className="flex items-start gap-3 p-5">
           <Heart className="mt-0.5 h-5 w-5 shrink-0 text-rose-accent" />
           <p className="font-heading text-sm italic text-foreground/80">
@@ -671,7 +705,9 @@ export function HomePage() {
         </CardContent>
       </Card>
 
-      <SosWidget />
+      <div className="lg:col-span-12">
+        <SosWidget />
+      </div>
     </div>
   )
 }

@@ -27,12 +27,38 @@ function getDayModeKey(userId: string): string {
   return `anchor_day_mode_${userId}_${todayStr()}`
 }
 
+function getAnchorCacheKey(userId: string): string {
+  return `anchor_${userId}_${todayStr()}`
+}
+
+function defaultAnchor(userId: string): DailyAnchor {
+  return {
+    id: "",
+    user_id: userId,
+    date: todayStr(),
+    future_task: "",
+    future_completed: false,
+    mindbody_task: "",
+    mindbody_completed: false,
+    life_task: "",
+    life_completed: false,
+    daily_intention: "",
+    anchors_locked_at: null,
+    soft_mode_day: false,
+    created_at: "",
+  }
+}
+
 function getMoveSuggestionsCacheKey(userId: string): string {
   return `anchor_move_suggestions_${userId}`
 }
 
 export interface UseDailyCycleResult {
   anchor: DailyAnchor
+  // True once today's anchor row is known (cache-hydrated at mount, or once
+  // loadTodayData's network call resolves) — see IntentionHeroCard's use of
+  // this instead of loadingCompanion in home.tsx.
+  anchorReady: boolean
   dayMode: "planning" | "tracking"
   selectedMood: MoodType | null
   recentMoods: MoodLog[]
@@ -82,21 +108,23 @@ export function useDailyCycle(
   const { t, i18n } = useTranslation()
 
   const [selectedMood, setSelectedMood] = useState<MoodType | null>(null)
-  const [anchor, setAnchor] = useState<DailyAnchor>({
-    id: "",
-    user_id: user?.id ?? "",
-    date: todayStr(),
-    future_task: "",
-    future_completed: false,
-    mindbody_task: "",
-    mindbody_completed: false,
-    life_task: "",
-    life_completed: false,
-    daily_intention: "",
-    anchors_locked_at: null,
-    soft_mode_day: false,
-    created_at: "",
-  })
+  // Lazy-initialized from the local read cache (see offline-sync.ts) so a
+  // remount — e.g. switching tabs and coming back to Home, which fully
+  // unmounts/remounts this hook every time via React Router — shows today's
+  // already-known intention/anchors instantly instead of an empty state
+  // while loadTodayData's network round-trip is in flight. The network
+  // fetch below still runs every time and is still the source of truth
+  // (see setAnchor(data) in loadTodayData); this only avoids the visible
+  // "reload" flash for data we already have a cached copy of.
+  const [anchor, setAnchor] = useState<DailyAnchor>(
+    () => (user && getLocalData<DailyAnchor>(getAnchorCacheKey(user.id))) || defaultAnchor(user?.id ?? "")
+  )
+  // True once today's anchor row is known — either hydrated from cache above
+  // (synchronously, at mount) or once loadTodayData's network call resolves.
+  // Deliberately separate from loadingCompanion (which also waits on the
+  // companion-message generation, a slower and unrelated fetch) — see its
+  // use in home.tsx's IntentionHeroCard.
+  const [anchorReady, setAnchorReady] = useState(() => !!(user && getLocalData<DailyAnchor>(getAnchorCacheKey(user.id))))
 
   const [dayMode, setDayMode] = useState<"planning" | "tracking">("planning")
   const [recentMoods, setRecentMoods] = useState<MoodLog[]>([])
@@ -176,7 +204,7 @@ export function useDailyCycle(
     if (!user) return undefined
     let resolvedAnchor: DailyAnchor | undefined
     try {
-      const localKey = `anchor_${user.id}_${todayStr()}`
+      const localKey = getAnchorCacheKey(user.id)
       const cached = getLocalData<DailyAnchor>(localKey)
       const modeKey = getDayModeKey(user.id)
       const savedMode = getLocalData<"planning" | "tracking">(modeKey)
@@ -237,6 +265,8 @@ export function useDailyCycle(
     } catch (err: any) {
       console.error("Failed to load today's data:", err)
       toast.error(t("home.error_load_daily"))
+    } finally {
+      setAnchorReady(true)
     }
     return resolvedAnchor
   }
@@ -512,6 +542,7 @@ export function useDailyCycle(
 
   return {
     anchor,
+    anchorReady,
     dayMode,
     selectedMood,
     recentMoods,

@@ -151,16 +151,16 @@ export function HomePage() {
       .catch(() => {})
   }, [cycle.graceGift])
 
-  // Applies once, only once real data has loaded (loadingCompanion flips
-  // false right after loadContextData resolves) and only if she hasn't
-  // already set today's intention herself — a default to pre-select, never
-  // a silent overwrite (see this mission's own "modifiable individuellement
-  // sans friction" requirement).
+  // Applies once, only once real anchor data has loaded (cache-hydrated or
+  // network-resolved, see anchorReady in use-daily-cycle.ts) and only if she
+  // hasn't already set today's intention herself — a default to pre-select,
+  // never a silent overwrite (see this mission's own "modifiable
+  // individuellement sans friction" requirement).
   useEffect(() => {
     if (
       sharedIntentionAppliedRef.current ||
       !sharedIntention ||
-      cycle.loadingCompanion ||
+      !cycle.anchorReady ||
       cycle.dayMode !== "planning" ||
       cycle.anchor.daily_intention
     ) {
@@ -168,7 +168,7 @@ export function HomePage() {
     }
     sharedIntentionAppliedRef.current = true
     cycle.saveAnchor({ daily_intention: sharedIntention.intention })
-  }, [sharedIntention, cycle.loadingCompanion, cycle.dayMode, cycle.anchor.daily_intention])
+  }, [sharedIntention, cycle.anchorReady, cycle.dayMode, cycle.anchor.daily_intention])
 
   const firstName = profile?.full_name?.split(" ")[0] ?? ""
   const { anchorDefs, filledAnchorDefs, softAllFilledDone, allAnchorsDone, hasAnyAnchorText } = useAnchorDefs(
@@ -339,7 +339,7 @@ export function HomePage() {
       {/* ── Intention Hero ── */}
       <IntentionHeroCard
         intention={cycle.anchor.daily_intention}
-        loading={cycle.loadingCompanion}
+        loading={!cycle.anchorReady}
         language={language}
         customIntentions={customIntentions}
         onSave={handleSaveIntention}

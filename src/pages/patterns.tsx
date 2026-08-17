@@ -236,7 +236,7 @@ export function PatternsPage() {
   const hasData = chartData.some((d) => d.value > 0)
 
   return (
-    <div className="mx-auto max-w-lg space-y-6">
+    <div className="mx-auto max-w-lg space-y-6 lg:max-w-[1000px] lg:py-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-primary" />

@@ -478,10 +478,12 @@ async function buildMessage(params: {
   moodStreak: number
   yesterdayMood: string | null
   hasIntention: boolean
+  // Only meaningful for slot === "midday" — see slotInstruction below.
+  middayHasTasks: boolean
   groqApiKey: string | undefined
   softMode: boolean
 }): Promise<{ title: string; body: string }> {
-  const { slot, language, tone, firstName, moodStreak, yesterdayMood, hasIntention, groqApiKey, softMode } = params
+  const { slot, language, tone, firstName, moodStreak, yesterdayMood, hasIntention, middayHasTasks, groqApiKey, softMode } = params
   const title = TITLES[slot][language]
 
   // Poor context (brand-new or long-dormant user, nothing to personalize
@@ -501,12 +503,15 @@ async function buildMessage(params: {
     return { title, body: pick(STATIC_FALLBACKS[slot][language]) }
   }
 
-  const cacheKey = `${slot}:${language}:${tone}:${streakBucket(moodStreak)}:${hasIntention ? 1 : 0}:${yesterdayMood || "none"}:${softMode ? 1 : 0}`
+  // middayHasTasks only folds into the cache key for the midday slot itself
+  // — including it for morning/evening would just fragment their cache for
+  // no reason, since slotInstruction ignores it there.
+  const cacheKey = `${slot}:${language}:${tone}:${streakBucket(moodStreak)}:${hasIntention ? 1 : 0}:${yesterdayMood || "none"}:${softMode ? 1 : 0}${slot === "midday" ? `:${middayHasTasks ? 1 : 0}` : ""}`
   const cached = messageCache.get(cacheKey)
   if (cached) return { title, body: cached.body }
 
   try {
-    const raw = await generateWithGroq({ slot, language, tone, firstName, moodStreak, yesterdayMood, hasIntention, groqApiKey, softMode })
+    const raw = await generateWithGroq({ slot, language, tone, firstName, moodStreak, yesterdayMood, hasIntention, middayHasTasks, groqApiKey, softMode })
     const result = { title, body: capWords(raw, softMode ? 10 : MAX_WORDS) }
     messageCache.set(cacheKey, result)
     return result
@@ -515,12 +520,14 @@ async function buildMessage(params: {
   }
 }
 
-function slotInstruction(slot: Slot): string {
+function slotInstruction(slot: Slot, middayHasTasks: boolean): string {
   if (slot === "morning") {
     return "Invite her to log her mood and set one small intention for today. She hasn't done either yet."
   }
   if (slot === "midday") {
-    return "Invite her back to her 3 small daily anchors (tasks), which are set but not yet done. Don't pressure her."
+    return middayHasTasks
+      ? "Invite her back to her 3 small daily anchors (tasks), which are set but not yet done. Don't pressure her."
+      : "Invite her to set her 3 small daily anchors (tasks) for today — she hasn't set any yet. Don't pressure her."
   }
   return "Invite her to her evening check-in — a few minutes to reflect and release what she doesn't need to carry."
 }
@@ -533,10 +540,11 @@ async function generateWithGroq(params: {
   moodStreak: number
   yesterdayMood: string | null
   hasIntention: boolean
+  middayHasTasks: boolean
   groqApiKey: string
   softMode: boolean
 }): Promise<string> {
-  const { slot, language, tone, firstName, moodStreak, yesterdayMood, hasIntention, groqApiKey, softMode } = params
+  const { slot, language, tone, firstName, moodStreak, yesterdayMood, hasIntention, middayHasTasks, groqApiKey, softMode } = params
 
   const contextLines = [
     `Name: ${firstName || "friend"}`,
@@ -567,7 +575,7 @@ Rules:
 - Return ONLY the sentence, no quotes, no explanation.
 ${softMode ? "- She is currently in a tender period (Soft Mode): be extra soft, and keep it even shorter than usual." : ""}
 
-${slotInstruction(slot)}`,
+${slotInstruction(slot, middayHasTasks)}`,
         },
         { role: "user", content: contextLines.join("\n") },
       ],
@@ -757,12 +765,21 @@ export async function GET(request: Request): Promise<Response> {
       const todayCheckIn = userCheckIns.find((c) => c.date === localDate)
 
       let needed = false
+      // Only meaningful for the midday slot — computed here (rather than
+      // inline in that branch) so it's also available below to shape the
+      // AI-generated message's instruction, not just the send/skip decision.
+      const middayHasTasks = !!(todayAnchor?.future_task || todayAnchor?.mindbody_task || todayAnchor?.life_task)
       if (slot.key === "morning") {
         needed = !todayMood || !todayAnchor?.daily_intention
       } else if (slot.key === "midday") {
-        const hasAnyTask = !!(todayAnchor?.future_task || todayAnchor?.mindbody_task || todayAnchor?.life_task)
+        // Covers two distinct cases with the same nudge: she set anchors but
+        // hasn't finished them (original behavior), OR she hasn't set any
+        // today at all — no daily_anchors row, or one with all three task
+        // fields empty. Previously only the first case nudged; a user who
+        // never opened the app today got no midday reminder at all, which
+        // defeats the point of a midday nudge.
         const allDone = !!(todayAnchor?.future_completed && todayAnchor?.mindbody_completed && todayAnchor?.life_completed)
-        needed = !!todayAnchor && hasAnyTask && !allDone
+        needed = !middayHasTasks || !allDone
       } else {
         needed = !todayCheckIn
       }
@@ -788,6 +805,7 @@ export async function GET(request: Request): Promise<Response> {
         moodStreak,
         yesterdayMood,
         hasIntention: !!todayAnchor?.daily_intention,
+        middayHasTasks,
         groqApiKey: GROQ_API_KEY,
         softMode: profile.soft_mode,
       })

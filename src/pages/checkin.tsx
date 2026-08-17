@@ -78,7 +78,7 @@ export function CheckInPage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-6">
+    <div className="mx-auto max-w-lg space-y-6 lg:max-w-2xl lg:py-2">
       <div>
         <div className="flex items-center gap-2">
           <Heart className="h-5 w-5 text-primary" />

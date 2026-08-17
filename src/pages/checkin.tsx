@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Heart, Moon, Mic, Square, Play, Trash2, Sparkles } from "lucide-react"
-import { moodConfig } from "@/lib/constants"
+import { AppIcon } from "@/components/icons/app-icon"
+import { moodConfig, moodInk, moodWash } from "@/lib/constants"
 import { isCheckInTime } from "@/lib/utils"
 import { EveningReleaseAnimation } from "@/components/anchor/evening-release-animation"
 import { useCheckIn } from "@/hooks/use-checkin"
@@ -97,21 +98,29 @@ export function CheckInPage() {
             <p className="text-sm font-medium text-foreground">{t("checkin.evening_mood_label")}</p>
           </div>
           <div className="flex justify-between gap-2">
-            {moodConfig.map(({ key, emoji, color }) => (
-              <button
-                key={key}
-                onClick={() => cycle.updateField("evening_mood", key)}
-                className={`flex flex-1 flex-col items-center gap-1 rounded-xl p-2.5 transition-all duration-300 ${
-                  cycle.checkIn.evening_mood === key
-                    ? "ring-2 ring-primary ring-offset-2 scale-110 shadow-md"
-                    : "hover:scale-105 hover:shadow-sm"
-                }`}
-                style={{ backgroundColor: color }}
-              >
-                <span className="text-xl">{emoji}</span>
-                <span className="text-[10px] font-medium text-foreground">{t(`mood.${key}`)}</span>
-              </button>
-            ))}
+            {moodConfig.map(({ key, icon }) => {
+              const selected = cycle.checkIn.evening_mood === key
+              return (
+                <button
+                  key={key}
+                  onClick={() => cycle.updateField("evening_mood", key)}
+                  aria-pressed={selected}
+                  aria-label={t(`mood.${key}`)}
+                  className={`flex min-h-11 flex-1 flex-col items-center gap-1 rounded-xl py-2 motion-safe:transition-transform motion-safe:duration-200 ${
+                    selected ? "motion-safe:scale-105" : "motion-safe:hover:scale-105"
+                  }`}
+                  style={{ backgroundColor: selected ? moodWash[key] : "transparent" }}
+                >
+                  <AppIcon icon={icon} size={20} active={selected} decorative style={{ color: moodInk[key] }} />
+                  <span
+                    className={`text-[10px] font-medium ${selected ? "" : "text-muted-foreground"}`}
+                    style={selected ? { color: moodInk[key] } : undefined}
+                  >
+                    {t(`mood.${key}`)}
+                  </span>
+                </button>
+              )
+            })}
           </div>
           {cycle.checkIn.evening_mood && (
             <div className="mt-4">

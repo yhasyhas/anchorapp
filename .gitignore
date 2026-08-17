@@ -39,3 +39,14 @@ supabase/.branches
 !.env.*.example
 
 .env*
+
+# master is the web-only version of this project — android/ and ios/ are
+# tracked on feature/capacitor-mobile only (see that branch's own
+# .gitignore, which has no such rule). Since .gitignore is itself a
+# versioned file, this line only takes effect while checked out on master;
+# it exists so switching from feature/capacitor-mobile back here doesn't
+# leave those native project dirs cluttering `git status`/`git add -A`
+# (checkout doesn't remove them — they're only untracked here, not part of
+# master's tree).
+/android/
+/ios/

@@ -65,4 +65,11 @@
          Capacitor's core WebView bridge auto-handles the runtime permission prompt
          for RESOURCE_AUDIO_CAPTURE once this manifest permission is declared. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Required on Android 13+ (targetSdkVersion 36 here) for any notification
+         to be displayable at all — without this declaration,
+         PushNotifications.requestPermissions() in src/lib/push.ts can never
+         actually grant anything, and @capacitor/push-notifications' FCM
+         registration succeeds silently while every notification the OS
+         receives is dropped before it ever reaches the tray. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

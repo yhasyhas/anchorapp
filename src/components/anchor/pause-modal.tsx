@@ -13,6 +13,10 @@ export type PauseOption = "breathing" | "focus_session" | "recenter"
 interface PauseModalProps {
   open: boolean
   onClose: () => void
+  // Forwarded straight to DialogContent — see use-dialog-focus-restore.ts
+  // for why the caller needs this exact hook rather than restoring focus
+  // itself from onClose.
+  onCloseAutoFocus?: (event: Event) => void
   onSelect: (option: PauseOption) => void
 }
 
@@ -20,12 +24,15 @@ interface PauseModalProps {
 // its "detect excessive scrolling" premise is impossible in a PWA with no
 // access to other apps). This is now the entry menu for 3 real, working
 // options — see pause-breathing.tsx / pause-focus-session.tsx / pause-recenter.tsx.
-export function PauseModal({ open, onClose, onSelect }: PauseModalProps) {
+export function PauseModal({ open, onClose, onCloseAutoFocus, onSelect }: PauseModalProps) {
   const { t } = useTranslation()
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-sm border-0 bg-secondary shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+      <DialogContent
+        className="max-w-sm border-0 bg-secondary shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         <DialogHeader className="text-center">
           <div className="mx-auto mb-4 text-4xl">&#x1F9D8;</div>
           <DialogTitle className="font-heading text-xl font-semibold">{t("pause.title")}</DialogTitle>

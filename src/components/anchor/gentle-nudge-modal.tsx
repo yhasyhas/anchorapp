@@ -12,12 +12,16 @@ import { Heart, Sparkles } from "lucide-react"
 interface GentleNudgeModalProps {
   open: boolean
   onClose: () => void
+  // Forwarded straight to DialogContent — see use-dialog-focus-restore.ts
+  // for why the caller needs this exact hook rather than restoring focus
+  // itself from onClose.
+  onCloseAutoFocus?: (event: Event) => void
   onChoose: () => void
   onContinue: () => void
   type: "mood" | "intention"
 }
 
-export function GentleNudgeModal({ open, onClose, onChoose, onContinue, type }: GentleNudgeModalProps) {
+export function GentleNudgeModal({ open, onClose, onCloseAutoFocus, onChoose, onContinue, type }: GentleNudgeModalProps) {
   const { t } = useTranslation()
 
   const config = {
@@ -39,7 +43,10 @@ export function GentleNudgeModal({ open, onClose, onChoose, onContinue, type }: 
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-sm border-0 bg-secondary shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+      <DialogContent
+        className="max-w-sm border-0 bg-secondary shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         <DialogHeader className="text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-popover shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
             {current.icon}

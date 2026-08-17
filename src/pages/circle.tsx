@@ -31,6 +31,7 @@ import {
   getVoiceEncouragementUrl,
 } from "@/lib/circle-voice"
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder"
+import { useDialogFocusRestore } from "@/hooks/use-dialog-focus-restore"
 import { proposeSharedIntention, respondSharedIntention, getActiveSharedIntentions } from "@/lib/circle-intentions"
 import { sendGraceGift, getStreakAlerts } from "@/lib/circle-grace"
 import { getRecentCircleMilestones, filterUnseenMilestones, markMilestoneSeen } from "@/lib/circle-milestones"
@@ -272,15 +273,21 @@ export function CirclePage() {
   const [sharedLetters, setSharedLetters] = useState<SharedLetter[]>([])
   const [activeSos, setActiveSos] = useState<CircleSosEntry[]>([])
   const [openLetter, setOpenLetter] = useState<SharedLetter | null>(null)
+  // All 3 dialogs below are externally-controlled (no DialogTrigger), so
+  // Radix won't restore focus to whatever opened them on its own — see
+  // use-dialog-focus-restore.ts.
+  const letterFocus = useDialogFocusRestore()
 
   const [composeFor, setComposeFor] = useState<{ id: string; name: string; replyToId?: string } | null>(null)
   const [composeMode, setComposeMode] = useState<"text" | "voice">("text")
   const [customMessage, setCustomMessage] = useState("")
   const [sending, setSending] = useState(false)
+  const composeFocus = useDialogFocusRestore()
 
   // Mission 2 — shared weekly intentions
   const [sharedIntentions, setSharedIntentions] = useState<CircleSharedIntention[]>([])
   const [proposeFor, setProposeFor] = useState<{ id: string; name: string } | null>(null)
+  const proposeFocus = useDialogFocusRestore()
   const [proposing, setProposing] = useState(false)
   const [respondingId, setRespondingId] = useState<string | null>(null)
 
@@ -408,6 +415,7 @@ export function CirclePage() {
   }
 
   function openCompose(id: string, name: string) {
+    composeFocus.captureTrigger()
     setComposeFor({ id, name })
     setComposeMode("text")
   }
@@ -416,8 +424,13 @@ export function CirclePage() {
   // recorder/compose flow, just pre-aimed at the sender and pre-linked via
   // replyToId so the RPC can validate and store the thread pointer.
   function openVoiceReply(item: FeedItem) {
+    composeFocus.captureTrigger()
     setComposeFor({ id: item.otherId, name: friendName(item.otherId), replyToId: item.id })
     setComposeMode("voice")
+  }
+
+  function closeCompose() {
+    setComposeFor(null)
   }
 
   async function handleSendPreset(presetKey: string) {
@@ -426,7 +439,7 @@ export function CirclePage() {
     try {
       await sendEncouragement(composeFor.id, presetKey, true)
       toast.success(t("circle.send_love_success"))
-      setComposeFor(null)
+      closeCompose()
       setCustomMessage("")
       await load()
     } catch (err) {
@@ -444,7 +457,7 @@ export function CirclePage() {
     try {
       await sendEncouragement(composeFor.id, customMessage.trim(), false)
       toast.success(t("circle.send_love_success"))
-      setComposeFor(null)
+      closeCompose()
       setCustomMessage("")
       await load()
     } catch (err) {
@@ -456,8 +469,12 @@ export function CirclePage() {
   }
 
   async function handleVoiceSent() {
-    setComposeFor(null)
+    closeCompose()
     await load()
+  }
+
+  function closePropose() {
+    setProposeFor(null)
   }
 
   async function handleProposeIntention(intention: string) {
@@ -466,7 +483,7 @@ export function CirclePage() {
     try {
       await proposeSharedIntention(proposeFor.id, intention)
       toast.success(t("circle.intention_proposed_success"))
-      setProposeFor(null)
+      closePropose()
       await load()
     } catch (err) {
       const code = err instanceof CircleError ? err.code : "unknown_error"
@@ -724,7 +741,10 @@ export function CirclePage() {
                       size="sm"
                       variant="ghost"
                       className="text-primary"
-                      onClick={() => setProposeFor({ id: m.friend_id, name: friendName(m.friend_id) })}
+                      onClick={() => {
+                        proposeFocus.captureTrigger()
+                        setProposeFor({ id: m.friend_id, name: friendName(m.friend_id) })
+                      }}
                       aria-label={t("circle.intention_propose_button")}
                     >
                       &#x1F331;
@@ -756,7 +776,14 @@ export function CirclePage() {
                           </p>
                         </div>
                       </div>
-                      <Button size="sm" variant="ghost" onClick={() => setOpenLetter(letter)}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          letterFocus.captureTrigger()
+                          setOpenLetter(letter)
+                        }}
+                      >
                         {t("circle.shared_letters_read")}
                       </Button>
                     </CardContent>
@@ -812,8 +839,11 @@ export function CirclePage() {
       )}
 
       {/* Send love sheet */}
-      <Dialog open={!!composeFor} onOpenChange={(open) => !open && setComposeFor(null)}>
-        <DialogContent className="max-w-sm border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+      <Dialog open={!!composeFor} onOpenChange={(open) => !open && closeCompose()}>
+        <DialogContent
+          className="max-w-sm border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
+          {...composeFocus.dialogContentProps}
+        >
           <DialogHeader>
             <DialogTitle className="font-heading">
               {composeFor?.replyToId
@@ -884,8 +914,11 @@ export function CirclePage() {
       </Dialog>
 
       {/* Propose a shared weekly intention */}
-      <Dialog open={!!proposeFor} onOpenChange={(open) => !open && setProposeFor(null)}>
-        <DialogContent className="max-w-sm border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+      <Dialog open={!!proposeFor} onOpenChange={(open) => !open && closePropose()}>
+        <DialogContent
+          className="max-w-sm border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
+          {...proposeFocus.dialogContentProps}
+        >
           <DialogHeader>
             <DialogTitle className="font-heading">
               {t("circle.intention_propose_title", { name: proposeFor?.name ?? "" })}
@@ -907,8 +940,14 @@ export function CirclePage() {
       </Dialog>
 
       {/* Read a shared letter */}
-      <Dialog open={!!openLetter} onOpenChange={(open) => !open && setOpenLetter(null)}>
-        <DialogContent className="max-w-sm border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+      <Dialog
+        open={!!openLetter}
+        onOpenChange={(open) => !open && setOpenLetter(null)}
+      >
+        <DialogContent
+          className="max-w-sm border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
+          {...letterFocus.dialogContentProps}
+        >
           <DialogHeader>
             <DialogTitle className="font-heading">
               {openLetter && t("circle.shared_letters_from", { name: friendName(openLetter.friend_id) })}

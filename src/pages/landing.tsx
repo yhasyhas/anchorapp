@@ -26,12 +26,21 @@ export function LandingPage() {
 
   return (
     <div className="min-h-svh bg-background">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:outline-none focus:ring-[3px] focus:ring-ring/50"
+      >
+        {t("a11y.skip_to_content")}
+      </a>
+
       <InstallPrompt />
       <LandingHeader />
-      <HeroSection />
-      <ValuesSection />
-      <FutureLetterSection />
-      <QuoteSection />
+      <main id="main-content" tabIndex={-1} className="outline-none">
+        <HeroSection />
+        <ValuesSection />
+        <FutureLetterSection />
+        <QuoteSection />
+      </main>
       <LandingFooter />
     </div>
   )

@@ -15,6 +15,10 @@ const categoryIcons: Record<string, string> = {
 interface MovePickerSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  // Forwarded straight to SheetContent — see use-dialog-focus-restore.ts
+  // for why the caller needs this exact hook rather than restoring focus
+  // itself from onOpenChange.
+  onCloseAutoFocus?: (event: Event) => void
   anchorLabel: string
   suggestions: MoveSuggestion[]
   onPick: (title: string) => void
@@ -27,12 +31,16 @@ interface MovePickerSheetProps {
 // / excludeUsedTitles, applied by the caller before this list ever reaches
 // here — this component is purely presentational, same split as
 // MoveOfTheDayCard). 1 tap fills the field; still editable afterwards.
-export function MovePickerSheet({ open, onOpenChange, anchorLabel, suggestions, onPick }: MovePickerSheetProps) {
+export function MovePickerSheet({ open, onOpenChange, onCloseAutoFocus, anchorLabel, suggestions, onPick }: MovePickerSheetProps) {
   const { t } = useTranslation()
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[70vh] overflow-y-auto rounded-t-2xl">
+      <SheetContent
+        side="bottom"
+        className="max-h-[70vh] overflow-y-auto rounded-t-2xl"
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         <SheetHeader>
           <SheetTitle className="font-heading">{t("move.picker_title", { anchor: anchorLabel })}</SheetTitle>
         </SheetHeader>

@@ -12,6 +12,7 @@ import { FIRST_INTENTION_KEY_BASE } from "@/lib/constants"
 import { getAllGratitudesForReveal, isSecondConsecutiveLowMoodDay } from "@/lib/gratitude"
 import { isDailyFlagSet, setDailyFlag, DAILY_FLAGS } from "@/lib/local-flags"
 import { getMyGraceGift, markGraceGiftConsumed } from "@/lib/circle-grace"
+import { useDialogFocusRestore } from "@/hooks/use-dialog-focus-restore"
 import type { DailyAnchor, MoodType, CheckIn, MoodLog, MoveSuggestion, Gratitude, Profile, CircleGraceGift } from "@/types"
 
 const ANCHOR_MILESTONES_CELEBRATED_KEY = "anchor_streak_milestones_celebrated"
@@ -52,11 +53,13 @@ export interface UseDailyCycleResult {
   nudgeOpen: boolean
   nudgeType: "mood" | "intention"
   dismissNudgeModal: () => void
+  onNudgeModalCloseAutoFocus: (event: Event) => void
   handleNudgeChoose: () => void
   handleNudgeContinue: () => void
   jarModalOpen: boolean
   jarGratitudes: Gratitude[]
   closeJarModal: () => void
+  onJarModalCloseAutoFocus: (event: Event) => void
   handleMoodSelect: (mood: MoodType) => Promise<void>
   saveAnchor: (updates: Partial<DailyAnchor>) => Promise<void>
   attemptLockDay: () => void
@@ -124,6 +127,13 @@ export function useDailyCycle(
 
   const [jarModalOpen, setJarModalOpen] = useState(false)
   const [jarGratitudes, setJarGratitudes] = useState<Gratitude[]>([])
+
+  // GentleNudgeModal and JarOpeningModal are both Dialogs driven by this
+  // state (no <DialogTrigger>), so — like every other externally-controlled
+  // dialog in the app — Radix won't restore focus to whatever opened them
+  // on its own; see use-dialog-focus-restore.ts.
+  const nudgeFocus = useDialogFocusRestore()
+  const jarFocus = useDialogFocusRestore()
 
   useEffect(() => {
     if (user) {
@@ -373,6 +383,10 @@ export function useDailyCycle(
 
   async function handleMoodSelect(mood: MoodType) {
     if (!user) return
+    // Captured up front, synchronously — this is the only point in the call
+    // chain guaranteed to still see the mood button she actually clicked,
+    // in case it leads to openJarPrompt() further down.
+    jarFocus.captureTrigger()
     setSelectedMood(mood)
     if (navigator.vibrate) navigator.vibrate(50)
 
@@ -473,6 +487,7 @@ export function useDailyCycle(
     }
 
     if (!selectedMood) {
+      nudgeFocus.captureTrigger()
       setNudgeType("mood")
       setNudgeOpen(true)
       setPendingLock(true)
@@ -480,6 +495,7 @@ export function useDailyCycle(
     }
 
     if (!anchor.daily_intention) {
+      nudgeFocus.captureTrigger()
       setNudgeType("intention")
       setNudgeOpen(true)
       setPendingLock(true)
@@ -526,11 +542,16 @@ export function useDailyCycle(
     nudgeOpen,
     nudgeType,
     dismissNudgeModal: () => setNudgeOpen(false),
+    // Forwarded straight to GentleNudgeModal/JarOpeningModal's DialogContent
+    // — see use-dialog-focus-restore.ts for why the restore must happen
+    // from onCloseAutoFocus rather than from the setters above.
+    onNudgeModalCloseAutoFocus: nudgeFocus.dialogContentProps.onCloseAutoFocus,
     handleNudgeChoose,
     handleNudgeContinue,
     jarModalOpen,
     jarGratitudes,
     closeJarModal: () => setJarModalOpen(false),
+    onJarModalCloseAutoFocus: jarFocus.dialogContentProps.onCloseAutoFocus,
     handleMoodSelect,
     saveAnchor,
     attemptLockDay,

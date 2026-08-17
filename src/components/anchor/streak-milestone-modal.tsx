@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button"
 import { ConfettiBurst } from "@/components/anchor/confetti"
 import { EveningReleaseAnimation } from "@/components/anchor/evening-release-animation"
 import { isCheckInTime } from "@/lib/utils"
+import { useEscapeToClose } from "@/hooks/use-escape-to-close"
 
 interface StreakMilestoneModalProps {
   milestone: number | null
@@ -19,6 +20,7 @@ interface StreakMilestoneModalProps {
 // isCheckInTime() déjà utilisé pour le time-gate du check-in du soir.
 export function StreakMilestoneModal({ milestone, intentionLabel, onClose }: StreakMilestoneModalProps) {
   const { t } = useTranslation()
+  useEscapeToClose(milestone !== null, onClose)
 
   if (milestone === null) return null
 

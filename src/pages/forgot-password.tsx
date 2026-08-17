@@ -73,7 +73,7 @@ export function ForgotPasswordPage() {
                   required
                 />
               </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
+              {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? t("auth.sending") : t("auth.send_reset")}
               </Button>

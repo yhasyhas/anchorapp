@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { BreathingSession } from "@/components/anchor/breathing-session"
+import { useEscapeToClose } from "@/hooks/use-escape-to-close"
 
 interface PauseBreathingProps {
   onClose: () => void
@@ -18,6 +19,7 @@ const CYCLE_SECONDS = 10
 export function PauseBreathing({ onClose }: PauseBreathingProps) {
   const { t } = useTranslation()
   const [durationMin, setDurationMin] = useState<number | null>(null)
+  useEscapeToClose(true, onClose, { restoreFocus: false })
 
   if (durationMin !== null) {
     const cycles = Math.max(1, Math.round((durationMin * 60) / CYCLE_SECONDS))

@@ -1,7 +1,7 @@
 import { Outlet, NavLink, useLocation } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { CloudOff, RefreshCw } from "lucide-react"
-import { Suspense, useEffect, useState } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
 import { isOnline, processSyncQueue, getPendingSyncCount, SYNC_QUEUE_CHANGED_EVENT } from "@/lib/offline-sync"
 import { useAuth } from "@/lib/auth-context"
 import { useViewportTier } from "@/hooks/use-viewport"
@@ -32,6 +32,44 @@ export function AppLayout() {
   const [activePause, setActivePause] = useState<PauseOption | null>(null)
   const [pendingCount, setPendingCount] = useState(0)
   const [retrying, setRetrying] = useState(false)
+  const pauseTriggerRef = useRef<HTMLButtonElement>(null)
+  // Set right before picking a Pause option — PauseModal's Dialog closes in
+  // that case too (same onCloseAutoFocus fires), but focus shouldn't jump
+  // back to the trigger then: a sub-overlay (PauseBreathing/Recenter/
+  // FocusSession) is opening right on top of it. Only a real "not
+  // now"/Escape/overlay-click close should restore to the trigger.
+  const selectingPauseOptionRef = useRef(false)
+
+  // PauseModal is a controlled Dialog (open={showPauseMenu}, no
+  // DialogTrigger wrapping the button below) — Radix has no registered
+  // trigger to restore focus to on its own, so Escape/overlay-click/"Not
+  // now" would otherwise drop focus to <body>. The actual restore happens
+  // in onPauseMenuCloseAutoFocus below, not here: while PauseModal's exit
+  // animation plays, Radix's FocusScope is still trapping focus inside it,
+  // so a `.focus()` call fired from this state-setter is silently
+  // swallowed — onCloseAutoFocus is the one moment the trap has released.
+  function closePauseMenu() {
+    setShowPauseMenu(false)
+  }
+
+  function onPauseMenuCloseAutoFocus(e: Event) {
+    e.preventDefault()
+    if (selectingPauseOptionRef.current) {
+      selectingPauseOptionRef.current = false
+      return
+    }
+    pauseTriggerRef.current?.focus()
+  }
+
+  // Picking a Pause option replaces that same Dialog with one of the
+  // plain-div overlays below in the same commit — same underlying gap,
+  // just reached via onSelect instead of onClose (see useEscapeToClose's
+  // `restoreFocus: false` on all three usages below, which defers to this
+  // instead of guessing via document.activeElement).
+  function closePauseFlow() {
+    setActivePause(null)
+    pauseTriggerRef.current?.focus()
+  }
 
   useEffect(() => {
     if (!user) return
@@ -170,6 +208,7 @@ export function AppLayout() {
 
       {/* Pause Floating Button */}
       <button
+        ref={pauseTriggerRef}
         onClick={() => setShowPauseMenu(true)}
         className={`fixed right-6 flex h-12 w-12 items-center justify-center rounded-full bg-secondary shadow-[0_2px_10px_rgba(0,0,0,0.08)] transition-all hover:scale-110 hover:shadow-[0_4px_15px_rgba(0,0,0,0.12)] active:scale-95 ${
           isMobile ? "bottom-20" : "bottom-6"
@@ -181,15 +220,17 @@ export function AppLayout() {
 
       <PauseModal
         open={showPauseMenu}
-        onClose={() => setShowPauseMenu(false)}
+        onClose={closePauseMenu}
+        onCloseAutoFocus={onPauseMenuCloseAutoFocus}
         onSelect={(option) => {
+          selectingPauseOptionRef.current = true
           setShowPauseMenu(false)
           setActivePause(option)
         }}
       />
-      {activePause === "breathing" && <PauseBreathing onClose={() => setActivePause(null)} />}
-      {activePause === "focus_session" && <PauseFocusSession onClose={() => setActivePause(null)} />}
-      {activePause === "recenter" && <PauseRecenter onClose={() => setActivePause(null)} />}
+      {activePause === "breathing" && <PauseBreathing onClose={closePauseFlow} />}
+      {activePause === "focus_session" && <PauseFocusSession onClose={closePauseFlow} />}
+      {activePause === "recenter" && <PauseRecenter onClose={closePauseFlow} />}
     </div>
   )
 }

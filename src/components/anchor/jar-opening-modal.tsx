@@ -8,6 +8,10 @@ import type { Gratitude } from "@/types"
 interface JarOpeningModalProps {
   open: boolean
   onClose: () => void
+  // Forwarded straight to DialogContent — see use-dialog-focus-restore.ts
+  // for why the caller needs this exact hook rather than restoring focus
+  // itself from onClose.
+  onCloseAutoFocus?: (event: Event) => void
   gratitudes: Gratitude[]
 }
 
@@ -27,7 +31,7 @@ type Stage = "prompt" | "revealing" | "closing"
 // Adapts to what's actually in the jar: empty means no "open" language at
 // all (invites a first drop instead), 1-2 entries reveals just those, 3+
 // reveals exactly 3 random ones — the spec's own graceful-degradation rule.
-export function JarOpeningModal({ open, onClose, gratitudes }: JarOpeningModalProps) {
+export function JarOpeningModal({ open, onClose, onCloseAutoFocus, gratitudes }: JarOpeningModalProps) {
   const { t } = useTranslation()
   const [stage, setStage] = useState<Stage>("prompt")
   const [revealIndex, setRevealIndex] = useState(0)
@@ -58,7 +62,10 @@ export function JarOpeningModal({ open, onClose, gratitudes }: JarOpeningModalPr
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-sm border-0 bg-secondary shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+      <DialogContent
+        className="max-w-sm border-0 bg-secondary shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         {stage === "prompt" && isEmpty && (
           <>
             <DialogHeader className="text-center">

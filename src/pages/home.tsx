@@ -51,6 +51,7 @@ import { useAnchorDefs } from "@/hooks/use-anchor-defs"
 import { useNudgeArbitration } from "@/hooks/use-nudge-arbitration"
 import { useDailyCycle } from "@/hooks/use-daily-cycle"
 import { useHomeBadges } from "@/hooks/use-home-badges"
+import { useDialogFocusRestore } from "@/hooks/use-dialog-focus-restore"
 import type { TFunction } from "i18next"
 import type { AnchorCategory, CircleSharedIntention, CustomIntention } from "@/types"
 
@@ -223,6 +224,15 @@ export function HomePage() {
   // featured pick above.
   const [pickerAnchor, setPickerAnchor] = useState<AnchorCategory | null>(null)
   const pickerSuggestions = pickerAnchor ? poolFor(pickerAnchor) : []
+  // MovePickerSheet is a Sheet driven by this state, no SheetTrigger — same
+  // gap as every other externally-controlled dialog in the app, see
+  // use-dialog-focus-restore.ts.
+  const pickerFocus = useDialogFocusRestore()
+
+  function openPicker(category: AnchorCategory) {
+    pickerFocus.captureTrigger()
+    setPickerAnchor(category)
+  }
 
   function handlePickMove(title: string) {
     if (!pickerAnchor) return
@@ -239,6 +249,7 @@ export function HomePage() {
       <GentleNudgeModal
         open={cycle.nudgeOpen}
         onClose={cycle.dismissNudgeModal}
+        onCloseAutoFocus={cycle.onNudgeModalCloseAutoFocus}
         onChoose={cycle.handleNudgeChoose}
         onContinue={cycle.handleNudgeContinue}
         type={cycle.nudgeType}
@@ -250,11 +261,17 @@ export function HomePage() {
         onClose={cycle.dismissStreakMilestone}
       />
 
-      <JarOpeningModal open={cycle.jarModalOpen} onClose={cycle.closeJarModal} gratitudes={cycle.jarGratitudes} />
+      <JarOpeningModal
+        open={cycle.jarModalOpen}
+        onClose={cycle.closeJarModal}
+        onCloseAutoFocus={cycle.onJarModalCloseAutoFocus}
+        gratitudes={cycle.jarGratitudes}
+      />
 
       <MovePickerSheet
         open={pickerAnchor !== null}
         onOpenChange={(open) => !open && setPickerAnchor(null)}
+        onCloseAutoFocus={pickerFocus.dialogContentProps.onCloseAutoFocus}
         anchorLabel={pickerAnchor ? t(`anchors.${pickerAnchor}`) : ""}
         suggestions={pickerSuggestions}
         onPick={handlePickMove}
@@ -647,7 +664,7 @@ export function HomePage() {
                     subtitle={t("anchors.future_sub")}
                     task={cycle.anchor.future_task}
                     onTaskChange={(v) => cycle.saveAnchor({ future_task: v })}
-                    onOpenSuggestions={() => setPickerAnchor("future")}
+                    onOpenSuggestions={() => openPicker("future")}
                   />
                 </div>
                 <div className="lg:col-span-4">
@@ -658,7 +675,7 @@ export function HomePage() {
                     subtitle={t("anchors.mindbody_sub")}
                     task={cycle.anchor.mindbody_task}
                     onTaskChange={(v) => cycle.saveAnchor({ mindbody_task: v })}
-                    onOpenSuggestions={() => setPickerAnchor("mindbody")}
+                    onOpenSuggestions={() => openPicker("mindbody")}
                   />
                 </div>
                 <div className="lg:col-span-4">
@@ -669,7 +686,7 @@ export function HomePage() {
                     subtitle={t("anchors.life_sub")}
                     task={cycle.anchor.life_task}
                     onTaskChange={(v) => cycle.saveAnchor({ life_task: v })}
-                    onOpenSuggestions={() => setPickerAnchor("life")}
+                    onOpenSuggestions={() => openPicker("life")}
                   />
                 </div>
               </>

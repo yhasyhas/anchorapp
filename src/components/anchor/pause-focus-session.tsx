@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
 import { isOnline, addToSyncQueue, getLocalData, setLocalData } from "@/lib/offline-sync"
 import { todayStr } from "@/lib/utils"
+import { useEscapeToClose } from "@/hooks/use-escape-to-close"
 import type { DailyAnchor } from "@/types"
 
 interface PauseFocusSessionProps {
@@ -35,6 +36,7 @@ export function PauseFocusSession({ onClose }: PauseFocusSessionProps) {
   const [ended, setEnded] = useState(false)
   const [markedDone, setMarkedDone] = useState(false)
   const startedAtRef = useRef<number | null>(null)
+  useEscapeToClose(true, onClose, { restoreFocus: false })
 
   // Independent read of today's anchor row — same read-cache key
   // (`anchor_${userId}_${date}`) src/hooks/use-daily-cycle.ts already

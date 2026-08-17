@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase"
 import { isOnline } from "@/lib/offline-sync"
 import { materializeDefaultSuggestions } from "@/lib/move-selection"
 import { localDateStr } from "@/lib/utils"
+import { useEscapeToClose } from "@/hooks/use-escape-to-close"
 
 interface PauseRecenterProps {
   onClose: () => void
@@ -33,6 +34,7 @@ export function PauseRecenter({ onClose }: PauseRecenterProps) {
   const [question] = useState(() => QUESTION_KEYS[Math.floor(Math.random() * QUESTION_KEYS.length)])
   const [lowMoodRecent, setLowMoodRecent] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  useEscapeToClose(true, onClose, { restoreFocus: false })
 
   useEffect(() => {
     if (!user || !isOnline()) {

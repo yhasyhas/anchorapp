@@ -27,8 +27,9 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Settings, Info, Heart, Flame, Anchor as AnchorIcon, Sparkles, Lock, Pencil, Sun, Moon, Mail, PartyPopper, Volume2, Square } from "lucide-react"
+import { AppIcon } from "@/components/icons/app-icon"
 import { isSpeechSynthesisAvailable, speak, stopSpeaking } from "@/lib/speech"
-import { moodConfig } from "@/lib/constants"
+import { moodConfig, moodInk, moodWash } from "@/lib/constants"
 import { canCheckAnchors, getTimeUntilAnchorCheck } from "@/lib/utils"
 import { OnboardingModal } from "@/components/onboarding/onboarding-modal"
 import { MorningRitual } from "@/components/anchor/morning-ritual"
@@ -272,7 +273,10 @@ export function HomePage() {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1">
+        {/* Duplicates the sidebar's Letters/Circle/Jar/Wrapped/Settings links
+            once it takes over at 768px+ (see WebSidebar) — kept below that
+            so narrow mobile still has a way to reach them. */}
+        <div className="flex items-center gap-1 md:hidden">
           <Link to="/letters">
             <Button
               variant="ghost"
@@ -530,23 +534,36 @@ export function HomePage() {
         </p>
       )}
 
-      {/* Mood Selector — left column of row 1, joins the Companion card above */}
+      {/* Mood Selector — left column of row 1, joins the Companion card above.
+          Same signature-icon + tinted-circle treatment as the native app's
+          mood card (feature/capacitor-mobile's src/pages/home.tsx), now that
+          the mood signature icons and mood ink/wash tokens exist here too
+          (design-system merge) — thin colored strokes, no emoji, no solid
+          fill. */}
       <div className="flex justify-between gap-2 lg:col-start-1 lg:col-span-7 lg:row-start-5">
-        {moodConfig.map(({ key, emoji, color }) => (
-          <button
-            key={key}
-            onClick={() => cycle.handleMoodSelect(key)}
-            className={`flex flex-1 flex-col items-center gap-1 rounded-xl p-3 transition-all duration-300 ${
-              cycle.selectedMood === key
-                ? "ring-2 ring-primary ring-offset-2 scale-110 shadow-md"
-                : "hover:scale-105 hover:shadow-sm"
-            }`}
-            style={{ backgroundColor: color }}
-          >
-            <span className="text-2xl transition-transform duration-300">{emoji}</span>
-            <span className="text-xs font-medium text-foreground">{t(`mood.${key}`)}</span>
-          </button>
-        ))}
+        {moodConfig.map(({ key, icon }) => {
+          const selected = cycle.selectedMood === key
+          return (
+            <button
+              key={key}
+              onClick={() => cycle.handleMoodSelect(key)}
+              aria-pressed={selected}
+              aria-label={t(`mood.${key}`)}
+              className={`flex min-h-11 flex-1 flex-col items-center gap-1 rounded-xl py-2 motion-safe:transition-transform motion-safe:duration-200 ${
+                selected ? "motion-safe:scale-105" : "motion-safe:hover:scale-105"
+              }`}
+              style={{ backgroundColor: selected ? moodWash[key] : "transparent" }}
+            >
+              <AppIcon icon={icon} size={24} active={selected} decorative style={{ color: moodInk[key] }} />
+              <span
+                className={`text-xs font-medium ${selected ? "" : "text-muted-foreground"}`}
+                style={selected ? { color: moodInk[key] } : undefined}
+              >
+                {t(`mood.${key}`)}
+              </span>
+            </button>
+          )
+        })}
       </div>
 
       {/* Daily Intention — right half of row 3, see the Journal card above */}

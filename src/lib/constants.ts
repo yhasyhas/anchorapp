@@ -16,13 +16,39 @@ export const colors = {
   moodStressed: "var(--mood-stressed)",
 } as const
 
+// `icon` is additive — `emoji`/`color` stay untouched since checkin.tsx's
+// evening mood picker still consumes them; only home.tsx's mood selector
+// (anchor-web-spec.md) has moved to the signature mood-* icons so far.
 export const moodConfig = [
-  { key: "great" as const, emoji: "\u{1F60A}", color: colors.moodGreat },
-  { key: "okay" as const, emoji: "\u{1F642}", color: colors.moodOkay },
-  { key: "meh" as const, emoji: "\u{1F610}", color: colors.moodMeh },
-  { key: "low" as const, emoji: "\u{1F641}", color: colors.moodLow },
-  { key: "stressed" as const, emoji: "\u{1F623}", color: colors.moodStressed },
+  { key: "great" as const, emoji: "\u{1F60A}", color: colors.moodGreat, icon: "mood-great" as const },
+  { key: "okay" as const, emoji: "\u{1F642}", color: colors.moodOkay, icon: "mood-okay" as const },
+  { key: "meh" as const, emoji: "\u{1F610}", color: colors.moodMeh, icon: "mood-meh" as const },
+  { key: "low" as const, emoji: "\u{1F641}", color: colors.moodLow, icon: "mood-low" as const },
+  { key: "stressed" as const, emoji: "\u{1F623}", color: colors.moodStressed, icon: "mood-stressed" as const },
 ] as const
+
+// Per-mood ink stroke color — anchor-redesign-spec.md section 3's table.
+// Consumed by home.tsx's mood selector so its selected icon/label tint
+// matches the native app's mood card exactly (see feature/capacitor-mobile's
+// src/pages/home.tsx, which this mirrors). CSS vars rather than literal hex
+// so each mood stays legible in both themes (see src/index.css's
+// --mood-ink-*/--mood-wash-*, brought over in the design-system merge).
+export const moodInk: Record<"great" | "okay" | "meh" | "low" | "stressed", string> = {
+  great: "var(--mood-ink-great)",
+  okay: "var(--mood-ink-okay)",
+  meh: "var(--mood-ink-meh)",
+  low: "var(--mood-ink-low)",
+  stressed: "var(--mood-ink-stressed)",
+}
+
+// Soft tinted-circle background behind the selected mood.
+export const moodWash: Record<"great" | "okay" | "meh" | "low" | "stressed", string> = {
+  great: "var(--mood-wash-great)",
+  okay: "var(--mood-wash-okay)",
+  meh: "var(--mood-wash-meh)",
+  low: "var(--mood-wash-low)",
+  stressed: "var(--mood-wash-stressed)",
+}
 
 export const moodToValue: Record<string, number> = {
   great: 5,

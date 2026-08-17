@@ -16,15 +16,12 @@ export const colors = {
   moodStressed: "var(--mood-stressed)",
 } as const
 
-// `icon` is additive — `emoji`/`color` stay untouched since checkin.tsx's
-// evening mood picker still consumes them; only home.tsx's mood selector
-// (anchor-web-spec.md) has moved to the signature mood-* icons so far.
 export const moodConfig = [
-  { key: "great" as const, emoji: "\u{1F60A}", color: colors.moodGreat, icon: "mood-great" as const },
-  { key: "okay" as const, emoji: "\u{1F642}", color: colors.moodOkay, icon: "mood-okay" as const },
-  { key: "meh" as const, emoji: "\u{1F610}", color: colors.moodMeh, icon: "mood-meh" as const },
-  { key: "low" as const, emoji: "\u{1F641}", color: colors.moodLow, icon: "mood-low" as const },
-  { key: "stressed" as const, emoji: "\u{1F623}", color: colors.moodStressed, icon: "mood-stressed" as const },
+  { key: "great" as const, icon: "mood-great" as const },
+  { key: "okay" as const, icon: "mood-okay" as const },
+  { key: "meh" as const, icon: "mood-meh" as const },
+  { key: "low" as const, icon: "mood-low" as const },
+  { key: "stressed" as const, icon: "mood-stressed" as const },
 ] as const
 
 // Per-mood ink stroke color — anchor-redesign-spec.md section 3's table.

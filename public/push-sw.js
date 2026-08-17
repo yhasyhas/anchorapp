@@ -13,8 +13,8 @@ self.addEventListener("push", function (event) {
   var title = data.title || "Anchor"
   var options = {
     body: data.body || "",
-    icon: "/icon-192x192.png",
-    badge: "/icon-192x192.png",
+    icon: "/icons/icon-192.webp",
+    badge: "/icons/icon-192.webp",
     tag: data.tag || "anchor-reminder",
     data: { url: data.url || "/" },
   }

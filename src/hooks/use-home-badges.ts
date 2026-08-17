@@ -17,7 +17,11 @@ export interface UseHomeBadgesResult {
 // fire-and-forget generation check — all share the same shape ("nothing to
 // show for it unless it finds something") and none feed into the daily
 // cycle, so they're grouped here rather than in useDailyCycle.
-export function useHomeBadges(user: User | null, profile: Profile | null): UseHomeBadgesResult {
+// refreshKey (AppLayout passes the route pathname) keeps badges fresh
+// across in-app navigation now that this hook lives in AppLayout rather
+// than only mounting once on Home — optional so existing call sites that
+// don't need that freshness don't have to pass anything.
+export function useHomeBadges(user: User | null, profile: Profile | null, refreshKey?: string): UseHomeBadgesResult {
   const [hasUnreadLetter, setHasUnreadLetter] = useState(false)
   const [hasPendingCircleInvite, setHasPendingCircleInvite] = useState(false)
   const [hasUnreadEncouragement, setHasUnreadEncouragement] = useState(false)
@@ -31,7 +35,7 @@ export function useHomeBadges(user: User | null, profile: Profile | null): UseHo
     return () => {
       cancelled = true
     }
-  }, [user])
+  }, [user, refreshKey])
 
   // Fire-and-forget, same "nothing to show for it unless it finds something"
   // pattern as checkUnreadLetter above — generates last month's Wrapped the
@@ -55,7 +59,7 @@ export function useHomeBadges(user: User | null, profile: Profile | null): UseHo
     return () => {
       cancelled = true
     }
-  }, [user])
+  }, [user, refreshKey])
 
   // Same badge-dot pattern — the /circle page itself marks encouragements
   // read as soon as it's opened, so this only ever reflects "not yet seen".
@@ -70,7 +74,7 @@ export function useHomeBadges(user: User | null, profile: Profile | null): UseHo
     return () => {
       cancelled = true
     }
-  }, [user])
+  }, [user, refreshKey])
 
   return { hasUnreadLetter, hasPendingCircleInvite, hasUnreadEncouragement }
 }

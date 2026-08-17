@@ -2,6 +2,25 @@
   "a11y": {
     "skip_to_content": "Skip to main content"
   },
+  "nav": {
+    "more": "More"
+  },
+  "hub": {
+    "title": "More",
+    "settings": "Settings",
+    "letters": "Letters",
+    "circle": "Circle",
+    "jar": "Jar",
+    "wrapped": "Wrapped",
+    "letters_status_new": "New letter",
+    "letters_status_count": "{{count}} letters",
+    "letters_status_empty": "No letters yet",
+    "circle_status_count": "{{count}} in Circle",
+    "circle_status_empty": "Empty — invite",
+    "jar_status_count": "{{count}} drops",
+    "wrapped_status_available": "{{month}} ready",
+    "wrapped_status_next": "Next month"
+  },
   "home": {
     "greeting": "Good morning",
     "greeting_afternoon": "Good afternoon",

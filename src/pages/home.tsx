@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
-import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useAuth } from "@/lib/auth-context"
 import { getWeekKey } from "@/lib/ai-service"
@@ -26,7 +25,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Settings, Info, Heart, Flame, Anchor as AnchorIcon, Sparkles, Lock, Pencil, Sun, Moon, Mail, PartyPopper, Volume2, Square } from "lucide-react"
+import { Info, Heart, Flame, Anchor as AnchorIcon, Sparkles, Lock, Pencil, Sun, Moon, Volume2, Square } from "lucide-react"
 import { AppIcon } from "@/components/icons/app-icon"
 import { isSpeechSynthesisAvailable, speak, stopSpeaking } from "@/lib/speech"
 import { moodConfig, moodInk, moodWash } from "@/lib/constants"
@@ -43,14 +42,12 @@ import { SosWidget } from "@/components/anchor/sos-widget"
 import { GratitudeDropCard } from "@/components/anchor/gratitude-drop-card"
 import { GratitudeReminderCard } from "@/components/anchor/gratitude-reminder-card"
 import { JarOpeningModal } from "@/components/anchor/jar-opening-modal"
-import { JarIcon } from "@/components/anchor/jar-icon"
 import { SoftModeNudgeCard } from "@/components/anchor/soft-mode-nudge-card"
 import { SoftModeBadge } from "@/components/anchor/soft-mode-badge"
 import { useSoftMode } from "@/hooks/use-soft-mode"
 import { useAnchorDefs } from "@/hooks/use-anchor-defs"
 import { useNudgeArbitration } from "@/hooks/use-nudge-arbitration"
 import { useDailyCycle } from "@/hooks/use-daily-cycle"
-import { useHomeBadges } from "@/hooks/use-home-badges"
 import { useDialogFocusRestore } from "@/hooks/use-dialog-focus-restore"
 import type { TFunction } from "i18next"
 import type { AnchorCategory, CircleSharedIntention, CustomIntention } from "@/types"
@@ -110,7 +107,6 @@ export function HomePage() {
   } = useSoftMode(user, profile, updateProfile)
 
   const cycle = useDailyCycle(user, profile, softModeActive, checkSoftEnterTrigger, checkSoftExitTrigger)
-  const { hasUnreadLetter, hasPendingCircleInvite, hasUnreadEncouragement } = useHomeBadges(user, profile)
 
   // Circle Mission 3 (grace gift badge) + Mission 2 (shared intention
   // pre-fill) — deliberately a small, self-contained fetch here rather than
@@ -277,89 +273,20 @@ export function HomePage() {
         onPick={handlePickMove}
       />
 
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2 lg:col-span-12">
-        {/* min-w-0 is load-bearing: a flex child's default min-width is its
-            content's own min-intrinsic width (the longest unbreakable word/
-            emoji in the greeting), which — combined with the icon row's own
-            non-shrinking min-content just to the right — used to force this
-            whole row (and therefore the page) wider than the viewport on
-            narrow phones instead of letting the greeting wrap. */}
-        <div className="min-w-0 flex-1">
-          <h1 className="font-heading text-2xl font-bold text-foreground">
-            {t(getGreetingKey())}{firstName ? `, ${firstName}` : ""} &#x1F33B;
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t("home.subtitle")}</p>
-          {softModeActive && (
-            <div className="mt-2">
-              <SoftModeBadge onExit={exitSoftMode} />
-            </div>
-          )}
-        </div>
-        {/* Duplicates the sidebar's Letters/Circle/Jar/Wrapped/Settings links
-            once it takes over at 768px+ (see WebSidebar) — kept below that
-            so narrow mobile still has a way to reach them. */}
-        <div className="flex shrink-0 items-center gap-1 md:hidden">
-          <Link to="/letters">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative text-muted-foreground hover:text-foreground transition-colors"
-              aria-label={t("letters.title")}
-            >
-              <Mail className="h-5 w-5" />
-              {hasUnreadLetter && (
-                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-accent" />
-              )}
-            </Button>
-          </Link>
-          <Link to="/circle">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative text-muted-foreground hover:text-foreground transition-colors"
-              aria-label={t("circle.page_title")}
-            >
-              <Heart className="h-5 w-5" />
-              {hasUnreadEncouragement && (
-                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-accent" />
-              )}
-            </Button>
-          </Link>
-          <Link to="/wrapped">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              aria-label={t("wrapped.history_title")}
-            >
-              <PartyPopper className="h-5 w-5" />
-            </Button>
-          </Link>
-          <Link to="/jar">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              aria-label={t("jar.page_title")}
-            >
-              <JarIcon className="h-5 w-5" />
-            </Button>
-          </Link>
-          <Link to="/settings">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative text-muted-foreground hover:text-foreground transition-colors"
-              aria-label={t("settings.title")}
-            >
-              <Settings className="h-5 w-5" />
-              {hasPendingCircleInvite && (
-                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-accent" />
-              )}
-            </Button>
-          </Link>
-        </div>
+      {/* Header — below 768px, the old Letters/Circle/Jar/Wrapped/Settings
+          icon row that used to sit here is gone: those are now reached via
+          the mobile tab bar's "More" hub (see app-layout.tsx's HubModal).
+          At 768px+ the sidebar already covers them (see WebSidebar). */}
+      <div className="lg:col-span-12">
+        <h1 className="font-heading text-2xl font-bold text-foreground">
+          {t(getGreetingKey())}{firstName ? `, ${firstName}` : ""} &#x1F33B;
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t("home.subtitle")}</p>
+        {softModeActive && (
+          <div className="mt-2">
+            <SoftModeBadge onExit={exitSoftMode} />
+          </div>
+        )}
       </div>
 
       <div className="lg:col-span-12">

@@ -2,6 +2,25 @@
   "a11y": {
     "skip_to_content": "Ruka hadi maudhui makuu"
   },
+  "nav": {
+    "more": "Zaidi"
+  },
+  "hub": {
+    "title": "Zaidi",
+    "settings": "Mipangilio",
+    "letters": "Barua",
+    "circle": "Mzunguko",
+    "jar": "Chombo",
+    "wrapped": "Wrapped",
+    "letters_status_new": "Barua mpya",
+    "letters_status_count": "Barua {{count}}",
+    "letters_status_empty": "Bado hakuna barua",
+    "circle_status_count": "{{count}} kwenye Mzunguko",
+    "circle_status_empty": "Tupu — alika",
+    "jar_status_count": "Matone {{count}}",
+    "wrapped_status_available": "{{month}} tayari",
+    "wrapped_status_next": "Mwezi ujao"
+  },
   "home": {
     "greeting": "Habari za asubuhi",
     "greeting_afternoon": "Habari za mchana",

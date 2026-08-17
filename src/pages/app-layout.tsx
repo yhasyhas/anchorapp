@@ -5,34 +5,62 @@ import { Suspense, useEffect, useRef, useState } from "react"
 import { isOnline, processSyncQueue, getPendingSyncCount, SYNC_QUEUE_CHANGED_EVENT } from "@/lib/offline-sync"
 import { useAuth } from "@/lib/auth-context"
 import { useViewportTier } from "@/hooks/use-viewport"
+import { useHomeBadges } from "@/hooks/use-home-badges"
+import { useHubStatus } from "@/hooks/use-hub-status"
+import { useDialogFocusRestore } from "@/hooks/use-dialog-focus-restore"
 import { AppIcon, type AppIconSource } from "@/components/icons/app-icon"
 import { PauseModal, type PauseOption } from "@/components/anchor/pause-modal"
 import { PauseBreathing } from "@/components/anchor/pause-breathing"
 import { PauseFocusSession } from "@/components/anchor/pause-focus-session"
 import { PauseRecenter } from "@/components/anchor/pause-recenter"
+import { HubModal } from "@/components/anchor/hub-modal"
 import { InstallPrompt } from "@/components/pwa/install-prompt"
 import { Spinner } from "@/components/ui/spinner"
 import { WebSidebar, SIDEBAR_WIDTH_DESKTOP, SIDEBAR_WIDTH_TABLET } from "@/components/layout/web-sidebar"
 
+// Order matches feature/capacitor-mobile's 5-item nav (anchor-redesign-spec.md
+// section 4): Home / Check-in / Patterns / Move / More. "More" isn't a route
+// — it opens the Hub sheet below instead of a NavLink — so it's rendered
+// separately further down rather than living in this array.
 const navItems: { path: string; icon: AppIconSource; labelKey: string }[] = [
   { path: "/", icon: "nav-home", labelKey: "home.title" },
-  { path: "/patterns", icon: "nav-patterns", labelKey: "patterns.title" },
   { path: "/checkin", icon: "nav-checkin", labelKey: "checkin.title" },
+  { path: "/patterns", icon: "nav-patterns", labelKey: "patterns.title" },
   { path: "/move", icon: "nav-move", labelKey: "move.title" },
 ]
 
 export function AppLayout() {
   const { t } = useTranslation()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const location = useLocation()
   const viewportTier = useViewportTier()
   const isMobile = viewportTier === "mobile"
   const [online, setOnline] = useState(isOnline())
   const [showPauseMenu, setShowPauseMenu] = useState(false)
   const [activePause, setActivePause] = useState<PauseOption | null>(null)
+  const [showHubModal, setShowHubModal] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
   const [retrying, setRetrying] = useState(false)
   const pauseTriggerRef = useRef<HTMLButtonElement>(null)
+
+  // Letters/Circle/Jar/Wrapped/Settings used to live in home.tsx's own top
+  // icon row (mobile <768px only) — now reachable from every tab via the
+  // "More" hub sheet below, so the badge data that used to drive that row's
+  // dots moves here instead. refreshKey (route pathname) keeps them fresh
+  // across in-app navigation now that this lives in AppLayout, which never
+  // unmounts between tabs the way HomePage does — see use-home-badges.ts.
+  const { hasUnreadLetter, hasPendingCircleInvite, hasUnreadEncouragement } = useHomeBadges(
+    user,
+    profile,
+    location.pathname
+  )
+  const hubStatus = useHubStatus(user, location.pathname)
+  const hubHasNotification = hasUnreadLetter || hasPendingCircleInvite || hasUnreadEncouragement
+
+  // HubModal is a Radix Sheet with no SheetTrigger (controlled via
+  // showHubModal state) — same gap as PauseModal above and every other
+  // externally-controlled dialog in this app, see use-dialog-focus-restore.ts.
+  const hubFocus = useDialogFocusRestore()
   // Set right before picking a Pause option — PauseModal's Dialog closes in
   // that case too (same onCloseAutoFocus fires), but focus shouldn't jump
   // back to the trigger then: a sub-overlay (PauseBreathing/Recenter/
@@ -205,6 +233,31 @@ export function AppLayout() {
                   )}
                 </NavLink>
               ))}
+
+              {/* "More" — 5th tab, opens the Hub sheet (Letters/Circle/Jar/
+                  Wrapped/Settings) instead of navigating directly, matching
+                  feature/capacitor-mobile's nav. Not a NavLink since it has
+                  no route of its own. */}
+              <button
+                type="button"
+                onClick={() => {
+                  hubFocus.captureTrigger()
+                  setShowHubModal(true)
+                }}
+                aria-haspopup="dialog"
+                aria-expanded={showHubModal}
+                className={`flex flex-col items-center gap-1 px-3 py-2 text-xs outline-none transition-all duration-200 focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
+                  showHubModal ? "text-primary scale-105" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <span className="relative">
+                  <AppIcon icon="nav-more" size={20} active={showHubModal} decorative className="transition-transform duration-200" />
+                  {hubHasNotification && !showHubModal && (
+                    <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-primary" />
+                  )}
+                </span>
+                <span>{t("nav.more")}</span>
+              </button>
             </div>
           </nav>
         )}
@@ -235,6 +288,19 @@ export function AppLayout() {
       {activePause === "breathing" && <PauseBreathing onClose={closePauseFlow} />}
       {activePause === "focus_session" && <PauseFocusSession onClose={closePauseFlow} />}
       {activePause === "recenter" && <PauseRecenter onClose={closePauseFlow} />}
+
+      <HubModal
+        open={showHubModal}
+        onClose={() => setShowHubModal(false)}
+        onCloseAutoFocus={hubFocus.dialogContentProps.onCloseAutoFocus}
+        hasUnreadLetter={hasUnreadLetter}
+        hasPendingCircleInvite={hasPendingCircleInvite}
+        hasUnreadEncouragement={hasUnreadEncouragement}
+        lettersCount={hubStatus.lettersCount}
+        circleMemberCount={hubStatus.circleMemberCount}
+        jarCount={hubStatus.jarCount}
+        wrappedLatestMonth={hubStatus.wrappedLatestMonth}
+      />
     </div>
   )
 }

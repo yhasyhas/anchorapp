@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { Anchor } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useScrollReveal } from "@/hooks/use-scroll-reveal"
 
@@ -51,18 +50,17 @@ export function HeroSection() {
   const { ref, revealed } = useScrollReveal<HTMLDivElement>()
 
   return (
-    <section className="px-6 pb-16 pt-14 text-center">
+    <section className="px-6 pb-16 pt-8 text-center">
       <div
         ref={ref}
         className={`mx-auto max-w-md transition-all duration-700 ${
           revealed ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
         }`}
       >
-        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-sage-light">
-          <Anchor className="h-7 w-7 text-primary" />
-        </div>
-        <h1 className="font-heading text-3xl font-semibold leading-tight text-foreground sm:text-4xl">
-          {t("landing.hero_title")}
+        {/* The page's only h1 — anchor-web-spec.md section 5 requires the
+            hero quote to be it, no duplicate with the header logo above. */}
+        <h1 className="font-heading text-[28px] italic leading-tight text-foreground sm:text-4xl">
+          {t("landing.hero_quote")}
         </h1>
         <p className="mt-4 text-base leading-relaxed text-muted-foreground">{t("landing.hero_subtitle")}</p>
 

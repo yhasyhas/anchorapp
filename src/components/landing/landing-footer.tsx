@@ -30,6 +30,12 @@ export function LandingFooter() {
           <Link to="/privacy" className="hover:text-foreground hover:underline">
             {t("landing.footer_privacy")}
           </Link>
+          {/* No /terms route yet — placeholder link per anchor-web-spec.md
+              section 5 ("prévois les emplacements"); the catch-all route
+              sends it back to "/" until a real Terms page exists. */}
+          <Link to="/terms" className="hover:text-foreground hover:underline">
+            {t("landing.footer_terms")}
+          </Link>
         </div>
 
         <p className="text-xs text-muted-foreground/70">

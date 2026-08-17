@@ -114,7 +114,11 @@ export function AppLayout() {
   }
 
   return (
-    <div className="flex min-h-svh bg-background">
+    // overflow-x-hidden is a safety net, not the fix — see home.tsx's header
+    // row for the actual root cause this guards against. Kept here in
+    // addition to that fix so a future unrelated regression can't silently
+    // reintroduce a horizontal scrollbar on mobile.
+    <div className="flex min-h-svh overflow-x-hidden bg-background">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:outline-none focus:ring-[3px] focus:ring-ring/50"

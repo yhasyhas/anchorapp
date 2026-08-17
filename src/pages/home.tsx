@@ -278,8 +278,14 @@ export function HomePage() {
       />
 
       {/* Header */}
-      <div className="flex items-center justify-between lg:col-span-12">
-        <div>
+      <div className="flex items-center justify-between gap-2 lg:col-span-12">
+        {/* min-w-0 is load-bearing: a flex child's default min-width is its
+            content's own min-intrinsic width (the longest unbreakable word/
+            emoji in the greeting), which — combined with the icon row's own
+            non-shrinking min-content just to the right — used to force this
+            whole row (and therefore the page) wider than the viewport on
+            narrow phones instead of letting the greeting wrap. */}
+        <div className="min-w-0 flex-1">
           <h1 className="font-heading text-2xl font-bold text-foreground">
             {t(getGreetingKey())}{firstName ? `, ${firstName}` : ""} &#x1F33B;
           </h1>
@@ -293,7 +299,7 @@ export function HomePage() {
         {/* Duplicates the sidebar's Letters/Circle/Jar/Wrapped/Settings links
             once it takes over at 768px+ (see WebSidebar) — kept below that
             so narrow mobile still has a way to reach them. */}
-        <div className="flex items-center gap-1 md:hidden">
+        <div className="flex shrink-0 items-center gap-1 md:hidden">
           <Link to="/letters">
             <Button
               variant="ghost"
@@ -608,16 +614,21 @@ export function HomePage() {
       {/* 3 Anchors — row 2 (desktop): header stays full-width, the 3 cards
           below become an equal 3-column grid (anchor-web-spec.md section 3). */}
       <div className="space-y-4 lg:col-span-12">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h2 className="font-heading text-lg font-semibold">
+        <div className="flex items-center justify-between gap-2">
+          {/* min-w-0 for the same reason as the page header above — this
+              title group and the Lock/Edit button on the right are two
+              non-wrapping flex children in a justify-between row, so
+              without it a long translated label (e.g. Swahili) could force
+              the whole row past the viewport again. */}
+          <div className="flex min-w-0 items-center gap-2">
+            <h2 className="truncate font-heading text-lg font-semibold">
               {softModeActive && !softExpanded ? t("soft_mode.one_thing_title") : <>{t("home.anchors_title")} &#x2693;</>}
             </h2>
             {(!softModeActive || softExpanded) && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <button className="text-muted-foreground hover:text-foreground transition-colors">
+                    <button className="shrink-0 text-muted-foreground hover:text-foreground transition-colors">
                       <Info className="h-4 w-4" />
                     </button>
                   </TooltipTrigger>
@@ -630,13 +641,13 @@ export function HomePage() {
           </div>
 
           {cycle.dayMode === "planning" && hasAnyAnchorText && (
-            <Button size="sm" onClick={cycle.attemptLockDay} className="gap-1.5 text-xs">
+            <Button size="sm" onClick={cycle.attemptLockDay} className="shrink-0 gap-1.5 text-xs">
               <Lock className="h-3.5 w-3.5" />
               {t("home.start_my_day")}
             </Button>
           )}
           {cycle.dayMode === "tracking" && (
-            <Button variant="ghost" size="sm" onClick={cycle.unlockDay} className="gap-1.5 text-xs text-muted-foreground">
+            <Button variant="ghost" size="sm" onClick={cycle.unlockDay} className="shrink-0 gap-1.5 text-xs text-muted-foreground">
               <Pencil className="h-3.5 w-3.5" />
               {t("home.edit")}
             </Button>

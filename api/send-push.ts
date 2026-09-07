@@ -1,4 +1,6 @@
 import webpush from "web-push"
+import { cert, initializeApp, type App } from "firebase-admin/app"
+import { getMessaging } from "firebase-admin/messaging"
 import { timingSafeEqual } from "node:crypto"
 
 // Deliberately NOT `runtime: "edge"` (unlike api/insights.ts): `web-push` signs
@@ -13,6 +15,10 @@ export const config = {
 interface PushSubscriptionRow {
   endpoint: string
   keys: { p256dh: string; auth: string }
+}
+
+interface PushTokenRow {
+  token: string
 }
 
 export interface SendPushParams {
@@ -95,6 +101,76 @@ function safeEqual(a: string, b: string): boolean {
   return bufA.length === bufB.length && timingSafeEqual(bufA, bufB)
 }
 
+// Lazily initialized, memoized across warm invocations of this serverless
+// function (module scope survives between calls on the same instance).
+// Returns undefined — rather than throwing — when FIREBASE_SERVICE_ACCOUNT
+// isn't set, so deployments that haven't set up native push yet keep
+// working exactly as before; only sendFcmToUser below no-ops in that case.
+let firebaseApp: App | undefined
+
+function getFirebaseApp(): App | undefined {
+  const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT
+  if (!serviceAccountJson) return undefined
+  if (!firebaseApp) {
+    firebaseApp = initializeApp({
+      credential: cert(JSON.parse(serviceAccountJson)),
+    })
+  }
+  return firebaseApp
+}
+
+// FCM counterpart to the Web Push loop in sendPushToUser — same
+// prune-on-permanent-failure approach, just keyed on
+// "messaging/registration-token-not-registered" instead of a 404/410
+// HTTP status, since the Admin SDK reports per-token errors that way
+// instead of throwing on the request as a whole.
+async function sendFcmToUser(
+  userId: string,
+  title: string,
+  message: string,
+  url: string | undefined,
+  supabaseUrl: string,
+  serviceRoleKey: string
+): Promise<SendPushResult> {
+  const app = getFirebaseApp()
+  if (!app) return { sent: 0, expired: 0 }
+
+  const tokensRes = await fetch(
+    `${supabaseUrl}/rest/v1/push_tokens?user_id=eq.${encodeURIComponent(userId)}&select=token`,
+    { headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey } }
+  )
+  if (!tokensRes.ok) return { sent: 0, expired: 0 }
+
+  const rows = (await tokensRes.json()) as PushTokenRow[]
+  if (rows.length === 0) return { sent: 0, expired: 0 }
+
+  const response = await getMessaging(app).sendEachForMulticast({
+    tokens: rows.map((r) => r.token),
+    notification: { title, body: message },
+    ...(url ? { data: { url } } : {}),
+  })
+
+  const expiredTokens: string[] = []
+  response.responses.forEach((res, i) => {
+    if (!res.success && res.error?.code === "messaging/registration-token-not-registered") {
+      expiredTokens.push(rows[i].token)
+    }
+  })
+
+  if (expiredTokens.length > 0) {
+    await Promise.all(
+      expiredTokens.map((token) =>
+        fetch(`${supabaseUrl}/rest/v1/push_tokens?token=eq.${encodeURIComponent(token)}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey },
+        }).catch(() => {})
+      )
+    )
+  }
+
+  return { sent: response.successCount, expired: expiredTokens.length }
+}
+
 // Core send logic, shared by the HTTP handler below (external callers,
 // authenticated via x-push-secret) and api/cron/reminders.ts, which imports
 // this function directly and calls it in-process — same code, no duplicated
@@ -129,15 +205,15 @@ export async function sendPushToUser({ userId, title, body: message, url }: Send
   }
 
   const subscriptions = (await subsRes.json()) as PushSubscriptionRow[]
-  if (subscriptions.length === 0) {
-    return { sent: 0, expired: 0 }
-  }
 
   const payload = JSON.stringify({ title, body: message, url: url || "/" })
 
   let sent = 0
   const expiredEndpoints: string[] = []
 
+  // Not gated on subscriptions.length > 0 — a user with no Web Push
+  // subscriptions may still have native push_tokens rows (see
+  // sendFcmToUser below), which must still be reached in that case.
   await Promise.all(
     subscriptions.map(async (sub) => {
       try {
@@ -170,7 +246,9 @@ export async function sendPushToUser({ userId, title, body: message, url }: Send
     )
   }
 
-  return { sent, expired: expiredEndpoints.length }
+  const fcmResult = await sendFcmToUser(userId, title, message, url, SUPABASE_URL, SERVICE_ROLE_KEY)
+
+  return { sent: sent + fcmResult.sent, expired: expiredEndpoints.length + fcmResult.expired }
 }
 
 // Vercel's Node.js runtime (unlike Edge) doesn't hand a real Fetch API

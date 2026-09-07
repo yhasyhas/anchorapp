@@ -1,17 +1,20 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
+import { Haptics, ImpactStyle } from "@capacitor/haptics"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Send } from "lucide-react"
 import { toast } from "sonner"
 import { addGratitude } from "@/lib/gratitude"
-import { JarIcon } from "@/components/anchor/jar-icon"
+import { AppIcon } from "@/components/icons/app-icon"
+import { usePrefersReducedMotion } from "@/hooks/use-reduced-motion"
 
 const MAX_LENGTH = 140
 
 export function GratitudeDropCard() {
   const { t } = useTranslation()
+  const prefersReducedMotion = usePrefersReducedMotion()
   const [text, setText] = useState("")
   const [saving, setSaving] = useState(false)
   const [dropping, setDropping] = useState(false)
@@ -24,6 +27,7 @@ export function GratitudeDropCard() {
       await addGratitude(trimmed)
       setText("")
       setDropping(true)
+      Haptics.impact({ style: ImpactStyle.Light }).catch(() => {})
       setTimeout(() => setDropping(false), 700)
       toast.success(t("jar.drop_success"))
     } catch (err) {
@@ -35,10 +39,10 @@ export function GratitudeDropCard() {
   }
 
   return (
-    <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+    <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
       <CardContent className="p-5">
         <div className="mb-3 flex items-center gap-2">
-          <JarIcon className="h-4 w-4 text-primary" />
+          <AppIcon icon="gratitude-jar" size={20} decorative className="text-primary" />
           <p className="text-sm font-semibold text-foreground">{t("jar.drop_title")}</p>
         </div>
 
@@ -49,7 +53,7 @@ export function GratitudeDropCard() {
             placeholder={t("jar.drop_placeholder")}
             maxLength={MAX_LENGTH}
             onKeyDown={(e) => e.key === "Enter" && handleDrop()}
-            className="border-0 bg-muted/50 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
+            className="border-0 rounded-anchor-input bg-muted/50 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
           />
           <Button
             size="icon"
@@ -61,9 +65,9 @@ export function GratitudeDropCard() {
             <Send className="h-4 w-4" />
           </Button>
 
-          {dropping && (
-            <span className="pointer-events-none absolute right-10 top-1/2 -translate-y-1/2 text-base animate-jar-drop">
-              🫙
+          {dropping && !prefersReducedMotion && (
+            <span className="pointer-events-none absolute right-10 top-1/2 -translate-y-1/2 text-primary animate-jar-drop">
+              <AppIcon icon="gratitude-jar" size={20} active decorative />
             </span>
           )}
         </div>

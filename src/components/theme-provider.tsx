@@ -1,5 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import * as React from "react"
+import { Capacitor } from "@capacitor/core"
+import { StatusBar, Style } from "@capacitor/status-bar"
 
 type Theme = "dark" | "light" | "system"
 type ResolvedTheme = "dark" | "light"
@@ -19,9 +21,12 @@ type ThemeProviderState = {
 const COLOR_SCHEME_QUERY = "(prefers-color-scheme: dark)"
 const THEME_VALUES: Theme[] = ["dark", "light", "system"]
 const THEME_COLOR_META_ID = "theme-color-meta"
+// Resynced with src/index.css's :root/.dark on the Papier rosé/Nuit céleste
+// flip — light still mirrors --primary, dark still mirrors --background,
+// same mapping as before, just the new hex values.
 const THEME_COLORS: Record<ResolvedTheme, string> = {
-  light: "#7A8B6E",
-  dark: "#1C1B1A",
+  light: "#8A2E10",
+  dark: "#0D1030",
 }
 
 const ThemeProviderContext = React.createContext<
@@ -61,6 +66,14 @@ function disableTransitionsTemporarily() {
       })
     })
   }
+}
+
+// setBackgroundColor is Android-only and rejects on iOS — swallow rather
+// than let an unhandled rejection surface for a status bar tweak.
+function syncNativeStatusBar(resolvedTheme: ResolvedTheme) {
+  if (!Capacitor.isNativePlatform()) return
+  StatusBar.setStyle({ style: resolvedTheme === "dark" ? Style.Dark : Style.Light }).catch(() => {})
+  StatusBar.setBackgroundColor({ color: THEME_COLORS[resolvedTheme] }).catch(() => {})
 }
 
 function isEditableTarget(target: EventTarget | null) {
@@ -122,6 +135,7 @@ export function ThemeProvider({
       if (meta) {
         meta.setAttribute("content", THEME_COLORS[resolvedTheme])
       }
+      syncNativeStatusBar(resolvedTheme)
 
       if (restoreTransitions) {
         restoreTransitions()

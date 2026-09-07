@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
+import { AppIcon } from "@/components/icons/app-icon"
 import { ConfettiBurst } from "@/components/anchor/confetti"
 import { EveningReleaseAnimation } from "@/components/anchor/evening-release-animation"
 import { isCheckInTime } from "@/lib/utils"
@@ -36,7 +37,7 @@ export function StreakMilestoneModal({ milestone, intentionLabel, onClose }: Str
         {evening ? <EveningReleaseAnimation active /> : <ConfettiBurst active />}
 
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-peach/30">
-          <span className="text-4xl">&#x2693;</span>
+          <AppIcon icon="anchor-mark" active decorative className="h-9 w-9 text-primary" />
         </div>
 
         <p className="mt-6 font-heading text-2xl font-semibold text-foreground">

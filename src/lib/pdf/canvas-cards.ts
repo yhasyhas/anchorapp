@@ -16,13 +16,13 @@ export interface RenderedCard {
 // Same fixed set for every card type below — none of them currently need a
 // different weight/size mix, so there's just the one shared list.
 const CARD_FONT_SPECS = [
-  "italic 400 40px 'Playfair Display'",
-  "italic 600 40px 'Playfair Display'",
-  "700 40px 'Playfair Display'",
-  "400 40px 'Playfair Display'",
-  "400 24px 'Inter'",
-  "600 24px 'Inter'",
-  "700 24px 'Inter'",
+  "italic 500 40px 'Fraunces'",
+  "italic 500 40px 'Fraunces'",
+  "500 40px 'Fraunces'",
+  "500 40px 'Fraunces'",
+  "400 24px 'DM Sans'",
+  "500 24px 'DM Sans'",
+  "500 24px 'DM Sans'",
 ]
 
 function newCanvas(): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
@@ -92,23 +92,23 @@ export async function renderCoverCard(opts: CoverCardOptions): Promise<RenderedC
 
   ctx.textAlign = "center"
   ctx.fillStyle = PDF_COLORS.sage
-  ctx.font = "700 26px 'Inter', sans-serif"
+  ctx.font = "500 26px 'DM Sans', sans-serif"
   ctx.fillText(opts.eyebrow.toUpperCase(), centerX, y)
   y += 76
 
   ctx.fillStyle = PDF_COLORS.foreground
-  ctx.font = "700 78px 'Playfair Display', serif"
+  ctx.font = "500 78px 'Fraunces', serif"
   ctx.fillText(opts.monthLabel, centerX, y)
   y += 56
 
   ctx.fillStyle = PDF_COLORS.muted
-  ctx.font = "italic 400 32px 'Playfair Display', serif"
+  ctx.font = "italic 500 32px 'Fraunces', serif"
   ctx.fillText(opts.greeting, centerX, y)
   y += 70
 
   if (opts.intentionLine) {
     ctx.fillStyle = PDF_COLORS.sage
-    ctx.font = "600 24px 'Inter', sans-serif"
+    ctx.font = "500 24px 'DM Sans', sans-serif"
     const lines = wrapText(ctx, opts.intentionLine, cardW - 200)
     for (const line of lines) {
       ctx.fillText(line, centerX, y)
@@ -118,7 +118,7 @@ export async function renderCoverCard(opts: CoverCardOptions): Promise<RenderedC
   }
 
   ctx.fillStyle = PDF_COLORS.foreground
-  ctx.font = "italic 400 34px 'Playfair Display', serif"
+  ctx.font = "italic 500 34px 'Fraunces', serif"
   const maxTextWidth = cardW - 220
   const lineHeight = 50
   const openingLines = wrapText(ctx, opts.openingLine, maxTextWidth)
@@ -135,7 +135,7 @@ export async function renderCoverCard(opts: CoverCardOptions): Promise<RenderedC
   }
 
   ctx.fillStyle = PDF_COLORS.sage
-  ctx.font = "italic 600 30px 'Playfair Display', serif"
+  ctx.font = "italic 500 30px 'Fraunces', serif"
   ctx.fillText("— your Anchor ⚓", centerX, cardY + cardH - 56)
 
   return toResult(canvas)
@@ -166,12 +166,12 @@ export async function renderLetterCard(opts: LetterCardOptions): Promise<Rendere
 
   ctx.textAlign = "center"
   ctx.fillStyle = PDF_COLORS.sage
-  ctx.font = "700 24px 'Inter', sans-serif"
+  ctx.font = "500 24px 'DM Sans', sans-serif"
   ctx.fillText(opts.badge.toUpperCase(), CARD_PX_W / 2, y)
   y += 34
 
   ctx.fillStyle = PDF_COLORS.muted
-  ctx.font = "400 22px 'Inter', sans-serif"
+  ctx.font = "400 22px 'DM Sans', sans-serif"
   ctx.fillText(opts.weekLabel, CARD_PX_W / 2, y)
   y += 90
 
@@ -189,13 +189,13 @@ export async function renderLetterCard(opts: LetterCardOptions): Promise<Rendere
   const reservedForSignature = 130
   const availableHeight = cardY + cardH - reservedForSignature - y
   while (fontSizePx > 22) {
-    ctx.font = `italic 400 ${fontSizePx}px 'Playfair Display', serif`
+    ctx.font = `italic 500 ${fontSizePx}px 'Fraunces', serif`
     lines = wrapText(ctx, opts.letterText, textMaxWidth)
     if (lines.length * lineHeight <= availableHeight) break
     fontSizePx -= 2
     lineHeight -= 3
   }
-  ctx.font = `italic 400 ${fontSizePx}px 'Playfair Display', serif`
+  ctx.font = `italic 500 ${fontSizePx}px 'Fraunces', serif`
   lines = wrapText(ctx, opts.letterText, textMaxWidth)
 
   const bodyHeight = lines.length * lineHeight
@@ -207,7 +207,7 @@ export async function renderLetterCard(opts: LetterCardOptions): Promise<Rendere
 
   ctx.textAlign = "right"
   ctx.fillStyle = PDF_COLORS.sage
-  ctx.font = "italic 600 30px 'Playfair Display', serif"
+  ctx.font = "italic 500 30px 'Fraunces', serif"
   ctx.fillText(opts.signature, cardX + cardW - 70, cardY + cardH - 60)
 
   return toResult(canvas)
@@ -236,12 +236,12 @@ export async function renderJournalCard(opts: JournalCardOptions): Promise<Rende
   let y = cardY + 92
   ctx.textAlign = "center"
   ctx.fillStyle = PDF_COLORS.foreground
-  ctx.font = "700 42px 'Playfair Display', serif"
+  ctx.font = "500 42px 'Fraunces', serif"
   ctx.fillText(opts.title, CARD_PX_W / 2, y)
   y += 40
 
   ctx.fillStyle = PDF_COLORS.muted
-  ctx.font = "400 22px 'Inter', sans-serif"
+  ctx.font = "400 22px 'DM Sans', sans-serif"
   ctx.fillText(opts.subtitle, CARD_PX_W / 2, y)
   y += 76
 
@@ -252,7 +252,7 @@ export async function renderJournalCard(opts: JournalCardOptions): Promise<Rende
   const dateLabelH = 36
   const sentenceLineH = 40
   const entryGap = 34
-  ctx.font = "italic 400 30px 'Playfair Display', serif"
+  ctx.font = "italic 500 30px 'Fraunces', serif"
   const measuredEntries = opts.entries.map((entry) => ({
     entry,
     lines: wrapText(ctx, `"${entry.sentence}"`, textMaxWidth),
@@ -270,12 +270,12 @@ export async function renderJournalCard(opts: JournalCardOptions): Promise<Rende
 
   for (const { entry, lines } of measuredEntries) {
     ctx.fillStyle = PDF_COLORS.sage
-    ctx.font = "600 20px 'Inter', sans-serif"
+    ctx.font = "500 20px 'DM Sans', sans-serif"
     ctx.fillText(entry.dateLabel.toUpperCase(), textX, y)
     y += dateLabelH
 
     ctx.fillStyle = PDF_COLORS.foreground
-    ctx.font = "italic 400 30px 'Playfair Display', serif"
+    ctx.font = "italic 500 30px 'Fraunces', serif"
     for (const line of lines) {
       ctx.fillText(line, textX, y)
       y += sentenceLineH
@@ -310,18 +310,18 @@ export async function renderStoryCard(opts: StoryCardOptions): Promise<RenderedC
   let y = cardY + 96
   ctx.textAlign = "center"
   ctx.fillStyle = PDF_COLORS.foreground
-  ctx.font = "700 40px 'Playfair Display', serif"
+  ctx.font = "500 40px 'Fraunces', serif"
   ctx.fillText(opts.title, CARD_PX_W / 2, y)
   y += 38
 
   ctx.fillStyle = PDF_COLORS.muted
-  ctx.font = "400 22px 'Inter', sans-serif"
+  ctx.font = "400 22px 'DM Sans', sans-serif"
   ctx.fillText(opts.dateLabel, CARD_PX_W / 2, y)
   y += 84
 
   ctx.textAlign = "left"
   ctx.fillStyle = PDF_COLORS.foreground
-  ctx.font = "italic 400 32px 'Playfair Display', serif"
+  ctx.font = "italic 500 32px 'Fraunces', serif"
   const textMaxWidth = cardW - 140
   const textX = cardX + 70
   const lineHeight = 46
@@ -337,7 +337,7 @@ export async function renderStoryCard(opts: StoryCardOptions): Promise<RenderedC
 
   ctx.textAlign = "center"
   ctx.fillStyle = PDF_COLORS.sage
-  ctx.font = "600 24px 'Inter', sans-serif"
+  ctx.font = "500 24px 'DM Sans', sans-serif"
   ctx.fillText(opts.closingLine, CARD_PX_W / 2, cardY + cardH - 56)
 
   return toResult(canvas)
@@ -365,7 +365,7 @@ export async function renderClosingCard(opts: ClosingCardOptions): Promise<Rende
   let y = cardY + 130
   ctx.textAlign = "center"
   ctx.fillStyle = PDF_COLORS.foreground
-  ctx.font = "italic 700 42px 'Playfair Display', serif"
+  ctx.font = "italic 500 42px 'Fraunces', serif"
   const quoteLines = wrapText(ctx, opts.quoteLine, cardW - 180)
   for (const line of quoteLines) {
     ctx.fillText(line, CARD_PX_W / 2, y)
@@ -374,7 +374,7 @@ export async function renderClosingCard(opts: ClosingCardOptions): Promise<Rende
   y += 50
 
   ctx.fillStyle = PDF_COLORS.sage
-  ctx.font = "700 24px 'Inter', sans-serif"
+  ctx.font = "500 24px 'DM Sans', sans-serif"
   ctx.fillText(opts.notesLabel.toUpperCase(), CARD_PX_W / 2, y)
   y += 44
 

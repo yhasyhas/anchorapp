@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
 import { fetchInsightsWithFallback } from "@/lib/ai-service"
-import { moodToValue } from "@/lib/constants"
+import { moodToValue, moodInk } from "@/lib/constants"
 import { localDateStr } from "@/lib/utils"
 import { formatWeekRange } from "@/lib/letters"
 import { resolveIntentionLabel } from "@/lib/intentions"
@@ -11,7 +11,7 @@ import { useCustomIntentions } from "@/hooks/use-custom-intentions"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Sparkles, Brain, Loader2, BookOpen, ChevronDown, ChevronUp } from "lucide-react"
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts"
+import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts"
 import { EmptyState } from "@/components/ui/empty-state"
 import { toast } from "sonner"
 import type { MoodLog, DailyAnchor, CheckIn, JournalEntry, ProgressStory, InsightLogEntry } from "@/types"
@@ -20,14 +20,6 @@ import { todayStr } from "@/lib/utils"
 const INSIGHT_HISTORY_LIMIT = 30
 
 const dayKeys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
-
-const moodColors: Record<string, string> = {
-  great: "var(--peach)",
-  okay: "var(--sage-light)",
-  meh: "var(--lavender)",
-  low: "var(--rose-accent)",
-  stressed: "var(--mood-stressed)",
-}
 
 interface InsightItem {
   text: string
@@ -235,6 +227,15 @@ export function PatternsPage() {
 
   const hasData = chartData.some((d) => d.value > 0)
 
+  // Simple rule-based narrative under the week's bar chart (section 7) — no
+  // AI needed for this one: just the best-logged day of the last 7.
+  const weekNarrative = useMemo(() => {
+    const logged = chartData.filter((d) => d.mood !== null)
+    if (logged.length === 0) return null
+    const best = logged.reduce((a, b) => (b.value > a.value ? b : a))
+    return t("patterns.narrative_best_day", { day: best.day, mood: t(`mood.${best.mood}`) })
+  }, [chartData, t])
+
   return (
     <div className="mx-auto max-w-lg space-y-6 lg:max-w-[1000px] lg:py-2">
       <div className="flex items-center justify-between">
@@ -256,7 +257,7 @@ export function PatternsPage() {
         </div>
 
         {loadingStory ? (
-          <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+          <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
             <CardContent className="p-5">
               <div className="flex items-center justify-center gap-2 py-6">
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -277,7 +278,7 @@ export function PatternsPage() {
             </div>
 
             {/* Mood trend across the 3 weeks */}
-            <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+            <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
               <CardContent className="p-5">
                 <p className="mb-3 text-sm font-medium text-muted-foreground">{t("progress_story.mood_trend")}</p>
                 <ResponsiveContainer width="100%" height={130}>
@@ -311,7 +312,7 @@ export function PatternsPage() {
 
             {/* Top intentions across the period */}
             {selectedStory.stats.topIntentions.length > 0 && (
-              <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+              <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
                 <CardContent className="p-5">
                   <p className="mb-3 text-sm font-medium text-muted-foreground">{t("progress_story.top_intentions")}</p>
                   <div className="space-y-2.5">
@@ -353,7 +354,7 @@ export function PatternsPage() {
             )}
           </div>
         ) : (
-          <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+          <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
             <CardContent className="p-5">
               <EmptyState icon="seedling" titleKey="progress_story.empty" descriptionKey="progress_story.empty_sub" />
             </CardContent>
@@ -362,44 +363,42 @@ export function PatternsPage() {
       </div>
 
       {/* Mood Chart */}
-      <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+      <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
         <CardContent className="p-5">
           <p className="mb-4 text-sm font-medium text-muted-foreground">{t("patterns.this_week")}</p>
           {hasData ? (
-            <ResponsiveContainer width="100%" height={180}>
-              <LineChart data={chartData}>
-                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} />
-                <YAxis domain={[0, 5]} hide />
-                <Tooltip
-                  formatter={(_value, _name, props: any) => {
-                    const moodKey = props?.payload?.mood
-                    const label = moodKey ? t(`mood.${moodKey}`) : ""
-                    return [label, t("patterns.mood_label")]
-                  }}
-                  contentStyle={{
-                    backgroundColor: "var(--card)",
-                    border: "none",
-                    borderRadius: "12px",
-                    boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
-                  }}
-                  labelStyle={{ color: "var(--card-foreground)" }}
-                  itemStyle={{ color: "var(--card-foreground)" }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke="var(--chart-1)"
-                  strokeWidth={2.5}
-                  dot={(props: any) => {
-                    const { cx, cy, payload } = props
-                    const color = payload.mood ? moodColors[payload.mood] : "var(--border)"
-                    return <circle cx={cx} cy={cy} r={5} fill={color} stroke="var(--card)" strokeWidth={2} />
-                  }}
-                  activeDot={{ r: 7, fill: "var(--chart-1)" }}
-                  connectNulls={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <>
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={chartData}>
+                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} />
+                  <YAxis domain={[0, 5]} hide />
+                  <Tooltip
+                    cursor={{ fill: "var(--muted)", opacity: 0.4 }}
+                    formatter={(_value, _name, props: any) => {
+                      const moodKey = props?.payload?.mood
+                      const label = moodKey ? t(`mood.${moodKey}`) : ""
+                      return [label, t("patterns.mood_label")]
+                    }}
+                    contentStyle={{
+                      backgroundColor: "var(--card)",
+                      border: "none",
+                      borderRadius: "12px",
+                      boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+                    }}
+                    labelStyle={{ color: "var(--card-foreground)" }}
+                    itemStyle={{ color: "var(--card-foreground)" }}
+                  />
+                  <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={36} isAnimationActive={false}>
+                    {chartData.map((entry, i) => (
+                      <Cell key={i} fill={entry.mood ? moodInk[entry.mood as keyof typeof moodInk] : "var(--border)"} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              {weekNarrative && (
+                <p className="mt-3 text-center text-xs italic text-muted-foreground">{weekNarrative}</p>
+              )}
+            </>
           ) : (
             <EmptyState icon="moon" titleKey="patterns.empty" />
           )}
@@ -429,7 +428,7 @@ export function PatternsPage() {
       {/* Insights List */}
       <div className="space-y-3">
         {loading && !insights.length ? (
-          <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+          <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
             <CardContent className="p-5">
               <div className="flex items-center justify-center gap-2 py-4">
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -441,7 +440,7 @@ export function PatternsPage() {
           insights.map((insight, i) => (
             <Card
               key={`${insight.source}-${i}`}
-              className={`border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)] ${
+              className={`border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)] ${
                 insight.source === "ai" || insight.source === "cached_ai"
                   ? "bg-gradient-to-r from-lavender/20 to-transparent"
                   : ""
@@ -461,7 +460,7 @@ export function PatternsPage() {
             </Card>
           ))
         ) : (
-          <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+          <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
             <CardContent className="p-5">
               <EmptyState icon="seedling" titleKey="patterns.empty" />
             </CardContent>
@@ -485,7 +484,7 @@ export function PatternsPage() {
 
         {historyOpen &&
           (loadingHistory ? (
-            <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+            <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
               <CardContent className="p-5">
                 <div className="flex items-center justify-center gap-2 py-4">
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -494,7 +493,7 @@ export function PatternsPage() {
               </CardContent>
             </Card>
           ) : insightHistory && insightHistory.length > 0 ? (
-            <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+            <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
               <CardContent className="divide-y divide-border/60 p-0">
                 {insightHistory.map((entry) => (
                   <div key={entry.id} className="flex items-start gap-3 p-4">
@@ -507,7 +506,7 @@ export function PatternsPage() {
               </CardContent>
             </Card>
           ) : (
-            <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+            <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
               <CardContent className="p-5">
                 <EmptyState icon="cloud" titleKey="patterns.insights_history_empty" />
               </CardContent>
@@ -523,7 +522,7 @@ export function PatternsPage() {
         </div>
 
         {journalEntries.length > 0 ? (
-          <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+          <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
             <CardContent className="divide-y divide-border/60 p-0">
               {journalEntries.map((entry) => (
                 <div key={entry.id} className="flex items-start gap-3 p-4">
@@ -536,7 +535,7 @@ export function PatternsPage() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+          <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
             <CardContent className="p-5">
               <EmptyState icon="flower" titleKey="journal.history_empty" />
             </CardContent>

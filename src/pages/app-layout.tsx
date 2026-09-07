@@ -1,10 +1,13 @@
-import { Outlet, NavLink, useLocation } from "react-router-dom"
+import { Outlet, NavLink, Link, useLocation } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { CloudOff, RefreshCw } from "lucide-react"
 import { Suspense, useEffect, useRef, useState } from "react"
+import { Capacitor } from "@capacitor/core"
+import { Network } from "@capacitor/network"
 import { isOnline, processSyncQueue, getPendingSyncCount, SYNC_QUEUE_CHANGED_EVENT } from "@/lib/offline-sync"
 import { useAuth } from "@/lib/auth-context"
 import { useViewportTier } from "@/hooks/use-viewport"
+import { usePrefersReducedMotion } from "@/hooks/use-reduced-motion"
 import { useHomeBadges } from "@/hooks/use-home-badges"
 import { useHubStatus } from "@/hooks/use-hub-status"
 import { useDialogFocusRestore } from "@/hooks/use-dialog-focus-restore"
@@ -29,12 +32,18 @@ const navItems: { path: string; icon: AppIconSource; labelKey: string }[] = [
   { path: "/move", icon: "nav-move", labelKey: "move.title" },
 ]
 
+// Spec section 3's inactive-nav color is a dedicated hex distinct from the
+// --muted-foreground token (which serves a broader "secondary text" role) —
+// kept as a one-off arbitrary value here rather than a new global token.
+const NAV_INACTIVE = "text-[#B0968A]"
+
 export function AppLayout() {
   const { t } = useTranslation()
   const { user, profile } = useAuth()
   const location = useLocation()
   const viewportTier = useViewportTier()
   const isMobile = viewportTier === "mobile"
+  const prefersReducedMotion = usePrefersReducedMotion()
   const [online, setOnline] = useState(isOnline())
   const [showPauseMenu, setShowPauseMenu] = useState(false)
   const [activePause, setActivePause] = useState<PauseOption | null>(null)
@@ -109,16 +118,12 @@ export function AppLayout() {
 
   useEffect(() => {
     if (!user) return
-    const handleOnline = () => {
-      setOnline(true)
-      processSyncQueue(user.id)
-    }
-    const handleOffline = () => setOnline(false)
-    window.addEventListener("online", handleOnline)
-    window.addEventListener("offline", handleOffline)
+    const listener = Network.addListener("networkStatusChange", (status) => {
+      setOnline(status.connected)
+      if (status.connected) processSyncQueue(user.id)
+    })
     return () => {
-      window.removeEventListener("online", handleOnline)
-      window.removeEventListener("offline", handleOffline)
+      listener.then((handle) => handle.remove())
     }
   }, [user])
 
@@ -154,7 +159,9 @@ export function AppLayout() {
         {t("a11y.skip_to_content")}
       </a>
 
-      <InstallPrompt />
+      {/* Install-to-homescreen nudge only makes sense for the PWA — the
+          native app is already "installed" once it's on the device. */}
+      {!Capacitor.isNativePlatform() && <InstallPrompt />}
 
       {/* Sidebar replaces the bottom tab bar at 768px+ — full labels above
           1024px, icon rail with tooltips between 768-1024px. Below 768px
@@ -190,10 +197,39 @@ export function AppLayout() {
           </div>
         )}
 
+        {/* Contextual header — anchor-redesign-spec.md section 4: the old
+            always-on Letters/Circle/Wrapped/Jar/Settings row is gone (those 4
+            now live in the "More" hub sheet below); only Settings persists
+            here, alone. Mobile only (<768px) — at 768px+ WebSidebar already
+            has its own Settings link, so this would otherwise be a duplicate
+            entry point. Each page's own in-body title is left as-is for now
+            (see CLAUDE.md's Design system note) — folding it into this
+            header is scoped to that page's own redesign phase, not this nav
+            pass, to avoid a doubled-up title until then. Sits in normal flow
+            above <main> (not fixed) — same technique the offline banner
+            above already uses to stay visible without scrolling away. */}
+        {isMobile && (
+          <div
+            className="mx-auto flex w-full max-w-lg shrink-0 justify-end px-4"
+            style={{ paddingTop: "calc(0.5rem + env(safe-area-inset-top))" }}
+          >
+            <Link
+              to="/settings"
+              aria-label={t("settings.title")}
+              className="relative flex min-h-11 min-w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <AppIcon icon="hub-settings" size={20} decorative />
+              {hasPendingCircleInvite && (
+                <span aria-hidden="true" className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary" />
+              )}
+            </Link>
+          </div>
+        )}
+
         <main
           id="main-content"
           tabIndex={-1}
-          className={`flex-1 overflow-y-auto px-6 pt-6 outline-none ${isMobile ? "pb-24" : "pb-10"}`}
+          className={`flex-1 overflow-y-auto px-6 pt-2 outline-none ${isMobile ? "pb-24" : "pb-10"}`}
         >
           {/* Own Suspense boundary (rather than relying on App.tsx's top-level
               one) so switching tabs shows a small inline spinner in the
@@ -211,33 +247,42 @@ export function AppLayout() {
           </Suspense>
         </main>
 
-        {/* Tab Bar — mobile only (<768px), see WebSidebar above for 768px+ */}
+        {/* Tab Bar — mobile only (<768px), see WebSidebar above for 768px+.
+            Active state is a tinted pill (bg-accent) behind the icon plus
+            accent color on icon + label. Safe-area padding is a no-op
+            fallback to 0 unless the device reports a bottom inset (e.g.
+            Android gesture nav), see CARTOGRAPHIE.md Mission 7d. */}
         {isMobile && (
-          <nav className="fixed bottom-0 left-0 right-0 border-t border-border/60 bg-card/95 backdrop-blur-md">
-            <div className="mx-auto flex max-w-lg items-center justify-around py-2">
+          <nav
+            className="fixed bottom-0 left-0 right-0 border-t border-border bg-card/95 backdrop-blur-md"
+            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+          >
+            <div className="mx-auto flex max-w-lg items-center justify-around py-1.5">
               {navItems.map(({ path, icon, labelKey }) => (
                 <NavLink
                   key={path}
                   to={path}
-                  className={({ isActive }) =>
-                    `flex flex-col items-center gap-1 px-3 py-2 text-xs outline-none transition-all duration-200 focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
-                      isActive ? "text-primary scale-105" : "text-muted-foreground hover:text-foreground"
-                    }`
-                  }
+                  end={path === "/"}
+                  className="flex min-h-11 min-w-11 flex-col items-center justify-center gap-1 px-2 py-1 text-[11px] font-medium"
                 >
                   {({ isActive }) => (
                     <>
-                      <AppIcon icon={icon} size={20} active={isActive} decorative className="transition-transform duration-200" />
-                      <span>{t(labelKey)}</span>
+                      <span
+                        className={`flex h-9 w-9 items-center justify-center rounded-full ${
+                          prefersReducedMotion ? "" : "transition-colors duration-200"
+                        } ${isActive ? "bg-accent" : ""}`}
+                      >
+                        <AppIcon icon={icon} size={20} decorative className={isActive ? "text-primary" : NAV_INACTIVE} />
+                      </span>
+                      <span className={isActive ? "text-primary" : NAV_INACTIVE}>{t(labelKey)}</span>
                     </>
                   )}
                 </NavLink>
               ))}
 
               {/* "More" — 5th tab, opens the Hub sheet (Letters/Circle/Jar/
-                  Wrapped/Settings) instead of navigating directly, matching
-                  feature/capacitor-mobile's nav. Not a NavLink since it has
-                  no route of its own. */}
+                  Wrapped/Settings) instead of navigating directly. Not a
+                  NavLink since it has no route of its own. */}
               <button
                 type="button"
                 onClick={() => {
@@ -246,17 +291,19 @@ export function AppLayout() {
                 }}
                 aria-haspopup="dialog"
                 aria-expanded={showHubModal}
-                className={`flex flex-col items-center gap-1 px-3 py-2 text-xs outline-none transition-all duration-200 focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
-                  showHubModal ? "text-primary scale-105" : "text-muted-foreground hover:text-foreground"
-                }`}
+                className="flex min-h-11 min-w-11 flex-col items-center justify-center gap-1 px-2 py-1 text-[11px] font-medium"
               >
-                <span className="relative">
-                  <AppIcon icon="nav-more" size={20} active={showHubModal} decorative className="transition-transform duration-200" />
+                <span
+                  className={`relative flex h-9 w-9 items-center justify-center rounded-full ${
+                    prefersReducedMotion ? "" : "transition-colors duration-200"
+                  } ${showHubModal ? "bg-accent" : ""}`}
+                >
+                  <AppIcon icon="nav-more" size={20} decorative className={showHubModal ? "text-primary" : NAV_INACTIVE} />
                   {hubHasNotification && !showHubModal && (
-                    <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-primary" />
+                    <span aria-hidden="true" className="absolute right-0.5 top-0.5 h-2 w-2 rounded-full bg-primary" />
                   )}
                 </span>
-                <span>{t("nav.more")}</span>
+                <span className={showHubModal ? "text-primary" : NAV_INACTIVE}>{t("nav.more")}</span>
               </button>
             </div>
           </nav>
@@ -268,11 +315,12 @@ export function AppLayout() {
         ref={pauseTriggerRef}
         onClick={() => setShowPauseMenu(true)}
         className={`fixed right-6 flex h-12 w-12 items-center justify-center rounded-full bg-secondary shadow-[0_2px_10px_rgba(0,0,0,0.08)] transition-all hover:scale-110 hover:shadow-[0_4px_15px_rgba(0,0,0,0.12)] active:scale-95 ${
-          isMobile ? "bottom-20" : "bottom-6"
+          isMobile ? "" : "bottom-6"
         }`}
+        style={isMobile ? { bottom: "calc(5rem + env(safe-area-inset-bottom))" } : undefined}
         aria-label={t("pause.title")}
       >
-        <span className="text-lg">&#x2601;&#xFE0F;</span>
+        <AppIcon icon="pause" decorative />
       </button>
 
       <PauseModal

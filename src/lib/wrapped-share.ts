@@ -5,6 +5,7 @@
 // needed.
 import type { WrappedCard } from "@/lib/wrapped"
 import { wrapText, loadCanvasFonts } from "@/lib/canvas-utils"
+import { saveAndShareBlob } from "@/lib/native-file-share"
 
 const CARD_WIDTH = 1080
 const CARD_HEIGHT = 1920 // 9:16 — Stories/Reels portrait format
@@ -19,11 +20,11 @@ const COLORS = {
 }
 
 const WRAPPED_FONT_SPECS = [
-  "italic 700 60px 'Playfair Display'",
-  "700 200px 'Playfair Display'",
-  "italic 400 40px 'Playfair Display'",
-  "600 30px 'Inter'",
-  "400 32px 'Inter'",
+  "italic 500 60px 'Fraunces'",
+  "500 200px 'Fraunces'",
+  "italic 500 40px 'Fraunces'",
+  "500 30px 'DM Sans'",
+  "400 32px 'DM Sans'",
 ]
 
 function drawWrappedLines(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number): void {
@@ -47,14 +48,14 @@ function paintBackground(ctx: CanvasRenderingContext2D): void {
 function drawEyebrow(ctx: CanvasRenderingContext2D, eyebrow: string): void {
   ctx.textAlign = "center"
   ctx.fillStyle = COLORS.sage
-  ctx.font = "700 30px 'Inter', sans-serif"
+  ctx.font = "500 30px 'DM Sans', sans-serif"
   ctx.fillText(eyebrow.toUpperCase(), CARD_WIDTH / 2, 220)
 }
 
 function drawWatermark(ctx: CanvasRenderingContext2D): void {
   ctx.textAlign = "center"
   ctx.fillStyle = COLORS.sage
-  ctx.font = "600 30px 'Inter', sans-serif"
+  ctx.font = "500 30px 'DM Sans', sans-serif"
   ctx.fillText("Anchor ⚓", CARD_WIDTH / 2, CARD_HEIGHT - 90)
 }
 
@@ -62,11 +63,11 @@ function drawWatermark(ctx: CanvasRenderingContext2D): void {
 function drawBigNumberCard(ctx: CanvasRenderingContext2D, card: WrappedCard): void {
   const centerX = CARD_WIDTH / 2
   ctx.fillStyle = COLORS.foreground
-  ctx.font = "700 220px 'Playfair Display', serif"
+  ctx.font = "500 220px 'Fraunces', serif"
   ctx.fillText(card.title, centerX, CARD_HEIGHT * 0.48)
 
   ctx.fillStyle = COLORS.muted
-  ctx.font = "400 34px 'Inter', sans-serif"
+  ctx.font = "400 34px 'DM Sans', sans-serif"
   drawWrappedLines(ctx, card.subtitle, centerX, CARD_HEIGHT * 0.48 + 90, CARD_WIDTH - 220, 46)
 }
 
@@ -77,12 +78,12 @@ function drawTwoStatsCard(ctx: CanvasRenderingContext2D, card: WrappedCard): voi
   const rightX = CARD_WIDTH * 0.72
 
   ctx.fillStyle = COLORS.foreground
-  ctx.font = "700 130px 'Playfair Display', serif"
+  ctx.font = "500 130px 'Fraunces', serif"
   ctx.fillText(card.title, leftX, y)
   ctx.fillText(card.title2 ?? "", rightX, y)
 
   ctx.fillStyle = COLORS.muted
-  ctx.font = "400 28px 'Inter', sans-serif"
+  ctx.font = "400 28px 'DM Sans', sans-serif"
   drawWrappedLines(ctx, card.subtitle, leftX, y + 60, CARD_WIDTH * 0.4, 36)
   drawWrappedLines(ctx, card.subtitle2 ?? "", rightX, y + 60, CARD_WIDTH * 0.4, 36)
 }
@@ -95,7 +96,7 @@ function drawSentenceCard(ctx: CanvasRenderingContext2D, card: WrappedCard): voi
 
   ctx.textAlign = "center"
   ctx.fillStyle = COLORS.foreground
-  ctx.font = "italic 700 68px 'Playfair Display', serif"
+  ctx.font = "italic 500 68px 'Fraunces', serif"
   const titleLines = wrapText(ctx, card.title, CARD_WIDTH - 200)
   for (const line of titleLines) {
     ctx.fillText(line, centerX, y)
@@ -104,7 +105,7 @@ function drawSentenceCard(ctx: CanvasRenderingContext2D, card: WrappedCard): voi
 
   if (card.subtitle) {
     ctx.fillStyle = COLORS.muted
-    ctx.font = "400 32px 'Inter', sans-serif"
+    ctx.font = "400 32px 'DM Sans', sans-serif"
     ctx.fillText(card.subtitle, centerX, y + 16)
     y += 70
   }
@@ -112,13 +113,13 @@ function drawSentenceCard(ctx: CanvasRenderingContext2D, card: WrappedCard): voi
   if (card.body) {
     y += 40
     ctx.fillStyle = COLORS.foreground
-    ctx.font = "italic 400 42px 'Playfair Display', serif"
+    ctx.font = "italic 500 42px 'Fraunces', serif"
     drawWrappedLines(ctx, card.body, centerX, y, CARD_WIDTH - 220, 58)
   }
 
   if (card.footer) {
     ctx.fillStyle = COLORS.sage
-    ctx.font = "600 30px 'Inter', sans-serif"
+    ctx.font = "500 30px 'DM Sans', sans-serif"
     ctx.fillText(card.footer, centerX, CARD_HEIGHT - 260)
   }
 }
@@ -177,13 +178,8 @@ export async function shareWrappedCard(card: WrappedCard, shareTitle: string): P
       }
     }
 
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = "anchor-wrapped.png"
-    link.click()
-    setTimeout(() => URL.revokeObjectURL(url), 10000)
-    return "downloaded"
+    const via = await saveAndShareBlob(blob, "anchor-wrapped.png", shareTitle)
+    return via === "share" ? "shared" : "downloaded"
   } catch {
     return "failed"
   }

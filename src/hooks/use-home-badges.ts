@@ -17,10 +17,15 @@ export interface UseHomeBadgesResult {
 // fire-and-forget generation check — all share the same shape ("nothing to
 // show for it unless it finds something") and none feed into the daily
 // cycle, so they're grouped here rather than in useDailyCycle.
-// refreshKey (AppLayout passes the route pathname) keeps badges fresh
-// across in-app navigation now that this hook lives in AppLayout rather
-// than only mounting once on Home — optional so existing call sites that
-// don't need that freshness don't have to pass anything.
+//
+// Now called from AppLayout (which persists across every route) instead of
+// HomePage (which used to unmount/remount on every visit, incidentally
+// refreshing these on its own). `refreshKey` — AppLayout passes the current
+// route pathname — replaces that: the 3 badge fetches re-run on every
+// in-app navigation instead of only once per login, so e.g. reading a
+// letter then navigating back still clears its badge. The Wrapped
+// generation check deliberately stays [user]-only: it's not a badge and
+// doesn't need re-checking on every tab switch.
 export function useHomeBadges(user: User | null, profile: Profile | null, refreshKey?: string): UseHomeBadgesResult {
   const [hasUnreadLetter, setHasUnreadLetter] = useState(false)
   const [hasPendingCircleInvite, setHasPendingCircleInvite] = useState(false)

@@ -5,6 +5,7 @@
 // dependency is added for this: a canvas draw is small and fully
 // controllable, and this is the only place in the app that needs one.
 import { roundRect, wrapText, loadCanvasFonts } from "@/lib/canvas-utils"
+import { saveAndShareBlob } from "@/lib/native-file-share"
 
 export interface LetterShareOptions {
   letterText: string
@@ -34,10 +35,10 @@ const COLORS = {
 }
 
 const LETTER_FONT_SPECS = [
-  "italic 400 40px 'Playfair Display'",
-  "italic 600 34px 'Playfair Display'",
-  "600 26px 'Inter'",
-  "400 24px 'Inter'",
+  "italic 500 40px 'Fraunces'",
+  "italic 500 34px 'Fraunces'",
+  "500 26px 'DM Sans'",
+  "400 24px 'DM Sans'",
 ]
 
 async function renderLetterCard(opts: LetterShareOptions): Promise<HTMLCanvasElement> {
@@ -75,18 +76,18 @@ async function renderLetterCard(opts: LetterShareOptions): Promise<HTMLCanvasEle
 
   ctx.textAlign = "center"
   ctx.fillStyle = COLORS.sage
-  ctx.font = "600 26px 'Inter', sans-serif"
+  ctx.font = "500 26px 'DM Sans', sans-serif"
   ctx.fillText(opts.badge.toUpperCase(), CARD_WIDTH / 2, y)
   y += 36
 
   ctx.fillStyle = COLORS.muted
-  ctx.font = "400 24px 'Inter', sans-serif"
+  ctx.font = "400 24px 'DM Sans', sans-serif"
   ctx.fillText(opts.weekLabel, CARD_WIDTH / 2, y)
   y += 90
 
   ctx.textAlign = "left"
   ctx.fillStyle = COLORS.foreground
-  ctx.font = "italic 400 40px 'Playfair Display', serif"
+  ctx.font = "italic 500 40px 'Fraunces', serif"
   const textMaxWidth = cardW - 120
   const textX = cardX + 60
   const lineHeight = 58
@@ -104,7 +105,7 @@ async function renderLetterCard(opts: LetterShareOptions): Promise<HTMLCanvasEle
 
   ctx.textAlign = "right"
   ctx.fillStyle = COLORS.sage
-  ctx.font = "italic 600 34px 'Playfair Display', serif"
+  ctx.font = "italic 500 34px 'Fraunces', serif"
   ctx.fillText(opts.signature, cardX + cardW - 60, cardY + cardH - 60)
 
   return canvas
@@ -136,13 +137,8 @@ export async function shareLetter(opts: LetterShareOptions): Promise<ShareResult
         }
       }
 
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = url
-      link.download = "anchor-letter.png"
-      link.click()
-      setTimeout(() => URL.revokeObjectURL(url), 10000)
-      return "downloaded"
+      const via = await saveAndShareBlob(blob, "anchor-letter.png", opts.badge)
+      return via === "share" ? "shared" : "downloaded"
     }
   } catch {
     // Canvas rendering failed (unlikely) — fall through to a plain text share.

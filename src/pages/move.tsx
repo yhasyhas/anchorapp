@@ -26,22 +26,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Footprints, Plus, Star, Sparkles } from "lucide-react"
+import { AppIcon } from "@/components/icons/app-icon"
+import type { AppIconSource } from "@/components/icons/app-icon"
+import { moveCategoryIcons, DEFAULT_MOVE_CATEGORY_ICON } from "@/lib/move-category-icons"
 import { todayStr, localDateStr } from "@/lib/utils"
 import type { MoveSuggestion, MoodLog, DailyAnchor, AnchorCategory } from "@/types"
 
-const categoryIcons: Record<string, string> = {
-  physical: "\u{1F333}",
-  novelty: "\u{1FA91}",
-  social: "\u{1F48C}",
-  mindful: "\u{1F3A7}",
-  creative: "\u{1F3A8}",
-  rest: "\u{1F6CC}",
-}
-
-const anchorCategoryIcons: Record<AnchorCategory, string> = {
-  future: "\u{1F331}",
-  mindbody: "\u{1F9E0}",
-  life: "\u{1F30D}",
+// Same icon choices as src/hooks/use-anchor-defs.ts (Home's anchor cards),
+// kept in sync by hand rather than a shared import to avoid coupling this
+// page's category picker to Home's per-anchor view-model shape.
+const anchorCategoryIcons: Record<AnchorCategory, AppIconSource> = {
+  future: "anchor-mark",
+  mindbody: "mindbody",
+  life: "life",
 }
 
 const ANCHOR_CATEGORIES: AnchorCategory[] = ["future", "mindbody", "life"]
@@ -308,7 +305,7 @@ export function MovePage() {
       </div>
 
       {featured && (
-        <Card className="border-0 bg-gradient-to-br from-lavender/30 to-peach/20 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+        <Card className="border-0 rounded-anchor-card-lg bg-gradient-to-br from-anchor-lavender/30 to-anchor-orange/20 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5">
             <div className="mb-2 flex items-center justify-between">
               <p className="text-xs font-medium text-muted-foreground">{t("move.featured_title")}</p>
@@ -321,12 +318,12 @@ export function MovePage() {
             </div>
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <span className="text-xl">{categoryIcons[featured.category] ?? "\u{1F333}"}</span>
+                <AppIcon icon={moveCategoryIcons[featured.category] ?? DEFAULT_MOVE_CATEGORY_ICON} decorative className="text-primary" />
                 <p className="text-base font-medium text-foreground">{featured.title}</p>
               </div>
               <Button
                 size="icon"
-                className="h-9 w-9 shrink-0"
+                className="min-h-11 min-w-11 shrink-0"
                 onClick={() => requestAddToAnchor(featured.title, featured.anchor_category)}
                 aria-label={t("move.add_to_anchor")}
               >
@@ -346,10 +343,10 @@ export function MovePage() {
         {listSuggestions.map((suggestion) => {
           const isRealRow = !suggestion.id.startsWith("default-")
           return (
-            <Card key={suggestion.id} className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+            <Card key={suggestion.id} className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
               <CardContent className="flex items-center justify-between p-4">
                 <div className="flex items-center gap-3">
-                  <span className="text-lg">{categoryIcons[suggestion.category] ?? "\u{1F333}"}</span>
+                  <AppIcon icon={moveCategoryIcons[suggestion.category] ?? DEFAULT_MOVE_CATEGORY_ICON} size={20} decorative className="text-primary" />
                   <p className="text-sm font-medium text-foreground">{suggestion.title}</p>
                 </div>
                 <div className="flex items-center gap-1">
@@ -357,7 +354,7 @@ export function MovePage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className={`h-8 w-8 ${suggestion.is_favorite ? "text-primary" : "text-muted-foreground"}`}
+                      className={`min-h-11 min-w-11 ${suggestion.is_favorite ? "text-primary" : "text-muted-foreground"}`}
                       onClick={() => toggleFavorite(suggestion)}
                       aria-label={t("move.favorite")}
                     >
@@ -367,7 +364,7 @@ export function MovePage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-primary"
+                    className="min-h-11 min-w-11 text-primary"
                     onClick={() => requestAddToAnchor(suggestion.title, suggestion.anchor_category)}
                     aria-label={t("move.add_to_anchor")}
                   >
@@ -382,7 +379,7 @@ export function MovePage() {
 
       <Button
         variant="outline"
-        className="w-full border-dashed border-primary/30 text-primary"
+        className="min-h-11 w-full border-dashed border-primary/30 text-primary"
         onClick={() => setShowAddModal(true)}
       >
         <Plus className="mr-2 h-4 w-4" />
@@ -402,7 +399,7 @@ export function MovePage() {
           }
         }}
       >
-        <DialogContent className="max-w-sm border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+        <DialogContent className="max-w-sm border-0 rounded-anchor-card-lg shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
           <DialogHeader>
             <DialogTitle className="font-heading">{t("move.add_custom")}</DialogTitle>
           </DialogHeader>
@@ -411,17 +408,18 @@ export function MovePage() {
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               placeholder="..."
+              className="rounded-anchor-input"
             />
             <div className="flex flex-wrap gap-2">
-              {Object.entries(categoryIcons).map(([cat, icon]) => (
+              {Object.entries(moveCategoryIcons).map(([cat, icon]) => (
                 <button
                   key={cat}
                   onClick={() => handleActivityCategoryPick(cat as MoveSuggestion["category"])}
-                  className={`rounded-full px-3 py-1 text-sm ${
+                  className={`flex min-h-11 items-center gap-1.5 rounded-full px-3 py-1 text-sm ${
                     newCategory === cat ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
                   }`}
                 >
-                  {icon} {t(`move.category.${cat}`)}
+                  <AppIcon icon={icon} size={20} decorative /> {t(`move.category.${cat}`)}
                 </button>
               ))}
             </div>
@@ -433,11 +431,11 @@ export function MovePage() {
                   <button
                     key={cat}
                     onClick={() => handleAnchorCategoryPick(cat)}
-                    className={`flex-1 rounded-full px-3 py-1.5 text-sm ${
+                    className={`flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-sm ${
                       newAnchorCategory === cat ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
                     }`}
                   >
-                    {anchorCategoryIcons[cat]} {t(`anchors.${cat}`)}
+                    <AppIcon icon={anchorCategoryIcons[cat]} size={20} decorative /> {t(`anchors.${cat}`)}
                   </button>
                 ))}
               </div>
@@ -450,7 +448,7 @@ export function MovePage() {
               </label>
             )}
 
-            <Button onClick={addCustomSuggestion} className="w-full">
+            <Button onClick={addCustomSuggestion} className="min-h-12 w-full rounded-anchor-card-lg">
               <Plus className="mr-2 h-4 w-4" />
               {t("move.add_custom")}
             </Button>
@@ -462,7 +460,7 @@ export function MovePage() {
           every move now targets exactly one anchor_category (Point 3), so
           there's no "choose which anchor" step left, only "replace or not". */}
       <Dialog open={pendingReplace !== null} onOpenChange={(open) => !open && setPendingReplace(null)}>
-        <DialogContent className="max-w-sm border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+        <DialogContent className="max-w-sm border-0 rounded-anchor-card-lg shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
           <DialogHeader>
             <DialogTitle className="font-heading">
               {pendingReplace && t("move.replace_confirm_title", { anchor: t(`anchors.${pendingReplace.anchorCategory}`) })}
@@ -474,11 +472,11 @@ export function MovePage() {
                 {t("move.replace_confirm_body", { current: pendingReplace.currentValue })}
               </p>
               <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={() => setPendingReplace(null)}>
+                <Button variant="outline" className="min-h-11 flex-1" onClick={() => setPendingReplace(null)}>
                   {t("move.cancel")}
                 </Button>
                 <Button
-                  className="flex-1"
+                  className="min-h-11 flex-1"
                   onClick={() => {
                     pushTitleToAnchor(pendingReplace.title, pendingReplace.anchorCategory)
                     setPendingReplace(null)

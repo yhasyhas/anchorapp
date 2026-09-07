@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Mail, Loader2 } from "lucide-react"
+import { AppIcon } from "@/components/icons/app-icon"
 import { toast } from "sonner"
 import type { WeeklyLetter, FutureLetter } from "@/types"
 
@@ -79,14 +80,14 @@ export function LettersPage() {
     <div className="mx-auto max-w-lg space-y-6 lg:max-w-2xl lg:py-2">
       <div>
         <div className="flex items-center gap-2">
-          <Mail className="h-5 w-5 text-primary" />
+          <AppIcon icon="hub-letters" decorative className="h-5 w-5 text-primary" />
           <h1 className="font-heading text-2xl font-bold">{t("letters.title")}</h1>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">{t("letters.subtitle")}</p>
       </div>
 
       {/* Write to your future self — MISSION 1 entry point */}
-      <Card className="border-0 bg-gradient-to-br from-lavender/30 to-peach/20 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+      <Card className="border-0 rounded-anchor-card-lg bg-gradient-to-br from-anchor-lavender/30 to-anchor-orange/20 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
         <CardContent className="p-5">
           <p className="font-heading text-base font-semibold text-foreground">{t("letters.future.cta_title")}</p>
           <p className="mt-1 text-xs text-muted-foreground">{t("letters.future.cta_subtitle")}</p>
@@ -94,7 +95,7 @@ export function LettersPage() {
             <p className="mt-3 text-center text-xs text-muted-foreground">{t("letters.future.seal_error_max")}</p>
           ) : (
             <Link to="/letters/future/write">
-              <Button className="mt-3 w-full gap-1.5">
+              <Button className="mt-3 min-h-12 w-full gap-1.5 rounded-anchor-card-lg">
                 <Mail className="h-4 w-4" />
                 {t("letters.future.cta")}
               </Button>
@@ -103,16 +104,18 @@ export function LettersPage() {
         </CardContent>
       </Card>
 
-      {/* Ready to open — MISSION 3 */}
+      {/* Ready to open — an event: a soft anchor-orange accent distinguishes
+          it from a still-sealed letter (see letter-open vs letter-sealed
+          signature icons, CARTOGRAPHIE.md Mission 4) */}
       {readyLetters.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t("letters.future.ready_title")}</p>
           {readyLetters.map((letter) => (
             <Link key={letter.id} to={`/letters/future/${letter.id}`}>
-              <Card className="border-0 bg-sage-light/40 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]">
+              <Card className="border-0 rounded-anchor-card-lg bg-anchor-orange/15 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]">
                 <CardContent className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-lg">&#x1F48C;</span>
+                    <AppIcon icon="letter-open" active decorative className="text-anchor-orange" />
                     <p className="text-sm font-medium text-foreground">{t("letters.future.waiting_card")}</p>
                   </div>
                   <span className="text-xs font-semibold text-primary">{t("letters.future.ready_card_cta")}</span>
@@ -123,17 +126,17 @@ export function LettersPage() {
         </div>
       )}
 
-      {/* Waiting — MISSION 2 */}
+      {/* Waiting — still sealed */}
       {pendingLetters.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t("letters.future.waiting_title")}</p>
           {pendingLetters.map((letter) => {
             const days = daysUntil(letter.deliver_on)
             return (
-              <Card key={letter.id} className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+              <Card key={letter.id} className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
                 <CardContent className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-lg">&#x1F48C;</span>
+                    <AppIcon icon="letter-sealed" decorative className="text-muted-foreground" />
                     <p className="text-sm font-medium text-foreground">{t("letters.future.waiting_card")}</p>
                   </div>
                   <span className="text-xs text-muted-foreground">
@@ -152,7 +155,7 @@ export function LettersPage() {
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t("letters.future.archive_title")}</p>
           {archivedFutureLetters.map((letter) => (
             <Link key={letter.id} to={`/letters/future/${letter.id}`}>
-              <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]">
+              <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]">
                 <CardContent className="p-4">
                   <p className="text-xs text-muted-foreground">{formatDeliverOn(letter.deliver_on, i18n.language)}</p>
                   <p className="mt-1 text-sm font-medium italic text-foreground/90">{t("letters.future.archived_card")}</p>
@@ -168,7 +171,7 @@ export function LettersPage() {
       </div>
 
       {loading ? (
-        <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+        <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5">
             <div className="flex items-center justify-center gap-2 py-4">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -180,7 +183,7 @@ export function LettersPage() {
         <div className="space-y-3">
           {letters.map((letter) => (
             <Link key={letter.id} to={`/letters/${letter.week_start}`}>
-              <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]">
+              <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]">
                 <CardContent className="p-5">
                   <p className="text-xs font-medium text-muted-foreground">
                     {formatWeekRange(letter.week_start, letter.week_end, i18n.language)}
@@ -194,9 +197,9 @@ export function LettersPage() {
           ))}
         </div>
       ) : (
-        <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+        <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5">
-            <EmptyState icon="flower" titleKey="letters.empty" descriptionKey="letters.empty_sub" />
+            <EmptyState icon="empty-letters" titleKey="letters.empty" descriptionKey="letters.empty_sub" />
           </CardContent>
         </Card>
       )}

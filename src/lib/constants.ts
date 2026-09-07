@@ -16,6 +16,9 @@ export const colors = {
   moodStressed: "var(--mood-stressed)",
 } as const
 
+// `icon` is an AppIcon signature name (src/components/icons/app-icon.tsx) —
+// consumers render <AppIcon icon={icon} .../>. Previously an emoji string;
+// see CARTOGRAPHIE.md Mission 4 for the swap to signature mood-face icons.
 export const moodConfig = [
   { key: "great" as const, icon: "mood-great" as const },
   { key: "okay" as const, icon: "mood-okay" as const },
@@ -38,7 +41,8 @@ export const moodInk: Record<"great" | "okay" | "meh" | "low" | "stressed", stri
   stressed: "var(--mood-ink-stressed)",
 }
 
-// Soft tinted-circle background behind the selected mood.
+// Soft tinted-circle background behind the selected mood in home.tsx's mood
+// card — same theme-aware-token treatment as moodInk above.
 export const moodWash: Record<"great" | "okay" | "meh" | "low" | "stressed", string> = {
   great: "var(--mood-wash-great)",
   okay: "var(--mood-wash-okay)",

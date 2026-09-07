@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth-context"
 import { getUserLocalData, setUserLocalData } from "@/lib/user-storage"
 import { getWeekKey } from "@/lib/ai-service"
 import { getLastGratitudeDate } from "@/lib/gratitude"
-import { JarIcon } from "@/components/anchor/jar-icon"
+import { AppIcon } from "@/components/icons/app-icon"
 import type { MoodType } from "@/types"
 
 const REMINDER_SHOWN_WEEK_KEY_BASE = "anchor_jar_reminder_shown_week"
@@ -68,16 +68,16 @@ export function GratitudeReminderCard({ todayMood, onVisibilityChange, suppresse
   if (!visible || suppressed) return null
 
   return (
-    <div className="rounded-xl bg-secondary p-4 shadow-[0_2px_10px_rgba(0,0,0,0.04)] animate-in fade-in slide-in-from-bottom-2">
+    <div className="rounded-anchor-card-lg bg-secondary p-4 shadow-[0_2px_10px_rgba(0,0,0,0.04)] animate-in fade-in slide-in-from-bottom-2">
       <div className="flex items-start gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sage-light">
-          <JarIcon className="h-4 w-4 text-primary" />
+          <AppIcon icon="gratitude-jar" size={20} decorative className="text-primary" />
         </div>
         <div className="flex-1">
           <p className="text-sm font-semibold text-foreground">{t("jar.reminder_title")}</p>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t("jar.reminder_body")}</p>
           <Link to="/jar">
-            <Button size="sm" variant="ghost" className="mt-2 px-0 text-primary hover:bg-transparent hover:underline">
+            <Button size="sm" variant="ghost" className="mt-2 min-h-11 px-0 text-primary hover:bg-transparent hover:underline">
               {t("jar.reminder_cta")}
             </Button>
           </Link>

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
+import { saveAndShareBlob } from "@/lib/native-file-share"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,13 +29,16 @@ import { ToneSection } from "@/components/settings/tone-section"
 import { SoftModeSection } from "@/components/settings/soft-mode-section"
 import { CustomIntentionsSection } from "@/components/settings/custom-intentions-section"
 import { CircleSection } from "@/components/settings/circle-section"
-import { ArrowLeft, Brain } from "lucide-react"
+import { ArrowLeft, Brain, Check, Loader2 } from "lucide-react"
 
 export function SettingsPage() {
   const { t, i18n } = useTranslation()
   const { profile, updateProfile, signOut, deleteAccount, user } = useAuth()
   const navigate = useNavigate()
   const [name, setName] = useState(profile?.full_name ?? "")
+  const [savingName, setSavingName] = useState(false)
+  const [nameJustSaved, setNameJustSaved] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState("")
   const [deleting, setDeleting] = useState(false)
@@ -52,7 +56,15 @@ export function SettingsPage() {
   }
 
   async function handleNameSave() {
-    await updateProfile({ full_name: name })
+    if (!name.trim() || savingName) return
+    setSavingName(true)
+    try {
+      await updateProfile({ full_name: name })
+      setNameJustSaved(true)
+      setTimeout(() => setNameJustSaved(false), 2000)
+    } finally {
+      setSavingName(false)
+    }
   }
 
   async function handleAiToggle(enabled: boolean) {
@@ -101,12 +113,21 @@ export function SettingsPage() {
     }
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = "anchor-data-export.json"
-    a.click()
-    URL.revokeObjectURL(url)
+    await saveAndShareBlob(blob, "anchor-data-export.json")
+  }
+
+  async function handleExportClick() {
+    if (exporting) return
+    setExporting(true)
+    try {
+      await handleExport()
+      toast.success(t("settings.export_json_success"))
+    } catch (err) {
+      console.error("Failed to export data:", err)
+      toast.error(t("settings.export_json_error"))
+    } finally {
+      setExporting(false)
+    }
   }
 
   async function handleLogout() {
@@ -142,13 +163,13 @@ export function SettingsPage() {
         </div>
 
         {/* Language */}
-        <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+        <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5">
             <Label className="mb-3 block text-sm font-medium">{t("settings.language")}</Label>
             <div className="flex gap-3">
               <button
                 onClick={() => handleLanguageChange("en")}
-                className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+                className={`min-h-11 flex-1 rounded-anchor-control-sm px-4 py-2.5 text-sm font-medium transition-colors ${
                   i18n.language === "en"
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-foreground"
@@ -158,7 +179,7 @@ export function SettingsPage() {
               </button>
               <button
                 onClick={() => handleLanguageChange("sw")}
-                className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+                className={`min-h-11 flex-1 rounded-anchor-control-sm px-4 py-2.5 text-sm font-medium transition-colors ${
                   i18n.language === "sw"
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-foreground"
@@ -171,7 +192,7 @@ export function SettingsPage() {
         </Card>
 
         {/* Appearance */}
-        <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+        <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5">
             <Label className="mb-3 block text-sm font-medium">{t("settings.theme")}</Label>
             <ModeToggle />
@@ -179,7 +200,7 @@ export function SettingsPage() {
         </Card>
 
         {/* Profile */}
-        <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+        <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5">
             <Label className="mb-3 block text-sm font-medium">{t("settings.name")}</Label>
             <div className="flex gap-2">
@@ -187,15 +208,25 @@ export function SettingsPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
-              <Button onClick={handleNameSave} size="sm">
-                {t("settings.save")}
+              <Button
+                onClick={handleNameSave}
+                size="sm"
+                disabled={!name.trim() || savingName}
+                className="min-h-11 gap-1.5"
+              >
+                {savingName ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : nameJustSaved ? (
+                  <Check className="h-3.5 w-3.5" />
+                ) : null}
+                {nameJustSaved ? t("settings.name_saved") : t("settings.save")}
               </Button>
             </div>
           </CardContent>
         </Card>
 
         {/* AI Insights Settings */}
-        <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+        <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5 space-y-5">
             <div className="flex items-center gap-2">
               <Brain className="h-4 w-4 text-primary" />
@@ -256,16 +287,17 @@ export function SettingsPage() {
         <JournalExportSection />
 
         {/* Raw JSON export */}
-        <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+        <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5">
-            <Button variant="outline" className="w-full" onClick={handleExport}>
+            <Button variant="outline" className="w-full gap-1.5" onClick={handleExportClick} disabled={exporting}>
+              {exporting && <Loader2 className="h-4 w-4 animate-spin" />}
               {t("settings.export_json")}
             </Button>
           </CardContent>
         </Card>
 
         {/* About */}
-        <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+        <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5">
             <p className="text-sm font-medium">{t("settings.about")}</p>
             <Separator className="my-3" />
@@ -278,10 +310,16 @@ export function SettingsPage() {
           {t("settings.logout")}
         </Button>
 
-        {/* Danger Zone */}
-        <Card className="border border-destructive/20 shadow-none">
+        {/* Danger Zone — left-border accent instead of a full border, same
+            language as the anchor cards' colored borderLeft, so the warning
+            still reads clearly without breaking from the app's border-0 +
+            soft-shadow card convention used everywhere else on this page. */}
+        <Card
+          className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]"
+          style={{ borderLeft: "4px solid var(--destructive-strong)" }}
+        >
           <CardContent className="p-5 space-y-3">
-            <p className="text-sm font-medium text-destructive">{t("settings.danger_title")}</p>
+            <p className="text-sm font-medium text-destructive-strong">{t("settings.danger_title")}</p>
             <p className="text-xs text-muted-foreground leading-relaxed">{t("settings.danger_delete_desc")}</p>
             <AlertDialog
               open={deleteDialogOpen}
@@ -291,7 +329,7 @@ export function SettingsPage() {
               }}
             >
               <AlertDialogTrigger asChild>
-                <Button variant="outline" className="w-full border-destructive/40 text-destructive hover:bg-destructive/10">
+                <Button variant="outline" className="w-full border-destructive-strong/40 text-destructive-strong hover:bg-destructive-strong/10">
                   {t("settings.danger_delete_button")}
                 </Button>
               </AlertDialogTrigger>
@@ -318,7 +356,7 @@ export function SettingsPage() {
                   <AlertDialogAction
                     onClick={handleDeleteAccount}
                     disabled={!canConfirmDelete || deleting}
-                    className="bg-destructive text-white hover:bg-destructive/90"
+                    className="bg-destructive-solid text-white hover:bg-destructive-solid/90"
                   >
                     {deleting ? t("settings.danger_delete_deleting") : t("settings.danger_delete_confirm_action")}
                   </AlertDialogAction>

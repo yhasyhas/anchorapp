@@ -2,6 +2,7 @@ import { jsPDF } from "jspdf"
 import type { TFunction } from "i18next"
 import { formatWeekRange } from "@/lib/letters"
 import { resolveIntentionLabel } from "@/lib/intentions"
+import { saveAndShareBlob } from "@/lib/native-file-share"
 import {
   renderClosingCard,
   renderCoverCard,
@@ -182,5 +183,6 @@ export function monthlyJournalFilename(monthIso: string): string {
 
 export async function downloadMonthlyJournalPdf(data: MonthlyJournalData, t: TFunction, monthIso: string): Promise<void> {
   const doc = await generateMonthlyJournalPdf(data, t)
-  doc.save(monthlyJournalFilename(monthIso))
+  const filename = monthlyJournalFilename(monthIso)
+  await saveAndShareBlob(doc.output("blob"), filename, filename)
 }

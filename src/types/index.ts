@@ -223,6 +223,20 @@ export interface MonthlyRecap {
   created_at: string
 }
 
+// Native (Capacitor/FCM) push registration — see src/lib/push.ts's native
+// branch. Separate from the Web Push subscription shape stored in
+// push_subscriptions; only the native app writes rows here.
+export type PushTokenPlatform = "ios" | "android"
+
+export interface PushToken {
+  id: string
+  user_id: string
+  platform: PushTokenPlatform
+  token: string
+  created_at: string
+  updated_at: string
+}
+
 // User-created intention, alongside the 5 hardcoded native ones in
 // src/lib/constants.ts — see src/lib/custom-intentions.ts and
 // src/lib/intentions.ts for how these are created/resolved for display.

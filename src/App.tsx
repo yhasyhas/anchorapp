@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { useAuth } from "@/lib/auth-context"
 import { AppLayout } from "@/pages/app-layout"
 import { Spinner } from "@/components/ui/spinner"
+import { DeepLinkHandler } from "@/components/deep-link-handler"
 
 // Every route below is its own lazy chunk — previously all of them shipped
 // in the initial bundle regardless of which screen loaded first (1.27 MB
@@ -48,6 +49,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <DeepLinkHandler />
       <Suspense fallback={<FullScreenSpinner />}>
         <Routes>
           {/* Routes publiques — redirige vers home si déjà connecté */}

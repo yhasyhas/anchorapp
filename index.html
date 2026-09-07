@@ -4,11 +4,15 @@
     <meta charset="UTF-8" />
 
     <!-- Anti-FOUC: paint the correct background immediately, before the main
-         stylesheet loads (Vite emits the built <link rel="stylesheet"> after
-         the deferred module script tag, so on a slow connection there can be
-         a flash of unstyled white before the first styled paint). Keyed off
-         the same html.dark class the theme script below adds synchronously
-         pre-paint, so both themes are covered from the very first frame. -->
+         stylesheet loads. src/index.css's body { @apply bg-background }
+         covers this once it's loaded, but Vite emits the built <link
+         rel="stylesheet"> AFTER the deferred module script tag — on a slow
+         connection the app can mount and call SplashScreen.hide() (see
+         src/main.tsx) before that stylesheet finishes downloading, flashing
+         white between the native splash and the first styled paint. Keyed
+         off the same html.dark class the theme script below adds
+         synchronously pre-paint, so both themes are covered from the very
+         first frame. -->
     <style>
       html, body { background-color: #F7ECE6; }
       html.dark, html.dark body { background-color: #0D1030; }

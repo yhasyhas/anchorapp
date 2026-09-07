@@ -13,9 +13,10 @@ export interface UseHubStatusResult {
 }
 
 // Feeds the short contextual status line on each tile of the "More" hub
-// modal (web mobile port of feature/capacitor-mobile's Hub) — same
-// "one independent fetch-and-forget effect per concern" shape as
-// use-home-badges.ts. `refreshKey` (AppLayout passes the route pathname)
+// modal (see anchor-redesign-spec.md section 4) — same "one independent
+// fetch-and-forget effect per concern" shape as use-home-badges.ts, kept as
+// its own hook since these are counts for display rather than booleans that
+// drive a badge dot. `refreshKey` (AppLayout passes the route pathname)
 // keeps counts fresh across in-app navigation, same reasoning as
 // use-home-badges.
 export function useHubStatus(user: User | null, refreshKey?: string): UseHubStatusResult {

@@ -1,3 +1,4 @@
+import { Network } from "@capacitor/network"
 import { supabase } from "@/lib/supabase"
 import { userKey } from "@/lib/user-storage"
 
@@ -15,8 +16,23 @@ interface SyncItem {
   conflictKey?: string
 }
 
+// isOnline() is called synchronously from ~20 call sites across the app
+// (every write path's online/offline branch), so it stays a sync function
+// backed by a cached value kept fresh via Network's listener, rather than
+// becoming async and cascading that change through every caller.
+// @capacitor/network wraps navigator.onLine on web, so this is a drop-in
+// replacement there too — no platform branching needed.
+let cachedOnline = navigator.onLine
+
+Network.getStatus().then((status) => {
+  cachedOnline = status.connected
+})
+Network.addListener("networkStatusChange", (status) => {
+  cachedOnline = status.connected
+})
+
 export function isOnline(): boolean {
-  return navigator.onLine
+  return cachedOnline
 }
 
 // Custom event name for "the pending queue length may have changed" —

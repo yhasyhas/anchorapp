@@ -7,6 +7,7 @@ import { daysAgo, formatDeliverOn, isDue } from "@/lib/future-letters"
 import { usePrefersReducedMotion } from "@/hooks/use-reduced-motion"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Loader2 } from "lucide-react"
+import { AppIcon } from "@/components/icons/app-icon"
 import { toast } from "sonner"
 import type { FutureLetter } from "@/types"
 
@@ -114,7 +115,7 @@ export function LetterFutureDetailPage() {
   if (state === "not_yet" && letter) {
     return (
       <div className="mx-auto max-w-lg space-y-3 py-16 text-center">
-        <p className="text-5xl">&#x1F48C;</p>
+        <AppIcon icon="letter-sealed" decorative className="mx-auto h-12 w-12 text-muted-foreground" />
         <p className="font-heading text-lg font-medium text-foreground">{t("letters.future.not_yet_title")}</p>
         <p className="text-sm text-muted-foreground">
           {t("letters.future.not_yet_body", { date: formatDeliverOn(letter.deliver_on, i18n.language) })}
@@ -130,16 +131,16 @@ export function LetterFutureDetailPage() {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-6 text-center">
         <div
-          className={`text-6xl ${reducedMotion ? "" : "transition-all duration-700 ease-in-out"} ${
+          className={`${reducedMotion ? "" : "transition-all duration-700 ease-in-out"} ${
             state === "opening" ? "scale-125 rotate-3" : "scale-100"
           }`}
         >
-          &#x1F48C;
+          <AppIcon icon="letter-sealed" active={state === "opening"} decorative className="h-16 w-16 text-primary" />
         </div>
         {state === "closed" && (
           <>
             <p className="text-sm italic text-muted-foreground">{t("letters.future.open_ritual_hint")}</p>
-            <Button onClick={handleOpen} size="lg">
+            <Button onClick={handleOpen} size="lg" className="min-h-12 rounded-anchor-card-lg">
               {t("letters.future.open_cta")}
             </Button>
           </>
@@ -156,7 +157,7 @@ export function LetterFutureDetailPage() {
         {t("letters.back_to_list")}
       </Link>
 
-      <div className="rounded-3xl bg-gradient-to-br from-sage-light/50 via-card to-lavender/20 p-8 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+      <div className="rounded-anchor-card-lg bg-gradient-to-br from-anchor-soft-green/25 via-card to-anchor-lavender/20 p-8 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
         <div className="mb-8 text-center">
           <p className="text-xs font-semibold uppercase tracking-widest text-primary">{t("letters.future.badge")}</p>
         </div>
@@ -170,7 +171,7 @@ export function LetterFutureDetailPage() {
         )}
       </div>
 
-      <Button onClick={() => navigate("/letters/future/write")} className="w-full gap-1.5">
+      <Button onClick={() => navigate("/letters/future/write")} className="min-h-11 w-full gap-1.5 rounded-anchor-card-lg">
         {t("letters.future.write_back_cta")}
       </Button>
     </div>

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type FormEvent } from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
-import { Heart, HeartHandshake, Loader2, Mail, Mic, Square, Play, Trash2, Gift, PartyPopper, Sparkles } from "lucide-react"
+import { HeartHandshake, Loader2, Mail, Mic, Square, Play, Trash2, Gift, PartyPopper, Sparkles } from "lucide-react"
+import { AppIcon } from "@/components/icons/app-icon"
 import { useAuth } from "@/lib/auth-context"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -224,15 +225,15 @@ function VoiceComposeForm({
 
   if (recorder.blob) {
     return (
-      <div className="flex items-center gap-2 rounded-xl bg-muted/50 p-3">
-        <Button type="button" variant="ghost" size="icon" onClick={togglePreviewPlay} className="h-9 w-9 shrink-0 text-primary">
+      <div className="flex items-center gap-2 rounded-anchor-input bg-muted/50 p-3">
+        <Button type="button" variant="ghost" size="icon" onClick={togglePreviewPlay} className="shrink-0 text-primary">
           {playing ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
         </Button>
         <span className="flex-1 text-xs text-muted-foreground">{t("circle.voice_duration", { seconds: recorder.durationSeconds })}</span>
-        <Button type="button" variant="ghost" size="icon" onClick={recorder.reset} className="h-9 w-9 shrink-0 text-muted-foreground">
+        <Button type="button" variant="ghost" size="icon" onClick={recorder.reset} className="shrink-0 text-muted-foreground">
           <Trash2 className="h-4 w-4" />
         </Button>
-        <Button type="button" size="sm" onClick={handleSend} disabled={sending}>
+        <Button type="button" size="sm" className="min-h-11" onClick={handleSend} disabled={sending}>
           {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : t("circle.send_love_send")}
         </Button>
       </div>
@@ -240,13 +241,13 @@ function VoiceComposeForm({
   }
 
   return (
-    <div className="flex flex-col items-center gap-2 rounded-xl bg-muted/50 p-4">
+    <div className="flex flex-col items-center gap-2 rounded-anchor-input bg-muted/50 p-4">
       <button
         type="button"
         onClick={recorder.isRecording ? recorder.stopRecording : handleStart}
         className={`flex h-14 w-14 items-center justify-center rounded-full transition-all ${
           recorder.isRecording
-            ? "animate-pulse bg-rose-accent text-white dark:text-background"
+            ? "animate-pulse bg-rose-accent text-background"
             : "bg-primary text-primary-foreground"
         }`}
         aria-label={t("circle.voice_tap_to_record", { max: MAX_VOICE_ENCOURAGEMENT_SECONDS })}
@@ -549,16 +550,16 @@ export function CirclePage() {
     <div className="mx-auto max-w-lg space-y-6 lg:max-w-2xl lg:py-2">
       <div>
         <div className="flex items-center gap-2">
-          <Heart className="h-5 w-5 text-primary" />
+          <AppIcon icon="hub-circle" decorative className="h-5 w-5 text-primary" />
           <h1 className="font-heading text-2xl font-bold">{t("circle.page_title")}</h1>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">{t("circle.page_subtitle")}</p>
       </div>
 
       {members.length === 0 ? (
-        <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+        <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
           <CardContent className="p-5">
-            <EmptyState icon="seedling" titleKey="circle.empty_title" descriptionKey="circle.empty_desc" />
+            <EmptyState icon="empty-circle" titleKey="circle.empty_title" descriptionKey="circle.empty_desc" />
             <Link to="/settings">
               <Button className="mt-4 w-full">{t("circle.empty_cta")}</Button>
             </Link>
@@ -571,7 +572,7 @@ export function CirclePage() {
               {activeSos.map((sos) => (
                 <Card
                   key={sos.senderId}
-                  className="border-0 bg-gradient-to-br from-lavender/30 to-peach/20 shadow-[0_2px_10px_rgba(0,0,0,0.04)]"
+                  className="border-0 rounded-anchor-card-lg bg-gradient-to-br from-anchor-lavender/30 to-anchor-orange/20 shadow-[0_2px_10px_rgba(0,0,0,0.04)]"
                 >
                   <CardContent className="flex items-center justify-between gap-3 p-4">
                     <div className="flex items-center gap-3">
@@ -583,7 +584,7 @@ export function CirclePage() {
                         <p className="mt-0.5 text-xs text-muted-foreground">{t("sos.circle_card_subtitle")}</p>
                       </div>
                     </div>
-                    <Button size="sm" variant="outline" onClick={() => openCompose(sos.senderId, friendName(sos.senderId))}>
+                    <Button size="sm" variant="outline" className="min-h-11" onClick={() => openCompose(sos.senderId, friendName(sos.senderId))}>
                       {t("circle.send_love_button")}
                     </Button>
                   </CardContent>
@@ -596,10 +597,10 @@ export function CirclePage() {
           {anniversaries.length > 0 && (
             <div className="space-y-2">
               {anniversaries.map((card) => (
-                <Card key={`${card.friendId}-${card.months}`} className="border-0 bg-sage-light/40 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+                <Card key={`${card.friendId}-${card.months}`} className="border-0 rounded-anchor-card-lg bg-sage-light/40 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
                   <CardContent className="flex items-start justify-between gap-3 p-4">
                     <div className="flex items-start gap-3">
-                      <span className="text-lg">&#x1F331;</span>
+                      <AppIcon icon="circle-of-trust" active decorative className="shrink-0 text-primary" />
                       <div>
                         <p className="text-sm font-medium text-foreground">
                           {t(`circle.anniversary_title_${card.months}`, { name: friendName(card.friendId) })}
@@ -609,7 +610,7 @@ export function CirclePage() {
                         </p>
                       </div>
                     </div>
-                    <Button size="sm" variant="ghost" onClick={() => dismissAnniversary(card)}>
+                    <Button size="sm" variant="ghost" className="min-h-11" onClick={() => dismissAnniversary(card)}>
                       {t("circle.dismiss")}
                     </Button>
                   </CardContent>
@@ -622,7 +623,7 @@ export function CirclePage() {
           {milestones.length > 0 && (
             <div className="space-y-2">
               {milestones.map((m) => (
-                <Card key={`${m.friend_id}-${m.milestone}`} className="border-0 bg-gradient-to-br from-peach/20 to-lavender/20 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+                <Card key={`${m.friend_id}-${m.milestone}`} className="border-0 rounded-anchor-card-lg bg-gradient-to-br from-anchor-orange/20 to-anchor-lavender/20 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
                   <CardContent className="flex items-center justify-between gap-3 p-4">
                     <div className="flex items-center gap-3">
                       <PartyPopper className="h-4 w-4 shrink-0 text-primary" />
@@ -631,12 +632,13 @@ export function CirclePage() {
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => dismissMilestone(m)}>
+                      <Button size="sm" variant="ghost" className="min-h-11" onClick={() => dismissMilestone(m)}>
                         {t("circle.dismiss")}
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
+                        className="min-h-11"
                         onClick={() => {
                           dismissMilestone(m)
                           openCompose(m.friend_id, friendName(m.friend_id))
@@ -655,7 +657,7 @@ export function CirclePage() {
           {pendingIntentionsForMe.length > 0 && (
             <div className="space-y-2">
               {pendingIntentionsForMe.map((si) => (
-                <Card key={si.id} className="border-0 bg-lavender/20 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+                <Card key={si.id} className="border-0 rounded-anchor-card-lg bg-anchor-lavender/20 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2">
                       <Sparkles className="h-4 w-4 shrink-0 text-primary" />
@@ -669,7 +671,7 @@ export function CirclePage() {
                     <div className="mt-3 flex gap-2">
                       <Button
                         size="sm"
-                        className="flex-1"
+                        className="min-h-11 flex-1"
                         disabled={respondingId === si.id}
                         onClick={() => handleRespondIntention(si.id, true)}
                       >
@@ -678,7 +680,7 @@ export function CirclePage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="flex-1"
+                        className="min-h-11 flex-1"
                         disabled={respondingId === si.id}
                         onClick={() => handleRespondIntention(si.id, false)}
                       >
@@ -695,7 +697,7 @@ export function CirclePage() {
           {visibleGiftPrompts.length > 0 && (
             <div className="space-y-2">
               {visibleGiftPrompts.map((alert) => (
-                <Card key={alert.friend_id} className="border-0 bg-peach/15 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+                <Card key={alert.friend_id} className="border-0 rounded-anchor-card-lg bg-anchor-orange/15 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
                   <CardContent className="flex items-center justify-between gap-3 p-4">
                     <div className="flex items-center gap-3">
                       <Gift className="h-4 w-4 shrink-0 text-primary" />
@@ -707,6 +709,7 @@ export function CirclePage() {
                       <Button
                         size="sm"
                         variant="ghost"
+                        className="min-h-11"
                         onClick={() => setDismissedGiftPrompts((prev) => new Set(prev).add(alert.friend_id))}
                       >
                         {t("circle.dismiss")}
@@ -714,6 +717,7 @@ export function CirclePage() {
                       <Button
                         size="sm"
                         variant="outline"
+                        className="min-h-11"
                         disabled={sendingGiftFor === alert.friend_id}
                         onClick={() => handleSendGraceGift(alert.friend_id)}
                       >
@@ -728,7 +732,7 @@ export function CirclePage() {
 
           <div className="space-y-3">
             {members.map((m) => (
-              <Card key={m.id} className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+              <Card key={m.id} className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
                 <CardContent className="flex items-center justify-between p-4">
                   <div>
                     <p className="text-sm font-medium text-foreground">{friendName(m.friend_id)}</p>
@@ -738,18 +742,18 @@ export function CirclePage() {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Button
-                      size="sm"
+                      size="icon-sm"
                       variant="ghost"
-                      className="text-primary"
+                      className="min-h-11 min-w-11 text-primary"
                       onClick={() => {
                         proposeFocus.captureTrigger()
                         setProposeFor({ id: m.friend_id, name: friendName(m.friend_id) })
                       }}
                       aria-label={t("circle.intention_propose_button")}
                     >
-                      &#x1F331;
+                      <AppIcon icon="intention" decorative />
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => openCompose(m.friend_id, friendName(m.friend_id))}>
+                    <Button size="sm" variant="outline" className="min-h-11" onClick={() => openCompose(m.friend_id, friendName(m.friend_id))}>
                       {t("circle.send_love_button")}
                     </Button>
                   </div>
@@ -763,7 +767,7 @@ export function CirclePage() {
               <p className="text-xs font-medium text-muted-foreground">{t("circle.shared_letters_title")}</p>
               <div className="space-y-2">
                 {sharedLetters.map((letter) => (
-                  <Card key={`${letter.friend_id}-${letter.week_start}`} className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+                  <Card key={`${letter.friend_id}-${letter.week_start}`} className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
                     <CardContent className="flex items-center justify-between p-4">
                       <div className="flex items-center gap-2">
                         <Mail className="h-4 w-4 text-primary" />
@@ -779,6 +783,7 @@ export function CirclePage() {
                       <Button
                         size="sm"
                         variant="ghost"
+                        className="min-h-11"
                         onClick={() => {
                           letterFocus.captureTrigger()
                           setOpenLetter(letter)
@@ -802,7 +807,7 @@ export function CirclePage() {
                 {feed.map((item) => {
                   const isVoiceReply = item.kind === "voice" && !!item.replyToId
                   return (
-                    <Card key={`${item.kind}-${item.direction}-${item.id}`} className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+                    <Card key={`${item.kind}-${item.direction}-${item.id}`} className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
                       <CardContent className={`p-3.5 ${isVoiceReply ? "ml-3 border-l-2 border-primary/20 pl-3" : ""}`}>
                         <p className="text-xs text-muted-foreground">
                           {isVoiceReply
@@ -841,7 +846,7 @@ export function CirclePage() {
       {/* Send love sheet */}
       <Dialog open={!!composeFor} onOpenChange={(open) => !open && closeCompose()}>
         <DialogContent
-          className="max-w-sm border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
+          className="max-w-sm border-0 rounded-anchor-card-lg shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
           {...composeFocus.dialogContentProps}
         >
           <DialogHeader>
@@ -856,7 +861,7 @@ export function CirclePage() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setComposeMode("text")}
-                  className={`flex-1 rounded-full px-3 py-1.5 text-xs font-medium ${
+                  className={`min-h-11 flex-1 rounded-full px-3 py-1.5 text-xs font-medium ${
                     composeMode === "text" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
                   }`}
                 >
@@ -864,7 +869,7 @@ export function CirclePage() {
                 </button>
                 <button
                   onClick={() => setComposeMode("voice")}
-                  className={`flex-1 rounded-full px-3 py-1.5 text-xs font-medium ${
+                  className={`min-h-11 flex-1 rounded-full px-3 py-1.5 text-xs font-medium ${
                     composeMode === "voice" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
                   }`}
                 >
@@ -883,7 +888,7 @@ export function CirclePage() {
                       key={key}
                       disabled={sending}
                       onClick={() => handleSendPreset(key)}
-                      className="rounded-full bg-muted px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-sage-light disabled:opacity-50"
+                      className="min-h-11 rounded-full bg-muted px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-sage-light disabled:opacity-50"
                     >
                       {t(`circle.presets.${key}`)}
                     </button>
@@ -897,12 +902,13 @@ export function CirclePage() {
                     placeholder={t("circle.send_love_custom_placeholder")}
                     maxLength={140}
                     rows={3}
+                    className="rounded-anchor-input"
                   />
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
                       {t("circle.send_love_char_count", { count: customMessage.length })}
                     </span>
-                    <Button type="submit" size="sm" disabled={sending || !customMessage.trim()}>
+                    <Button type="submit" size="sm" className="min-h-11" disabled={sending || !customMessage.trim()}>
                       {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : t("circle.send_love_send")}
                     </Button>
                   </div>
@@ -916,7 +922,7 @@ export function CirclePage() {
       {/* Propose a shared weekly intention */}
       <Dialog open={!!proposeFor} onOpenChange={(open) => !open && closePropose()}>
         <DialogContent
-          className="max-w-sm border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
+          className="max-w-sm border-0 rounded-anchor-card-lg shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
           {...proposeFocus.dialogContentProps}
         >
           <DialogHeader>
@@ -930,7 +936,7 @@ export function CirclePage() {
                 key={intention}
                 disabled={proposing}
                 onClick={() => handleProposeIntention(intention)}
-                className="rounded-full bg-muted px-4 py-1.5 text-sm text-foreground transition-colors hover:bg-sage-light disabled:opacity-50"
+                className="min-h-11 rounded-full bg-muted px-4 py-1.5 text-sm text-foreground transition-colors hover:bg-sage-light disabled:opacity-50"
               >
                 {t(`intentions.${intention.toLowerCase()}`)}
               </button>
@@ -945,7 +951,7 @@ export function CirclePage() {
         onOpenChange={(open) => !open && setOpenLetter(null)}
       >
         <DialogContent
-          className="max-w-sm border-0 shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
+          className="max-w-sm border-0 rounded-anchor-card-lg shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
           {...letterFocus.dialogContentProps}
         >
           <DialogHeader>

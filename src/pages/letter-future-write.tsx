@@ -8,7 +8,8 @@ import { usePrefersReducedMotion } from "@/hooks/use-reduced-motion"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, Mail } from "lucide-react"
+import { ArrowLeft, Mail, Sprout, Trees } from "lucide-react"
+import { AppIcon } from "@/components/icons/app-icon"
 import { toast } from "sonner"
 
 const MAX_CHARS = 1000
@@ -74,18 +75,18 @@ export function LetterFutureWritePage() {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-6 text-center">
         <div
-          className={`text-6xl ${reducedMotion ? "" : "transition-all duration-[1200ms] ease-in-out"} ${
+          className={`${reducedMotion ? "" : "transition-all duration-[1200ms] ease-in-out"} ${
             step === "sealed" ? "scale-100 rotate-0 opacity-100" : "scale-75 -rotate-6 opacity-70"
           }`}
         >
-          &#x1F48C;
+          <AppIcon icon="letter-sealed" size={24} active={step === "sealed"} decorative className="h-16 w-16 text-primary" />
         </div>
         {step === "sealed" && deliverOn && (
           <>
             <p className="font-heading text-xl font-medium text-foreground">
               {t("letters.future.sealed_message", { date: formatDeliverOn(deliverOn, i18n.language) })}
             </p>
-            <Button variant="outline" onClick={() => navigate("/letters")}>
+            <Button variant="outline" className="min-h-11" onClick={() => navigate("/letters")}>
               {t("letters.back_to_list")}
             </Button>
           </>
@@ -120,10 +121,10 @@ export function LetterFutureWritePage() {
       {step === "duration" && (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">{t("letters.future.duration_title")}</p>
-          <button onClick={() => pickDuration(1)} className="block w-full text-left">
-            <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]">
+          <button onClick={() => pickDuration(1)} className="block min-h-11 w-full text-left">
+            <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]">
               <CardContent className="flex items-center gap-4 p-5">
-                <span className="text-3xl">&#x1F331;</span>
+                <AppIcon icon={Sprout} size={24} decorative className="text-primary" />
                 <div>
                   <p className="font-heading text-base font-semibold text-foreground">
                     {t("letters.future.duration_one_month")}
@@ -133,10 +134,10 @@ export function LetterFutureWritePage() {
               </CardContent>
             </Card>
           </button>
-          <button onClick={() => pickDuration(3)} className="block w-full text-left">
-            <Card className="border-0 shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]">
+          <button onClick={() => pickDuration(3)} className="block min-h-11 w-full text-left">
+            <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)]">
               <CardContent className="flex items-center gap-4 p-5">
-                <span className="text-3xl">&#x1F333;</span>
+                <AppIcon icon={Trees} size={24} decorative className="text-primary" />
                 <div>
                   <p className="font-heading text-base font-semibold text-foreground">
                     {t("letters.future.duration_three_months")}
@@ -159,12 +160,12 @@ export function LetterFutureWritePage() {
             maxLength={MAX_CHARS}
             rows={12}
             autoFocus
-            className="resize-none border-0 bg-muted/40 text-base leading-relaxed shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
+            className="resize-none border-0 rounded-anchor-input bg-muted/40 text-base leading-relaxed shadow-none focus-visible:ring-1 focus-visible:ring-primary/30"
           />
-          <p className={`text-right text-xs ${content.length > MAX_CHARS * 0.9 ? "text-peach" : "text-muted-foreground"}`}>
+          <p className={`text-right text-xs ${content.length > MAX_CHARS * 0.9 ? "text-anchor-orange" : "text-muted-foreground"}`}>
             {t("letters.future.char_count", { count: content.length, max: MAX_CHARS })}
           </p>
-          <Button onClick={handleSeal} disabled={!content.trim() || saving} className="w-full" size="lg">
+          <Button onClick={handleSeal} disabled={!content.trim() || saving} className="min-h-12 w-full rounded-anchor-card-lg" size="lg">
             <Mail className="mr-2 h-4 w-4" />
             {t("letters.future.seal_cta")}
           </Button>

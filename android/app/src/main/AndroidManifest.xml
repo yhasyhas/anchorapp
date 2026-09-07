@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Android App Links: verified against
+                 https://anchorapp-liard.vercel.app/.well-known/assetlinks.json
+                 (see public/.well-known/assetlinks.json) so tapping these links
+                 from an email/message opens the app directly instead of a
+                 browser. Split into one intent-filter per path, rather than
+                 multiple <data> tags in one filter, to avoid Android's
+                 cross-product matching across sibling <data> elements. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="anchorapp-liard.vercel.app"
+                    android:pathPrefix="/reset-password"
+                />
+            </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="anchorapp-liard.vercel.app"
+                    android:pathPrefix="/circle/invite"
+                />
+            </intent-filter>
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+
+    <!-- Permissions -->
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Voice notes (use-voice-recorder.ts / use-checkin.ts / journal-card.tsx) use
+         the plain web getUserMedia + MediaRecorder APIs, not a Capacitor plugin.
+         Capacitor's core WebView bridge auto-handles the runtime permission prompt
+         for RESOURCE_AUDIO_CAPTURE once this manifest permission is declared. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Required on Android 13+ (targetSdkVersion 36 here) for any notification
+         to be displayable at all — without this declaration,
+         PushNotifications.requestPermissions() in src/lib/push.ts can never
+         actually grant anything, and @capacitor/push-notifications' FCM
+         registration succeeds silently while every notification the OS
+         receives is dropped before it ever reaches the tray. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+</manifest>

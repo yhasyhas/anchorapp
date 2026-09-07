@@ -117,14 +117,14 @@ export function LetterDetailPage() {
           size="sm"
           onClick={handleShare}
           disabled={sharing}
-          className="gap-1.5 text-primary hover:bg-primary/5"
+          className="min-h-11 gap-1.5 text-primary hover:bg-primary/5"
         >
           {sharing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
           {t("letters.share")}
         </Button>
       </div>
 
-      <div className="rounded-3xl bg-gradient-to-br from-sage-light/50 via-card to-lavender/20 p-8 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+      <div className="rounded-anchor-card-lg bg-gradient-to-br from-anchor-soft-green/25 via-card to-anchor-lavender/20 p-8 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
         <div className="mb-8 text-center">
           <p className="text-xs font-semibold uppercase tracking-widest text-primary">{t("letters.badge")}</p>
           <p className="mt-1.5 text-xs text-muted-foreground">
@@ -141,7 +141,7 @@ export function LetterDetailPage() {
 
       <Button
         variant={letter.shared_with_circle ? "outline" : "default"}
-        className="w-full gap-1.5"
+        className="min-h-11 w-full gap-1.5 rounded-anchor-card-lg"
         onClick={handleToggleCircleShare}
         disabled={togglingCircleShare}
       >

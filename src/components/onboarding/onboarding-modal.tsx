@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { TonePicker } from "@/components/tone-picker"
-import { Anchor, Sparkles, Bell, Compass, Loader2 } from "lucide-react"
+import { Sparkles, Bell, Compass, Loader2 } from "lucide-react"
+import { AppIcon } from "@/components/icons/app-icon"
 import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
 import { userKey, setUserLocalData } from "@/lib/user-storage"
@@ -111,7 +112,7 @@ export function OnboardingModal() {
           <div>
             <div className="mb-6 flex justify-center">
               <div className="flex h-20 w-20 items-center justify-center rounded-full bg-popover shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
-                <Anchor className="h-10 w-10 text-primary" />
+                <AppIcon icon="anchor-mark" decorative className="h-10 w-10 text-primary" />
               </div>
             </div>
             <h2 className="font-heading text-2xl font-bold text-foreground mb-3">{t("onboarding.welcome_title")}</h2>

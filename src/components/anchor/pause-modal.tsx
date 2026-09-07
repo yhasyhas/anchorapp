@@ -7,6 +7,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Wind, Target, Compass } from "lucide-react"
+import { AppIcon } from "@/components/icons/app-icon"
 
 export type PauseOption = "breathing" | "focus_session" | "recenter"
 
@@ -30,25 +32,27 @@ export function PauseModal({ open, onClose, onCloseAutoFocus, onSelect }: PauseM
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent
-        className="max-w-sm border-0 bg-secondary shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
+        className="max-w-sm border-0 rounded-anchor-card-lg bg-secondary shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
         onCloseAutoFocus={onCloseAutoFocus}
       >
         <DialogHeader className="text-center">
-          <div className="mx-auto mb-4 text-4xl">&#x1F9D8;</div>
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+            <AppIcon icon="pause" size={24} active decorative className="text-primary" />
+          </div>
           <DialogTitle className="font-heading text-xl font-semibold">{t("pause.title")}</DialogTitle>
           <DialogDescription className="mt-2 text-foreground/80">{t("pause.message")}</DialogDescription>
         </DialogHeader>
         <div className="mt-4 flex flex-col gap-3">
-          <Button onClick={() => onSelect("breathing")} className="w-full justify-start gap-2" variant="outline">
-            <span>&#x1F32C;&#xFE0F;</span> {t("pause.option_breathing")}
+          <Button onClick={() => onSelect("breathing")} className="min-h-12 w-full justify-start gap-2 rounded-anchor-card-lg" variant="outline">
+            <AppIcon icon={Wind} size={20} decorative /> {t("pause.option_breathing")}
           </Button>
-          <Button onClick={() => onSelect("focus_session")} className="w-full justify-start gap-2" variant="outline">
-            <span>&#x1F331;</span> {t("pause.option_focus")}
+          <Button onClick={() => onSelect("focus_session")} className="min-h-12 w-full justify-start gap-2 rounded-anchor-card-lg" variant="outline">
+            <AppIcon icon={Target} size={20} decorative /> {t("pause.option_focus")}
           </Button>
-          <Button onClick={() => onSelect("recenter")} className="w-full justify-start gap-2" variant="outline">
-            <span>&#x1F4AC;</span> {t("pause.option_recenter")}
+          <Button onClick={() => onSelect("recenter")} className="min-h-12 w-full justify-start gap-2 rounded-anchor-card-lg" variant="outline">
+            <AppIcon icon={Compass} size={20} decorative /> {t("pause.option_recenter")}
           </Button>
-          <Button variant="ghost" onClick={onClose} className="w-full text-muted-foreground">
+          <Button variant="ghost" onClick={onClose} className="min-h-11 w-full text-muted-foreground">
             {t("pause.not_now")}
           </Button>
         </div>

@@ -18,6 +18,8 @@ import {
 } from "@/lib/move-selection"
 import { MoveOfTheDayCard } from "@/components/anchor/move-of-the-day-card"
 import { MovePickerSheet } from "@/components/anchor/move-picker-sheet"
+import { DailySuggestionCard } from "@/components/anchor/daily-suggestion-card"
+import { useDailySuggestion } from "@/hooks/use-daily-suggestion"
 import { MIN_STREAK_FOR_INTENTION } from "@/lib/streaks"
 import { resolveIntentionLabel, buildSelectableIntentions } from "@/lib/intentions"
 import { useCustomIntentions } from "@/hooks/use-custom-intentions"
@@ -202,6 +204,12 @@ export function HomePage() {
   const allVisibleMoveSuggestions = buildVisibleSuggestions(cycle.moveSuggestions, moveWeekKey, defaultMoveSuggestions)
   const moveReason = resolveMoveReason({ recentMoods: cycle.recentMoods, currentAnchorStreak: cycle.streaks.currentAnchorStreak })
 
+  // Daily suggestion — the one gentle action at the top of Home. Reads the
+  // same Move pool built just above (and useDailyCycle's recent anchors),
+  // but owns its own daily_suggestions row and never writes an anchor or
+  // touches the streak. Additive: the card only renders once a row exists.
+  const dailySuggestion = useDailySuggestion(user, allVisibleMoveSuggestions, cycle.recentAnchors)
+
   // Point 1b: a suggestion already sitting in one of today's 3 anchors must
   // never be offered again for another. Point 1c: soft-prefer suggestions
   // not used in the last 3 days, falling back to the full (still deduped)
@@ -322,6 +330,24 @@ export function HomePage() {
           </div>
         )}
       </div>
+
+      {/* ── Daily suggestion — one gentle action for today, at the very top
+          of Home (just under the greeting, above the Daily Cycle frieze and
+          the Intention Hero). Fully additive: the 3 daily anchors further
+          down are untouched, and none of the three responses feeds the
+          streak. ── */}
+      {dailySuggestion.suggestion && (
+        <div className="lg:col-span-12">
+          <DailySuggestionCard
+            text={dailySuggestion.suggestion.suggestion_text}
+            status={dailySuggestion.suggestion.status}
+            busy={dailySuggestion.busy}
+            onAccept={dailySuggestion.accept}
+            onDecline={dailySuggestion.decline}
+            onAnother={dailySuggestion.another}
+          />
+        </div>
+      )}
 
       {/* ── Daily Cycle — compact horizontal frieze, moved up next to the
           greeting per the post-rebuild visual audit (previously sat near

@@ -331,6 +331,24 @@ export function HomePage() {
         )}
       </div>
 
+      {/* ── Daily suggestion — one gentle action for today, at the very top
+          of Home (just under the greeting, above the Daily Cycle frieze and
+          the Intention Hero). Fully additive: the 3 daily anchors further
+          down are untouched, and none of the three responses feeds the
+          streak. ── */}
+      {dailySuggestion.suggestion && (
+        <div className="lg:col-span-12">
+          <DailySuggestionCard
+            text={dailySuggestion.suggestion.suggestion_text}
+            status={dailySuggestion.suggestion.status}
+            busy={dailySuggestion.busy}
+            onAccept={dailySuggestion.accept}
+            onDecline={dailySuggestion.decline}
+            onAnother={dailySuggestion.another}
+          />
+        </div>
+      )}
+
       {/* ── Daily Cycle — compact horizontal frieze, moved up next to the
           greeting per the post-rebuild visual audit (previously sat near
           the bottom of the page, after Quick Actions/Affirmation/nudges).
@@ -403,22 +421,6 @@ export function HomePage() {
           onSave={handleSaveIntention}
         />
       </div>
-
-      {/* ── Daily suggestion — one gentle action for today, above the mood
-          card. The 3 daily anchors below are untouched; none of the three
-          responses here feeds the streak. ── */}
-      {dailySuggestion.suggestion && (
-        <div className="lg:col-span-12">
-          <DailySuggestionCard
-            text={dailySuggestion.suggestion.suggestion_text}
-            status={dailySuggestion.suggestion.status}
-            busy={dailySuggestion.busy}
-            onAccept={dailySuggestion.accept}
-            onDecline={dailySuggestion.decline}
-            onAnother={dailySuggestion.another}
-          />
-        </div>
-      )}
 
       {/* ── Mood + daily quote, fused into one card — desktop pairs it with
           Move of the Day (below) in a 7/5 split, same "1.3fr/1fr" row the

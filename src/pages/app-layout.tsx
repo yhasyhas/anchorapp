@@ -17,6 +17,7 @@ import { PauseBreathing } from "@/components/anchor/pause-breathing"
 import { PauseFocusSession } from "@/components/anchor/pause-focus-session"
 import { PauseRecenter } from "@/components/anchor/pause-recenter"
 import { HubModal } from "@/components/anchor/hub-modal"
+import { DailySuggestionProvider } from "@/lib/daily-suggestion-context"
 import { InstallPrompt } from "@/components/pwa/install-prompt"
 import { Spinner } from "@/components/ui/spinner"
 import { WebSidebar, SIDEBAR_WIDTH_DESKTOP, SIDEBAR_WIDTH_TABLET } from "@/components/layout/web-sidebar"
@@ -147,10 +148,14 @@ export function AppLayout() {
   }
 
   return (
-    // overflow-x-hidden is a safety net, not the fix — see home.tsx's header
-    // row for the actual root cause this guards against. Kept here in
-    // addition to that fix so a future unrelated regression can't silently
-    // reintroduce a horizontal scrollbar on mobile.
+    // DailySuggestionProvider is the single source of truth for the daily
+    // suggestion (Home card + the /anchor screen) — mounted here so it
+    // survives navigation between the two without a refetch or reload flash.
+    <DailySuggestionProvider>
+    {/* overflow-x-hidden is a safety net, not the fix — see home.tsx's header
+        row for the actual root cause this guards against. Kept here in
+        addition to that fix so a future unrelated regression can't silently
+        reintroduce a horizontal scrollbar on mobile. */}
     <div className="flex min-h-svh overflow-x-hidden bg-background">
       <a
         href="#main-content"
@@ -350,6 +355,7 @@ export function AppLayout() {
         wrappedLatestMonth={hubStatus.wrappedLatestMonth}
       />
     </div>
+    </DailySuggestionProvider>
   )
 }
 

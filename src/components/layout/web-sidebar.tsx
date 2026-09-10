@@ -17,6 +17,7 @@ const primaryNavItems: { path: string; icon: AppIconSource; labelKey: string }[]
 ]
 
 const secondaryNavItems: { path: string; icon: AppIconSource; labelKey: string }[] = [
+  { path: "/compass", icon: "hub-compass", labelKey: "compass.nav_label" },
   { path: "/letters", icon: "hub-letters", labelKey: "letters.title" },
   { path: "/circle", icon: "hub-circle", labelKey: "circle.page_title" },
   { path: "/jar", icon: "hub-jar", labelKey: "jar.page_title" },

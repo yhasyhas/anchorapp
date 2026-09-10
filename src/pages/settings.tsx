@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { AppIcon } from "@/components/icons/app-icon"
 import { ModeToggle } from "@/components/mode-toggle"
 import { RemindersSection } from "@/components/settings/reminders-section"
 import { JournalExportSection } from "@/components/settings/journal-export-section"
@@ -83,7 +84,7 @@ export function SettingsPage() {
   async function handleExport() {
     if (!user) return
 
-    const [anchors, moods, checkIns, gratitudes, journalEntries, weeklyLetters, monthlyRecaps, moveSuggestions, insightLog, customIntentions] =
+    const [anchors, moods, checkIns, gratitudes, journalEntries, weeklyLetters, monthlyRecaps, moveSuggestions, insightLog, customIntentions, compass] =
       await Promise.all([
         supabase.from("daily_anchors").select("*").eq("user_id", user.id),
         supabase.from("mood_logs").select("*").eq("user_id", user.id),
@@ -95,6 +96,7 @@ export function SettingsPage() {
         supabase.from("move_suggestions").select("*").eq("user_id", user.id),
         supabase.from("insight_log").select("*").eq("user_id", user.id),
         supabase.from("custom_intentions").select("*").eq("user_id", user.id),
+        supabase.from("user_compass").select("*").eq("user_id", user.id),
       ])
 
     const exportData = {
@@ -110,6 +112,7 @@ export function SettingsPage() {
       move_suggestions: moveSuggestions.data,
       insight_log: insightLog.data,
       custom_intentions: customIntentions.data,
+      compass: compass.data,
     }
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" })
@@ -265,6 +268,21 @@ export function SettingsPage() {
                 </p>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Compass — foundations (values, vision, goals, future self). Edited
+            on its own screen, not inline here; this is just the entry point. */}
+        <Card className="border-0 rounded-anchor-card-lg shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
+          <CardContent className="p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <AppIcon icon="hub-compass" decorative className="h-4 w-4 text-primary" />
+              <p className="text-sm font-medium">{t("settings.compass_title")}</p>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">{t("settings.compass_desc")}</p>
+            <Button variant="outline" className="w-full" onClick={() => navigate("/compass")}>
+              {t("settings.compass_open")}
+            </Button>
           </CardContent>
         </Card>
 

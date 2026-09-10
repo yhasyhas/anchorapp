@@ -99,7 +99,18 @@ export function HubModal({
             </Link>
           ))}
         </div>
-        <div className="px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <div className="space-y-2 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+          {/* Compass + Settings kept as full-width rows below the 2x2 grid —
+              both are set-once / edit-rarely foundations rather than content
+              that accumulates like letters, gratitudes or recaps. */}
+          <Link
+            to="/compass"
+            onClick={onClose}
+            className="flex min-h-12 items-center gap-3 rounded-anchor-control-sm border border-border bg-card px-4 transition-colors hover:bg-accent/40"
+          >
+            <AppIcon icon="hub-compass" size={20} decorative className="text-foreground" />
+            <span className="text-sm font-semibold text-foreground">{t("hub.compass")}</span>
+          </Link>
           <Link
             to="/settings"
             onClick={onClose}

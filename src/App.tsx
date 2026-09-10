@@ -19,6 +19,7 @@ const ForgotPasswordPage = lazy(() => import("@/pages/forgot-password").then((m)
 const ResetPasswordPage = lazy(() => import("@/pages/reset-password").then((m) => ({ default: m.ResetPasswordPage })))
 const CircleInvitePage = lazy(() => import("@/pages/circle-invite").then((m) => ({ default: m.CircleInvitePage })))
 const HomePage = lazy(() => import("@/pages/home").then((m) => ({ default: m.HomePage })))
+const CompassPage = lazy(() => import("@/pages/compass").then((m) => ({ default: m.CompassPage })))
 const PatternsPage = lazy(() => import("@/pages/patterns").then((m) => ({ default: m.PatternsPage })))
 const CheckInPage = lazy(() => import("@/pages/checkin").then((m) => ({ default: m.CheckInPage })))
 const MovePage = lazy(() => import("@/pages/move").then((m) => ({ default: m.MovePage })))
@@ -90,6 +91,7 @@ export default function App() {
             element={session ? <AppLayout /> : <LandingPage />}
           >
             <Route index element={<HomePage />} />
+            <Route path="compass" element={<CompassPage />} />
             <Route path="patterns" element={<PatternsPage />} />
             <Route path="checkin" element={<CheckInPage />} />
             <Route path="move" element={<MovePage />} />

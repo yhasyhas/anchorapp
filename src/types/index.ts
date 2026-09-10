@@ -237,6 +237,29 @@ export interface PushToken {
   updated_at: string
 }
 
+// Compass — the optional "foundations" pillar (product spec section 3):
+// values, vision, goals, future self. One row per user (user_compass,
+// UNIQUE on user_id); absent until the first explicit save.
+export interface CompassGoal {
+  id: string
+  text: string
+  created_at: string
+}
+
+export interface Compass {
+  id: string
+  user_id: string
+  // Canonical English value strings (see COMPASS_VALUES in src/lib/compass.ts),
+  // displayed via t(`compass.values.<lowercased>`) — same store-English /
+  // display-translated convention as daily_intention.
+  value_tags: string[]
+  vision: string
+  goals: CompassGoal[]
+  future_self: string
+  updated_at: string
+  created_at: string
+}
+
 // User-created intention, alongside the 5 hardcoded native ones in
 // src/lib/constants.ts — see src/lib/custom-intentions.ts and
 // src/lib/intentions.ts for how these are created/resolved for display.

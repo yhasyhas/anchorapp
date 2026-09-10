@@ -192,7 +192,8 @@
     "circle_status_empty": "Tupu — alika",
     "jar_status_count": "Matone {{count}}",
     "wrapped_status_available": "{{month}} tayari",
-    "wrapped_status_next": "Mwezi ujao"
+    "wrapped_status_next": "Mwezi ujao",
+    "compass": "Dira"
   },
   "pause": {
     "title": "Chukua Mapumziko",
@@ -251,6 +252,9 @@
     "ai_checkins": "Jumuisha maandiko ya kujiangalia",
     "ai_checkins_desc": "Ruhusu AI kusoma tafakari zako kwa maarifa tajiri zaidi",
     "ai_no_key": "Ongeza ufunguo wa GROQ API katika mazingira yako kuwezesha vipengele vya AI.",
+    "compass_title": "Dira",
+    "compass_desc": "Maadili yako, maono, malengo, na mtu wa baadaye. Hariri wakati wowote.",
+    "compass_open": "Fungua Dira",
     "custom_intentions_title": "Nia zako mwenyewe",
     "custom_intentions_subtitle": "Ongeza hadi maneno 3 yako mwenyewe pamoja na yale ya kawaida — yataonekana popote nia zako zinapoonekana, yakiwa na alama ya ✨.",
     "custom_intentions_empty": "Bado hakuna nia zako maalum.",
@@ -414,8 +418,11 @@
     },
     "next": "Inayofuata",
     "back": "Rudi",
-    "start": "Anza",
-    "skip": "Ruka kwa sasa"
+    "skip": "Ruka kwa sasa",
+    "compass_title": "Jambo moja zaidi — Dira yako",
+    "compass_text": "Kabla hatujaanza, dakika tatu za kuweka misingi: maadili yako, maono, malengo machache. Hakuna kinachohitajika — unaweza kurudi hapa wakati wowote.",
+    "compass_cta": "Weka Dira yangu",
+    "compass_skip": "Ruka kwa sasa"
   },
   "tones": {
     "gentle": {
@@ -797,6 +804,45 @@
     "delete_entry": "Ondoa wakati huu",
     "delete_success": "Imeondolewa kwenye chombo chako",
     "delete_error": "Imeshindwa kuondoa hiyo. Tafadhali jaribu tena."
+  },
+  "compass": {
+    "nav_label": "Dira",
+    "page_title": "Dira",
+    "page_subtitle": "Misingi yako — maadili, maono, malengo, na mtu unayekuwa.",
+    "onboarding_subtitle": "Chukua dakika chache, au maneno machache. Hakuna kinachohitajika hapa.",
+    "values_title": "Maadili",
+    "values_prompt": "Ni yapi kati ya haya yanayokufanana zaidi? Chagua mengi kadri yanavyokufaa.",
+    "values": {
+      "curiosity": "Udadisi",
+      "creativity": "Ubunifu",
+      "kindness": "Wema",
+      "freedom": "Uhuru",
+      "growth": "Ukuaji",
+      "impact": "Athari",
+      "calm": "Utulivu",
+      "connection": "Muunganiko",
+      "honesty": "Uaminifu",
+      "adventure": "Matukio",
+      "balance": "Uwiano",
+      "presence": "Uwepo"
+    },
+    "vision_title": "Maono",
+    "vision_prompt": "Maisha yenye maana yanaonekanaje kwako?",
+    "goals_title": "Malengo",
+    "goals_prompt": "Mambo machache unayoyafanyia kazi — si orodha ya kazi.",
+    "goal_placeholder": "Kitu unachokielekea…",
+    "goal_label": "Lengo {{n}}",
+    "goal_remove": "Ondoa lengo {{n}}",
+    "goal_add": "Ongeza lengo",
+    "future_self_title": "Mtu wa baadaye",
+    "future_self_prompt": "Eleza mtu unayekuwa, kwa sentensi moja au mbili.",
+    "save": "Hifadhi Dira",
+    "saved": "Imehifadhiwa",
+    "save_success": "Dira imehifadhiwa",
+    "save_error": "Imeshindwa kuhifadhi. Tafadhali jaribu tena.",
+    "load_error": "Imeshindwa kupakia Dira yako. Tafadhali jaribu tena.",
+    "edit_hint": "Mabadiliko huhifadhiwa tu unapogusa Hifadhi.",
+    "onboarding_hint": "Unaweza kurudi hapa wakati wowote kupitia Mipangilio."
   },
   "landing": {
     "page_title": "Anchor — Nafasi ya upole ya kujiona",

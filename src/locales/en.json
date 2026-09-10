@@ -192,7 +192,8 @@
     "circle_status_empty": "Empty — invite",
     "jar_status_count": "{{count}} drops",
     "wrapped_status_available": "{{month}} ready",
-    "wrapped_status_next": "Next month"
+    "wrapped_status_next": "Next month",
+    "compass": "Compass"
   },
   "pause": {
     "title": "Take a Pause",
@@ -251,6 +252,9 @@
     "ai_checkins": "Include check-in notes",
     "ai_checkins_desc": "Allow AI to read your reflections for richer insights",
     "ai_no_key": "Add a GROQ API key in your environment to enable AI features.",
+    "compass_title": "Compass",
+    "compass_desc": "Your values, vision, goals, and future self. Edit them anytime.",
+    "compass_open": "Open Compass",
     "custom_intentions_title": "Your own intentions",
     "custom_intentions_subtitle": "Add up to 3 words of your own alongside the default ones — they'll show up everywhere your intentions do, marked with ✨.",
     "custom_intentions_empty": "No custom intentions yet.",
@@ -414,8 +418,11 @@
     },
     "next": "Next",
     "back": "Back",
-    "start": "Begin",
-    "skip": "Skip for now"
+    "skip": "Skip for now",
+    "compass_title": "One more thing — your Compass",
+    "compass_text": "Before we start, three minutes to set the foundations: your values, a vision, a few goals. Nothing required — you can always come back to this.",
+    "compass_cta": "Set up my Compass",
+    "compass_skip": "Skip for now"
   },
   "tones": {
     "gentle": {
@@ -797,6 +804,45 @@
     "delete_entry": "Remove this moment",
     "delete_success": "Removed from your jar",
     "delete_error": "Could not remove that. Please try again."
+  },
+  "compass": {
+    "nav_label": "Compass",
+    "page_title": "Compass",
+    "page_subtitle": "Your foundations — values, vision, goals, and who you're becoming.",
+    "onboarding_subtitle": "Take a few minutes, or a few words. Nothing here is required.",
+    "values_title": "Values",
+    "values_prompt": "Which of these feel most like you? Pick as many as fit.",
+    "values": {
+      "curiosity": "Curiosity",
+      "creativity": "Creativity",
+      "kindness": "Kindness",
+      "freedom": "Freedom",
+      "growth": "Growth",
+      "impact": "Impact",
+      "calm": "Calm",
+      "connection": "Connection",
+      "honesty": "Honesty",
+      "adventure": "Adventure",
+      "balance": "Balance",
+      "presence": "Presence"
+    },
+    "vision_title": "Vision",
+    "vision_prompt": "What does a meaningful life look like for you?",
+    "goals_title": "Goals",
+    "goals_prompt": "A few things you're working toward — not a to-do list.",
+    "goal_placeholder": "Something you're moving toward…",
+    "goal_label": "Goal {{n}}",
+    "goal_remove": "Remove goal {{n}}",
+    "goal_add": "Add a goal",
+    "future_self_title": "Future self",
+    "future_self_prompt": "Describe who you're becoming, in one or two sentences.",
+    "save": "Save Compass",
+    "saved": "Saved",
+    "save_success": "Compass saved",
+    "save_error": "Couldn't save. Please try again.",
+    "load_error": "Couldn't load your Compass. Please try again.",
+    "edit_hint": "Changes are only kept when you tap Save.",
+    "onboarding_hint": "You can always come back to this from Settings."
   },
   "landing": {
     "page_title": "Anchor — A gentle space to align who you are",

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
@@ -13,7 +14,7 @@ import { lifeIntentions, FIRST_INTENTION_KEY_BASE } from "@/lib/constants"
 import type { Tone } from "@/types"
 
 const ONBOARDING_KEY_BASE = "anchor_has_seen_onboarding"
-const STEP_COUNT = 4
+const STEP_COUNT = 5
 
 interface ReminderPrefs {
   morning_enabled: boolean
@@ -23,6 +24,7 @@ interface ReminderPrefs {
 
 export function OnboardingModal() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const { user, profile, updateProfile } = useAuth()
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState(0)
@@ -61,7 +63,10 @@ export function OnboardingModal() {
     )
   }
 
-  async function handleFinish() {
+  // Completes onboarding (reminders + tone + onboarded_at). `goToCompass`
+  // is set by the last step's "Set up my Compass" button — the plain
+  // "Skip for now" next to it passes false and just lands on Home.
+  async function handleFinish(goToCompass = false) {
     if (!user || busy) return
     setBusy(true)
     try {
@@ -79,6 +84,7 @@ export function OnboardingModal() {
       await updateProfile({ tone, onboarded_at: new Date().toISOString() })
       markLocallySeen()
       setOpen(false)
+      if (goToCompass) navigate("/compass?start=1")
     } finally {
       setBusy(false)
     }
@@ -101,7 +107,8 @@ export function OnboardingModal() {
 
   if (!open) return null
 
-  const bgByStep = ["bg-sage-light/50", "bg-lavender/20", "bg-rose-accent/20", "bg-peach/20"]
+  const bgByStep = ["bg-sage-light/50", "bg-lavender/20", "bg-rose-accent/20", "bg-peach/20", "bg-secondary"]
+  const isLastStep = step === STEP_COUNT - 1
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-sm p-6">
@@ -214,6 +221,18 @@ export function OnboardingModal() {
           </div>
         )}
 
+        {step === 4 && (
+          <div>
+            <div className="mb-5 flex justify-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-popover shadow-[0_4px_20px_rgba(0,0,0,0.06)]">
+                <AppIcon icon="hub-compass" decorative className="h-8 w-8 text-primary" />
+              </div>
+            </div>
+            <h2 className="font-heading text-xl font-bold text-foreground mb-1.5">{t("onboarding.compass_title")}</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">{t("onboarding.compass_text")}</p>
+          </div>
+        )}
+
         {/* Dots */}
         <div className="flex justify-center gap-2 mb-6 mt-8">
           {Array.from({ length: STEP_COUNT }).map((_, i) => (
@@ -228,29 +247,42 @@ export function OnboardingModal() {
 
         <div className="flex gap-3">
           {step > 0 && (
-            <Button variant="outline" className="flex-1" onClick={() => setStep(step - 1)} disabled={busy}>
+            <Button variant="outline" className={isLastStep ? "" : "flex-1"} onClick={() => setStep(step - 1)} disabled={busy}>
               {t("onboarding.back")}
             </Button>
           )}
-          {step < STEP_COUNT - 1 ? (
+          {!isLastStep ? (
             <Button className="flex-1" onClick={() => setStep(step + 1)}>
               {t("onboarding.next")}
             </Button>
           ) : (
-            <Button className="flex-1" onClick={handleFinish} disabled={busy}>
-              {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-              {t("onboarding.start")}
+            <Button className="flex-1" onClick={() => handleFinish(true)} disabled={busy}>
+              {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <AppIcon icon="hub-compass" decorative className="mr-2 h-4 w-4" />}
+              {t("onboarding.compass_cta")}
             </Button>
           )}
         </div>
 
-        <button
-          onClick={handleSkip}
-          disabled={busy}
-          className="mt-4 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          {t("onboarding.skip")}
-        </button>
+        {isLastStep ? (
+          // Equal-weight to "Set up my Compass" above — the spec requires the
+          // skip to never be a small discreet link at this step.
+          <Button
+            variant="outline"
+            className="mt-3 w-full"
+            onClick={() => handleFinish(false)}
+            disabled={busy}
+          >
+            {t("onboarding.compass_skip")}
+          </Button>
+        ) : (
+          <button
+            onClick={handleSkip}
+            disabled={busy}
+            className="mt-4 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {t("onboarding.skip")}
+          </button>
+        )}
       </div>
     </div>
   )

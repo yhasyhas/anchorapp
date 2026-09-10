@@ -496,6 +496,14 @@
     "checkin": "Jioni",
     "complete": "Siku imekamilika — ulijitokeza."
   },
+  "daily_suggestion": {
+    "label": "Pendekezo la leo",
+    "accept": "Ninalifanya",
+    "decline": "Si leo",
+    "another": "Pendekezo lingine",
+    "accepted_ack": "Vizuri — ni lako kwa leo.",
+    "declined_ack": "Sawa kabisa. Hakuna shinikizo."
+  },
   "timegate": {
     "evening_title": "Jioni litakuja polepole",
     "evening_message": "Kujiangalia kwako ni mafunjo ya usiku. Rudi mnamo saa 1 usiku kutafakari siku yako.",

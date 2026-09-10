@@ -18,6 +18,8 @@ import {
 } from "@/lib/move-selection"
 import { MoveOfTheDayCard } from "@/components/anchor/move-of-the-day-card"
 import { MovePickerSheet } from "@/components/anchor/move-picker-sheet"
+import { DailySuggestionCard } from "@/components/anchor/daily-suggestion-card"
+import { useDailySuggestion } from "@/hooks/use-daily-suggestion"
 import { MIN_STREAK_FOR_INTENTION } from "@/lib/streaks"
 import { resolveIntentionLabel, buildSelectableIntentions } from "@/lib/intentions"
 import { useCustomIntentions } from "@/hooks/use-custom-intentions"
@@ -201,6 +203,12 @@ export function HomePage() {
   const defaultMoveSuggestions = materializeDefaultSuggestions(t)
   const allVisibleMoveSuggestions = buildVisibleSuggestions(cycle.moveSuggestions, moveWeekKey, defaultMoveSuggestions)
   const moveReason = resolveMoveReason({ recentMoods: cycle.recentMoods, currentAnchorStreak: cycle.streaks.currentAnchorStreak })
+
+  // Daily suggestion — the one gentle action at the top of Home. Reads the
+  // same Move pool built just above (and useDailyCycle's recent anchors),
+  // but owns its own daily_suggestions row and never writes an anchor or
+  // touches the streak. Additive: the card only renders once a row exists.
+  const dailySuggestion = useDailySuggestion(user, allVisibleMoveSuggestions, cycle.recentAnchors)
 
   // Point 1b: a suggestion already sitting in one of today's 3 anchors must
   // never be offered again for another. Point 1c: soft-prefer suggestions
@@ -395,6 +403,22 @@ export function HomePage() {
           onSave={handleSaveIntention}
         />
       </div>
+
+      {/* ── Daily suggestion — one gentle action for today, above the mood
+          card. The 3 daily anchors below are untouched; none of the three
+          responses here feeds the streak. ── */}
+      {dailySuggestion.suggestion && (
+        <div className="lg:col-span-12">
+          <DailySuggestionCard
+            text={dailySuggestion.suggestion.suggestion_text}
+            status={dailySuggestion.suggestion.status}
+            busy={dailySuggestion.busy}
+            onAccept={dailySuggestion.accept}
+            onDecline={dailySuggestion.decline}
+            onAnother={dailySuggestion.another}
+          />
+        </div>
+      )}
 
       {/* ── Mood + daily quote, fused into one card — desktop pairs it with
           Move of the Day (below) in a 7/5 split, same "1.3fr/1fr" row the

@@ -260,6 +260,29 @@ export interface Compass {
   created_at: string
 }
 
+// Daily suggestion — one gentle action offered at the top of Home, drawn
+// from the Move pool (see src/lib/daily-suggestion.ts). One row per user
+// per day (daily_suggestions, UNIQUE on user_id,date); upserted like the
+// daily anchor. None of the statuses feed the streak.
+export type DailySuggestionStatus = "pending" | "accepted" | "declined" | "snoozed"
+
+export interface DailySuggestion {
+  id: string
+  user_id: string
+  date: string
+  // move_suggestions row id when the pick was a real DB row, null when it
+  // came from the hardcoded static pool (no DB row) — see the migration.
+  source_move_item_id: string | null
+  // Snapshot of the text shown that day; the card reads this directly.
+  suggestion_text: string
+  status: DailySuggestionStatus
+  responded_at: string | null
+  follow_up_shown: boolean
+  follow_up_response: string | null
+  created_at: string
+  updated_at: string
+}
+
 // User-created intention, alongside the 5 hardcoded native ones in
 // src/lib/constants.ts — see src/lib/custom-intentions.ts and
 // src/lib/intentions.ts for how these are created/resolved for display.

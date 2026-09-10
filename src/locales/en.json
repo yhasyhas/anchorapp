@@ -496,6 +496,14 @@
     "checkin": "Evening",
     "complete": "Day complete — you showed up for yourself."
   },
+  "daily_suggestion": {
+    "label": "A suggestion for today",
+    "accept": "I'm doing it",
+    "decline": "Not today",
+    "another": "Another suggestion",
+    "accepted_ack": "Nice — it's yours for today.",
+    "declined_ack": "All good. No pressure."
+  },
   "timegate": {
     "evening_title": "The evening will come gently",
     "evening_message": "Your check-in is a ritual for the night. Come back around 7 PM to reflect on your day.",

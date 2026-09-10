@@ -73,6 +73,19 @@ export async function getCompass(userId: string): Promise<Compass | null> {
   return (data as Compass | null) ?? null
 }
 
+// Just the selected value tags — used by the daily suggestion picker
+// (src/lib/daily-suggestion.ts) to bias toward a resonant Move entry.
+// Never throws: no Compass, or a read failure, both resolve to [] (the
+// picker then falls back to plain rotation).
+export async function getCompassValueTags(userId: string): Promise<string[]> {
+  try {
+    const compass = await getCompass(userId)
+    return compass?.value_tags ?? []
+  } catch {
+    return []
+  }
+}
+
 // Explicit save (never called on a timer — the user always taps Save).
 // Upserts on user_id, so the first save creates the row and every later
 // one replaces it: no way to end up with duplicates. Blank goal rows the

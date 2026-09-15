@@ -1,9 +1,13 @@
 // Picks the single suggestion shown at the top of Home each day, from the
 // same Move pool the Move page and Home's planning picker already build
 // (src/lib/move-selection.ts). Deliberately kept isolated and simple —
-// keyword matching, a deterministic per-day seed, no AI, no scoring model —
-// so it can be sophisticated later (Companion, Journal/Jar words) without
-// rewriting the card or the hook that consumes this.
+// keyword matching, a deterministic per-day seed, no AI — so it can be
+// made more sophisticated later (Companion, Journal/Jar words) without
+// rewriting the card or the hook that consumes this. Below a minimum
+// sample of real accept/decline history it's still the original tiered
+// rotation; above it, a small weighted-scoring model blends Compass match
+// with what she's actually accepted/declined (see the LEARNED_BIAS_*
+// section) — still no ML, just documented, named-constant rules.
 
 import type { MoveSuggestion } from "@/types"
 
@@ -105,9 +109,188 @@ export function computePatternsCompassGrowth(values: string[], acceptedSuggestio
   )
 }
 
+// ==================== LEARNED ACCEPT/DECLINE BIAS ====================
+//
+// Investigation notes (read before touching any of this):
+//
+// "Another suggestion" leaves NO trace in daily_suggestions at all. There
+// is one mutable row per (user_id, date) — tapping "Another" upserts over
+// that same row (new source_move_item_id/suggestion_text, status reset to
+// 'pending'), so the skipped pick is never separately persisted anywhere.
+// A title skipped via "Another" is therefore structurally indistinguishable
+// from a title that was never shown that day at all — there is nothing to
+// weight as "a weak decline," because no row references it once it's
+// overwritten. The signal below is built purely from each day's FINAL
+// status (accepted/declined; 'pending' rows — never answered — are
+// excluded by the caller), which is exactly what the data can actually
+// support.
+//
+// source_move_item_id is null whenever a pick came from the static
+// hardcoded pool or the absence-fallback sentinel (see isRealRow above),
+// so acceptance stats are keyed by normalized suggestion_text instead —
+// the same matching key every other function in this module already uses.
+
+export type SuggestionOutcome = "accepted" | "declined"
+
+export interface SuggestionHistoryEntry {
+  title: string
+  status: SuggestionOutcome
+}
+
+// Caller-side window for the accept/decline sample (src/lib/daily-
+// suggestion-context.tsx fetches daily_suggestions over this many days and
+// filters to accepted/declined only before calling pickDailySuggestion).
+export const LEARNED_BIAS_WINDOW_DAYS = 60
+
+// Anti-overfitting guard: below this many TOTAL answered suggestions
+// (accepted + declined, across the whole pool, over LEARNED_BIAS_WINDOW_DAYS)
+// there isn't enough signal to bias on without just amplifying noise — the
+// selection falls back to pickByTieredRotation completely unchanged, byte
+// for byte, rather than a "lightly applied" version of the new logic. This
+// is a hard behavioral switch, not a confidence taper.
+export const LEARNED_BIAS_MIN_TOTAL_RESPONSES = 10
+
+// Compass match multiplier — a title resonating with one of her Compass
+// values gets this much more weight than one that doesn't (baseline 1).
+// Chosen so a Compass match still matters, but can't alone overwhelm a
+// strongly-learned signal in the other direction (see the worked example
+// on learnedWeightMultiplier below).
+export const COMPASS_MATCH_WEIGHT_MULTIPLIER = 1.6
+
+// Learned acceptance-rate multiplier range. A title with NO history at all
+// is perfectly neutral (multiplier 1, no bias) — most of the pool lands
+// here even for a well-answered user, since 10 total responses is a small
+// sample against a much larger pool. A title's own multiplier is
+// interpolated linearly between these two bounds by its accepted/
+// (accepted+declined) rate:
+//   - 0% accepted  -> LEARNED_MIN_WEIGHT_MULTIPLIER (never exactly 0 —
+//     tastes change, see point 5: this is the residual chance floor)
+//   - 100% accepted -> LEARNED_MAX_WEIGHT_MULTIPLIER
+// Worked example (point 4's two cases):
+//   - Compass-matching, always declined: 1.6 * 0.15 = 0.24
+//   - Not Compass-matching, always accepted: 1 * 2.2 = 2.2
+//   -> the well-liked non-matching entry outweighs the always-declined
+//      matching one by roughly 9x, instead of the matching one dominating
+//      by tier as it would have before.
+export const LEARNED_MIN_WEIGHT_MULTIPLIER = 0.15
+export const LEARNED_MAX_WEIGHT_MULTIPLIER = 2.2
+
+// Recency penalty — same "soft, never a hard filter" intent the tiered
+// rotation already documented, just expressed as a multiplier instead of a
+// tier fallback once the weighted model is active.
+export const RECENT_PENALTY_WEIGHT_MULTIPLIER = 0.2
+
+interface TitleAcceptanceStats {
+  accepted: number
+  declined: number
+}
+
+function buildTitleAcceptanceStats(history: SuggestionHistoryEntry[]): Map<string, TitleAcceptanceStats> {
+  const stats = new Map<string, TitleAcceptanceStats>()
+  for (const h of history) {
+    const key = normalizeTitle(h.title)
+    const entry = stats.get(key) ?? { accepted: 0, declined: 0 }
+    if (h.status === "accepted") entry.accepted++
+    else entry.declined++
+    stats.set(key, entry)
+  }
+  return stats
+}
+
+function learnedWeightMultiplier(stats: TitleAcceptanceStats | undefined): number {
+  if (!stats) return 1
+  const total = stats.accepted + stats.declined
+  if (total === 0) return 1
+  const acceptanceRate = stats.accepted / total
+  return LEARNED_MIN_WEIGHT_MULTIPLIER + (LEARNED_MAX_WEIGHT_MULTIPLIER - LEARNED_MIN_WEIGHT_MULTIPLIER) * acceptanceRate
+}
+
+// Deterministic "roulette wheel" pick: same hashSeed as the rest of this
+// module, but landed against the cumulative weight distribution instead of
+// a plain uniform modulo. A single (seed) call always resolves to the same
+// entry (so a given user+date is still stable across reloads), while many
+// different seeds land on higher-weight entries proportionally more often
+// — this is what makes the bias actually show up as a shifted probability
+// distribution rather than a one-off coin flip.
+function weightedDeterministicPick<T>(candidates: { item: T; weight: number }[], seed: string): T {
+  const SCALE = 1_000_000
+  const totalScaled = Math.max(
+    1,
+    Math.round(candidates.reduce((sum, c) => sum + c.weight, 0) * SCALE)
+  )
+  const target = hashSeed(seed) % totalScaled
+  let cumulative = 0
+  for (const c of candidates) {
+    cumulative += Math.round(c.weight * SCALE)
+    if (target < cumulative) return c.item
+  }
+  return candidates[candidates.length - 1].item
+}
+
+// The original rotation, extracted verbatim (no behavior change) — this is
+// the exact path taken whenever LEARNED_BIAS_MIN_TOTAL_RESPONSES isn't met,
+// so that case stays byte-for-byte identical to before this feature.
+function pickByTieredRotation(
+  usable: MoveSuggestion[],
+  values: string[],
+  seed: string,
+  recentTitles: Set<string>,
+  excludeTitles: Set<string>
+): DailySuggestionPick {
+  const valueMatched = matchByValues(usable, values)
+  const notRecent = (list: MoveSuggestion[]) =>
+    list.filter((s) => !recentTitles.has(normalizeTitle(s.title)))
+
+  const tier =
+    [notRecent(valueMatched), valueMatched, notRecent(usable), usable].find((list) => list.length > 0) ??
+    usable
+
+  const idx = hashSeed(`${seed}|${excludeTitles.size}`) % tier.length
+  const chosen = tier[idx]
+
+  return {
+    sourceMoveItemId: isRealRow(chosen) ? chosen.id : null,
+    text: chosen.title,
+  }
+}
+
+// The new weighted model, only reached once LEARNED_BIAS_MIN_TOTAL_RESPONSES
+// is met. Every usable entry gets a single multiplicative weight combining
+// Compass match, learned accept/decline rate, and recency — no single
+// factor can force another to zero (every multiplier has a positive floor),
+// so nothing is ever permanently excluded, just made more or less likely.
+function pickByWeightedScore(
+  usable: MoveSuggestion[],
+  values: string[],
+  seed: string,
+  recentTitles: Set<string>,
+  excludeTitles: Set<string>,
+  history: SuggestionHistoryEntry[]
+): DailySuggestionPick {
+  const stats = buildTitleAcceptanceStats(history)
+  const matchedTitles = new Set(matchByValues(usable, values).map((s) => normalizeTitle(s.title)))
+
+  const weighted = usable.map((s) => {
+    const key = normalizeTitle(s.title)
+    let weight = 1
+    if (matchedTitles.has(key)) weight *= COMPASS_MATCH_WEIGHT_MULTIPLIER
+    weight *= learnedWeightMultiplier(stats.get(key))
+    if (recentTitles.has(key)) weight *= RECENT_PENALTY_WEIGHT_MULTIPLIER
+    return { item: s, weight }
+  })
+
+  const chosen = weightedDeterministicPick(weighted, `${seed}|${excludeTitles.size}`)
+
+  return {
+    sourceMoveItemId: isRealRow(chosen) ? chosen.id : null,
+    text: chosen.title,
+  }
+}
+
 export interface PickDailySuggestionParams {
   pool: MoveSuggestion[]
-  // Compass value tags (may be empty — then it's pure rotation).
+  // Compass value tags (may be empty — then it's pure rotation, or pure
+  // learned bias once the threshold below is met).
   values: string[]
   // Stable per-day anchor, e.g. `${userId}:${date}` — makes the pick
   // identical across reloads on the same day.
@@ -118,36 +301,24 @@ export interface PickDailySuggestionParams {
   recentTitles?: Set<string>
   // Hard exclude — the current pick(s) when she taps "Another suggestion".
   excludeTitles?: Set<string>
+  // Accepted/declined outcomes over LEARNED_BIAS_WINDOW_DAYS (never-
+  // answered rows already excluded by the caller). Omitted, or fewer than
+  // LEARNED_BIAS_MIN_TOTAL_RESPONSES entries, falls back unchanged to
+  // pickByTieredRotation — see that guard's own comment.
+  history?: SuggestionHistoryEntry[]
 }
 
 // Returns null only when the pool is genuinely empty after exclusions —
 // the caller then either resets exclusions or hides the card.
 export function pickDailySuggestion(params: PickDailySuggestionParams): DailySuggestionPick | null {
-  const { pool, values, seed, recentTitles = new Set(), excludeTitles = new Set() } = params
+  const { pool, values, seed, recentTitles = new Set(), excludeTitles = new Set(), history = [] } = params
 
   const usable = pool.filter((s) => s.title && !excludeTitles.has(normalizeTitle(s.title)))
   if (usable.length === 0) return null
 
-  const valueMatched = matchByValues(usable, values)
-  const notRecent = (list: MoveSuggestion[]) =>
-    list.filter((s) => !recentTitles.has(normalizeTitle(s.title)))
-
-  // Preference order, most specific first:
-  //   1. resonates with a value AND not shown recently
-  //   2. resonates with a value (any)
-  //   3. not shown recently
-  //   4. anything usable
-  const tier =
-    [notRecent(valueMatched), valueMatched, notRecent(usable), usable].find((list) => list.length > 0) ??
-    usable
-
-  // Deterministic index. `excludeTitles.size` shifts the seed so each
-  // "Another suggestion" tap lands on a different entry.
-  const idx = hashSeed(`${seed}|${excludeTitles.size}`) % tier.length
-  const chosen = tier[idx]
-
-  return {
-    sourceMoveItemId: isRealRow(chosen) ? chosen.id : null,
-    text: chosen.title,
+  if (history.length < LEARNED_BIAS_MIN_TOTAL_RESPONSES) {
+    return pickByTieredRotation(usable, values, seed, recentTitles, excludeTitles)
   }
+
+  return pickByWeightedScore(usable, values, seed, recentTitles, excludeTitles, history)
 }

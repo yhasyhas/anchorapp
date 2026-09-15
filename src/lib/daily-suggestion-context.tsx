@@ -19,7 +19,7 @@ import {
   materializeDefaultSuggestions,
   getRecentlyUsedTitles,
 } from "@/lib/move-selection"
-import { pickDailySuggestion } from "@/lib/daily-suggestion"
+import { pickDailySuggestion, LEARNED_BIAS_WINDOW_DAYS, type SuggestionHistoryEntry } from "@/lib/daily-suggestion"
 import { todayStr, localDateStr } from "@/lib/utils"
 import type { DailyAnchor, DailySuggestion, DailySuggestionStatus, MoveSuggestion } from "@/types"
 
@@ -34,9 +34,12 @@ import type { DailyAnchor, DailySuggestion, DailySuggestionStatus, MoveSuggestio
 // follow-up becomes eligible. Fixed value (spec allows 2-3).
 export const FOLLOW_UP_DELAY_DAYS = 2
 const HISTORY_DAYS = 7
-// Fetch window: enough to cover the 7-day history plus older accepted
-// suggestions whose follow-up hasn't been shown yet.
-const FETCH_WINDOW_DAYS = 21
+// Fetch window: originally sized for the 7-day history plus older accepted
+// suggestions whose follow-up hasn't been shown yet (both comfortably
+// smaller than this). Now driven by LEARNED_BIAS_WINDOW_DAYS instead, since
+// that's the widest of the three needs — one fetch covers all of them
+// rather than a second query just for the accept/decline sample.
+const FETCH_WINDOW_DAYS = LEARNED_BIAS_WINDOW_DAYS
 
 export type FollowUpResponse = "better" | "neutral" | "prefer_not"
 
@@ -108,6 +111,10 @@ export function DailySuggestionProvider({ children }: { children: ReactNode }) {
   const poolRef = useRef<MoveSuggestion[]>([])
   const valuesRef = useRef<string[]>([])
   const recentTitlesRef = useRef<Set<string>>(new Set())
+  // Accepted/declined outcomes over LEARNED_BIAS_WINDOW_DAYS, excluding
+  // today and anything never answered — see pickDailySuggestion's own
+  // guard for what happens below its minimum sample size.
+  const learnedHistoryRef = useRef<SuggestionHistoryEntry[]>([])
   // Everything already shown today this session (current pick + every
   // "another" tap) — hard-excluded from the next pick.
   const seenTitlesRef = useRef<Set<string>>(new Set())
@@ -203,6 +210,17 @@ export function DailySuggestionProvider({ children }: { children: ReactNode }) {
       recentTitlesRef.current = recent
       setWindowRows(allWindow)
 
+      // Learned accept/decline sample for pickDailySuggestion's weighted
+      // model — today excluded (nothing to learn from a row that doesn't
+      // exist yet, or is still 'pending' from an in-progress "Another"),
+      // 'pending'/never-answered rows excluded (no signal either way).
+      learnedHistoryRef.current = allWindow
+        .filter(
+          (r): r is DailySuggestion & { status: "accepted" | "declined" } =>
+            r.date !== todayStr() && (r.status === "accepted" || r.status === "declined")
+        )
+        .map((r) => ({ title: r.suggestion_text, status: r.status }))
+
       // Follow-up: most recent eligible past accepted suggestion (allWindow
       // is already newest-first). Resolved once here so marking it seen
       // doesn't make the card vanish mid-interaction.
@@ -233,6 +251,7 @@ export function DailySuggestionProvider({ children }: { children: ReactNode }) {
         values: valuesRef.current,
         seed: `${user!.id}:${todayStr()}`,
         recentTitles: recentTitlesRef.current,
+        history: learnedHistoryRef.current,
       })
       if (!pick) {
         creatingRef.current = false
@@ -317,6 +336,7 @@ export function DailySuggestionProvider({ children }: { children: ReactNode }) {
       seed,
       recentTitles: recentTitlesRef.current,
       excludeTitles: seenTitlesRef.current,
+      history: learnedHistoryRef.current,
     })
     if (!pick) {
       seenTitlesRef.current = new Set([norm(suggestion.suggestion_text)])
@@ -325,6 +345,7 @@ export function DailySuggestionProvider({ children }: { children: ReactNode }) {
         values: valuesRef.current,
         seed,
         excludeTitles: seenTitlesRef.current,
+        history: learnedHistoryRef.current,
       })
     }
     if (!pick) {

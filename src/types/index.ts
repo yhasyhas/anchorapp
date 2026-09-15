@@ -397,6 +397,35 @@ export interface CircleGraceGift {
   sent_at: string
 }
 
+// Weekly shared ritual — one question, one thread per active friendship
+// (see supabase/migrations/20260915120000_create_circle_weekly_ritual.sql
+// for why this is pairwise, not per-N-person-circle). `responses` and
+// `otherAnswered` are only ever populated once `myResponse` is set — the
+// RPC itself withholds them until then, this shape just carries that
+// through to the client.
+export interface CircleWeeklyRitualResponse {
+  userId: string
+  response: string
+}
+
+export interface CircleWeeklyRitual {
+  promptId: string
+  weekKey: string
+  promptKey: string
+  myResponse: string | null
+  otherAnswered: boolean | null
+  revealed: boolean
+  responses: CircleWeeklyRitualResponse[] | null
+}
+
+export interface CircleWeeklyRitualHistoryEntry {
+  weekKey: string
+  promptKey: string
+  myResponse: string
+  friendResponse: string
+  createdAt: string
+}
+
 export interface CircleStreakAlert {
   friend_id: string
   absent: boolean

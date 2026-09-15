@@ -23,6 +23,7 @@ import {
   getSharedLetters,
 } from "@/lib/circle"
 import { listActiveCircleSos, type CircleSosEntry } from "@/lib/circle-sos"
+import { WeeklyRitualCard } from "@/components/circle/weekly-ritual-card"
 import {
   MAX_VOICE_ENCOURAGEMENT_SECONDS,
   sendVoiceEncouragement,
@@ -759,6 +760,16 @@ export function CirclePage() {
                   </div>
                 </CardContent>
               </Card>
+            ))}
+          </div>
+
+          {/* Weekly shared ritual — one card per active friendship (see the
+              migration for why it's pairwise rather than one card for the
+              whole circle). Naturally hidden with zero active members since
+              this whole branch only renders when members.length > 0. */}
+          <div className="space-y-3">
+            {members.map((m) => (
+              <WeeklyRitualCard key={`ritual-${m.id}`} friendId={m.friend_id} friendName={friendName(m.friend_id)} />
             ))}
           </div>
 

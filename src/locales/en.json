@@ -757,6 +757,27 @@
       "here_for_you": "Here for you, always",
       "small_steps_count": "Small steps still count",
       "holding_you_gently": "Holding you gently today"
+    },
+    "weekly_ritual_section_title": "This week, with {{name}}",
+    "weekly_ritual_placeholder": "Your answer...",
+    "weekly_ritual_share": "Share",
+    "weekly_ritual_char_count": "{{count}} / {{max}}",
+    "weekly_ritual_your_answer": "You said:",
+    "weekly_ritual_waiting": "Waiting for {{name}} to answer.",
+    "weekly_ritual_you_label": "You",
+    "weekly_ritual_error_generic": "Could not share your answer",
+    "weekly_ritual_error_already": "You've already answered this week",
+    "weekly_ritual_history_toggle": "Past weeks",
+    "weekly_ritual_history_empty": "No completed weeks yet.",
+    "weekly_ritual_prompts": {
+      "aligned_moment": "A moment this week you felt aligned with who you're becoming?",
+      "small_help": "Something small that helped, this week?",
+      "proud_of": "Something you're quietly proud of this week?",
+      "let_go": "Something you let go of this week?",
+      "unexpected_good": "An unexpected good moment this week?",
+      "leaning_on": "Who or what did you lean on this week?",
+      "brave_moment": "A moment you were braver than you expected?",
+      "grateful_for": "Something small you're grateful for this week?"
     }
   },
   "sos": {

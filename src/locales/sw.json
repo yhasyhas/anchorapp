@@ -757,6 +757,27 @@
       "here_for_you": "Niko hapa kwa ajili yako, siku zote",
       "small_steps_count": "Hatua ndogo bado zinahesabika",
       "holding_you_gently": "Nakushikilia kwa upole leo"
+    },
+    "weekly_ritual_section_title": "Wiki hii, na {{name}}",
+    "weekly_ritual_placeholder": "Jibu lako...",
+    "weekly_ritual_share": "Shiriki",
+    "weekly_ritual_char_count": "{{count}} / {{max}}",
+    "weekly_ritual_your_answer": "Ulisema:",
+    "weekly_ritual_waiting": "Inasubiri {{name}} ajibu.",
+    "weekly_ritual_you_label": "Wewe",
+    "weekly_ritual_error_generic": "Imeshindikana kushiriki jibu lako",
+    "weekly_ritual_error_already": "Tayari umejibu wiki hii",
+    "weekly_ritual_history_toggle": "Wiki zilizopita",
+    "weekly_ritual_history_empty": "Bado hakuna wiki zilizokamilika.",
+    "weekly_ritual_prompts": {
+      "aligned_moment": "Wakati mmoja wiki hii ulihisi ukilingana na mtu unayekuwa?",
+      "small_help": "Kitu kidogo kilichokusaidia wiki hii?",
+      "proud_of": "Kitu unachojivunia kimya kimya wiki hii?",
+      "let_go": "Kitu ulichoachilia wiki hii?",
+      "unexpected_good": "Wakati mzuri usiotarajiwa wiki hii?",
+      "leaning_on": "Ni nani au nini ulichokitegemea wiki hii?",
+      "brave_moment": "Wakati ulipokuwa jasiri kuliko ulivyotarajia?",
+      "grateful_for": "Kitu kidogo unachoshukuru wiki hii?"
     }
   },
   "sos": {

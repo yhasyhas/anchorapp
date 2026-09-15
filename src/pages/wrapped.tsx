@@ -169,7 +169,8 @@ export function WrappedPage() {
 }
 
 function WrappedCardView({ card }: { card: WrappedCard }) {
-  const isSentenceCard = card.kind === "cover" || card.kind === "treasures" || card.kind === "closing"
+  const isSentenceCard =
+    card.kind === "cover" || card.kind === "treasures" || card.kind === "closing" || card.kind === "compass_evolution"
 
   return (
     <div className="space-y-4">

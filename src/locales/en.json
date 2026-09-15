@@ -655,6 +655,8 @@
     "card_treasures_eyebrow": "Small treasures",
     "card_treasures_subtitle": "gratitudes dropped this month",
     "card_treasures_subtitle_journal_only": "a moment worth keeping",
+    "card_compass_eyebrow": "Your Compass",
+    "card_compass_title": "This month, you leaned most toward: {{values}}",
     "card_closing_eyebrow": "Your becoming",
     "card_closing_title": "This month, in one sentence",
     "card_closing_tagline": "That's not a coincidence — that's you becoming. ⚓"

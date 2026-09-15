@@ -497,6 +497,39 @@ export interface AweThoughtShown {
   created_at: string
 }
 
+// Rule-based weekly review — one row per user per Monday-Sunday week (see
+// src/lib/weekly-review.ts). Never a verdict: a factual mirror of the
+// week's activity, generated once and then read as-is.
+export type WeeklyReviewStatus = "pending" | "shown" | "dismissed"
+export type WeeklyReviewGoalResponse = "still_true" | "changed" | "prefer_not"
+
+// The exact computed values behind this week's sentences — stored so the
+// review stays stable even if the computation logic changes later (same
+// reasoning as monthly_recaps.stats for Wrapped).
+export interface WeeklyReviewSnapshot {
+  weekStart: string
+  weekEnd: string
+  acceptedCount: number
+  declinedCount: number
+  // 1-2 Compass values, or null when there wasn't enough signal (or no
+  // Compass) to say anything meaningful this week.
+  dominantValues: string[] | null
+  // The text of the goal this week's review asked about, if any — snapshot
+  // of the goal at prompt time, since user_compass.goals can change later.
+  goalPromptedText: string | null
+}
+
+export interface WeeklyReview {
+  id: string
+  user_id: string
+  week_start: string
+  status: WeeklyReviewStatus
+  summary_snapshot: WeeklyReviewSnapshot
+  goal_prompted_id: string | null
+  goal_response: WeeklyReviewGoalResponse | null
+  created_at: string
+}
+
 // Display-ready shape returned by getTodaysAweThought — already resolved
 // to the caller's language, so the card never has to know about content_en
 // vs content_sw.

@@ -41,6 +41,20 @@ function normalizeTitle(title: string): string {
   return title.trim().toLowerCase()
 }
 
+// The substring-keyword matcher underlying matchByValues below — pulled out
+// so other callers with their own keyword list (not a Compass value's fixed
+// VALUE_KEYWORDS entry) can reuse the exact same matching technique instead
+// of reimplementing it. Used by src/lib/weekly-review.ts to check whether a
+// free-text Compass goal resonates with a suggestion, the same way a
+// Compass value does here.
+export function filterByKeywords<T extends { title: string }>(pool: T[], keywords: string[]): T[] {
+  if (keywords.length === 0) return []
+  return pool.filter((s) => {
+    const title = normalizeTitle(s.title)
+    return keywords.some((k) => title.includes(k))
+  })
+}
+
 // Deterministic string hash — same djb2-style rolling hash as
 // getDailyQuestions in src/lib/checkin-questions.ts, so a given seed always
 // yields the same index without persisting anything.
@@ -68,11 +82,7 @@ function isRealRow(s: MoveSuggestion): boolean {
 export function matchByValues<T extends { title: string }>(pool: T[], values: string[]): T[] {
   if (values.length === 0) return []
   const keywords = values.flatMap((v) => VALUE_KEYWORDS[v] ?? [])
-  if (keywords.length === 0) return []
-  return pool.filter((s) => {
-    const title = normalizeTitle(s.title)
-    return keywords.some((k) => title.includes(k))
-  })
+  return filterByKeywords(pool, keywords)
 }
 
 // Ranks each given Compass value by how many of the accepted entries

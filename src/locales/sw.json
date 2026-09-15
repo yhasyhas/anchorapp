@@ -549,6 +549,17 @@
       "people": "Watu"
     }
   },
+  "weekly_review": {
+    "title": "Wiki yako kwa maneno machache",
+    "values": "Wiki hii, ulielekea zaidi kwenye: {{values}}",
+    "suggestions_summary": "{{accepted}} zimekubaliwa, {{declined}} zimekataliwa wiki hii",
+    "goal_question": "Uliwahi kutaja kutaka {{goal}} muda mrefu uliopita. Bado ni kweli kwako?",
+    "goal_still_true": "Bado ni kweli",
+    "goal_changed": "Mambo yamebadilika",
+    "goal_prefer_not": "Sipendi kusema",
+    "goal_thanks": "Asante kwa kunijulisha.",
+    "dismiss": "Funga muhtasari wa wiki hii"
+  },
   "journal": {
     "title": "Jarida",
     "placeholder": "Sentensi moja inatosha...",

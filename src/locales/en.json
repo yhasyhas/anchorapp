@@ -549,6 +549,17 @@
       "people": "People"
     }
   },
+  "weekly_review": {
+    "title": "Your week in a few words",
+    "values": "This week, you leaned toward: {{values}}",
+    "suggestions_summary": "{{accepted}} accepted, {{declined}} declined this week",
+    "goal_question": "You noted wanting {{goal}} a while back. Still true for you?",
+    "goal_still_true": "Still true",
+    "goal_changed": "Things have changed",
+    "goal_prefer_not": "Rather not say",
+    "goal_thanks": "Thanks for letting me know.",
+    "dismiss": "Dismiss this week's review"
+  },
   "journal": {
     "title": "Journal",
     "placeholder": "One sentence is enough...",

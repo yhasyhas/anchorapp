@@ -21,6 +21,7 @@ import { MoveOfTheDayCard } from "@/components/anchor/move-of-the-day-card"
 import { MovePickerSheet } from "@/components/anchor/move-picker-sheet"
 import { DailySuggestionCard } from "@/components/anchor/daily-suggestion-card"
 import { SuggestionFollowUpCard } from "@/components/anchor/suggestion-follow-up-card"
+import { WeeklyReviewCard } from "@/components/anchor/weekly-review-card"
 import { PlanningAnchorCard, AnchorChipRow, TrackingAnchorChip } from "@/components/anchor/anchor-cards"
 import { useDailySuggestion } from "@/lib/daily-suggestion-context"
 import { MIN_STREAK_FOR_INTENTION } from "@/lib/streaks"
@@ -364,6 +365,16 @@ export function HomePage() {
           />
         </div>
       )}
+
+      {/* ── Weekly review — a once-a-week, rule-based bilan tying the
+          week's activity back to Compass. Below the daily suggestion (and
+          its follow-up) so it never competes with them for top priority;
+          renders nothing except on its eligible day with enough weekly
+          activity, or once already dismissed for the week — see
+          src/lib/weekly-review.ts. ── */}
+      <div className="lg:col-span-12">
+        <WeeklyReviewCard />
+      </div>
 
       {/* ── Daily Cycle — compact horizontal frieze, moved up next to the
           greeting per the post-rebuild visual audit (previously sat near

@@ -471,3 +471,38 @@ export interface Reflection {
   better_tomorrow: string
   created_at: string
 }
+
+// Daily awe thought — one small factual/perspective-giving thought shown
+// once per day on Home (see src/lib/awe-thought.ts). awe_thoughts is a
+// shared reference catalog (every user reads the same rows), NOT per-user.
+export type AweThoughtCategory = "psychology" | "nature" | "philosophy" | "art" | "space" | "people"
+
+export interface AweThought {
+  id: string
+  category: AweThoughtCategory
+  content_en: string
+  content_sw: string
+  source_note: string | null
+  created_at: string
+}
+
+// One row per user per day (awe_thought_shown, UNIQUE on user_id,date) —
+// which catalog entry she got today, and whether she's seen it yet.
+export interface AweThoughtShown {
+  id: string
+  user_id: string
+  awe_thought_id: string
+  date: string
+  opened: boolean
+  created_at: string
+}
+
+// Display-ready shape returned by getTodaysAweThought — already resolved
+// to the caller's language, so the card never has to know about content_en
+// vs content_sw.
+export interface TodaysAweThought {
+  category: AweThoughtCategory
+  content: string
+  sourceNote: string | null
+  opened: boolean
+}

@@ -538,6 +538,17 @@
     "hours_until": "About {{hours}} hour{{plural}} to go",
     "soon": "Soon"
   },
+  "awe": {
+    "title": "Today's thought",
+    "categories": {
+      "psychology": "Psychology",
+      "nature": "Nature",
+      "philosophy": "Philosophy",
+      "art": "Art",
+      "space": "Space",
+      "people": "People"
+    }
+  },
   "journal": {
     "title": "Journal",
     "placeholder": "One sentence is enough...",

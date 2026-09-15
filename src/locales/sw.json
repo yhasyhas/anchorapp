@@ -538,6 +538,17 @@
     "hours_until": "Takriban saa {{hours}} zinazoenda",
     "soon": "Hivi karibuni"
   },
+  "awe": {
+    "title": "Wazo la leo",
+    "categories": {
+      "psychology": "Saikolojia",
+      "nature": "Asili",
+      "philosophy": "Falsafa",
+      "art": "Sanaa",
+      "space": "Anga",
+      "people": "Watu"
+    }
+  },
   "journal": {
     "title": "Jarida",
     "placeholder": "Sentensi moja inatosha...",

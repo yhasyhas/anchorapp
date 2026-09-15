@@ -58,6 +58,7 @@ import { CircleInviteNudge } from "@/components/circle/circle-invite-nudge"
 import { SosWidget } from "@/components/anchor/sos-widget"
 import { GratitudeDropCard } from "@/components/anchor/gratitude-drop-card"
 import { GratitudeReminderCard } from "@/components/anchor/gratitude-reminder-card"
+import { AweThoughtCard } from "@/components/anchor/awe-thought-card"
 import { JarOpeningModal } from "@/components/anchor/jar-opening-modal"
 import { SoftModeNudgeCard } from "@/components/anchor/soft-mode-nudge-card"
 import { SoftModeBadge } from "@/components/anchor/soft-mode-badge"
@@ -642,6 +643,16 @@ export function HomePage() {
         </div>
       </div>
 
+      {/* Today's Awe — one small factual thought, reduced from the
+          original "Discover" concept into a single unbrowseable card.
+          Sits below the anchors/quick actions on purpose: the daily
+          suggestion at the top of Home keeps the strongest visual
+          priority, this is a quiet extra rather than competing for
+          attention. */}
+      <div className="lg:col-span-12">
+        <AweThoughtCard />
+      </div>
+
       {/* Supportive Message — kept mounted per CARTOGRAPHIE.md (f) contract.
           Deliberately still its own separate card, not merged with the
           Companion message above (now living in the mood card) — that
@@ -659,7 +670,7 @@ export function HomePage() {
       {/* ── Everything below keeps its existing conditional logic verbatim —
           only its position moved lower in the page per Mission 6's new
           hierarchy (Greeting → Intention → Mood → Anchors → Quick Actions →
-          Affirmation → nudges/streaks/move/grace → SOS). ── */}
+          Today's Awe → Affirmation → nudges/streaks/move/grace → SOS). ── */}
       <div className="lg:col-span-12">
         <CircleInviteNudge />
       </div>

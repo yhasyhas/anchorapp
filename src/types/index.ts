@@ -211,6 +211,15 @@ export interface WrappedStats {
   // evolution sentence (see src/lib/wrapped.ts).
   startIntention: string | null
   endIntention: string | null
+  // Top 1-2 Compass values (canonical English strings, see COMPASS_VALUES
+  // in src/lib/compass.ts) her accepted daily suggestions leaned toward
+  // this month — null when she has no Compass, had fewer than 3 accepted
+  // suggestions, or none matched any of her values. Optional (not just
+  // nullable) because a recap generated before this field existed has no
+  // such key in its stored jsonb at all — every reader treats a missing
+  // key the same as null (section hidden); recaps are snapshots and are
+  // never backfilled.
+  compassTopValues?: string[] | null
 }
 
 export interface MonthlyRecap {

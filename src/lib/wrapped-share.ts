@@ -89,7 +89,7 @@ function drawTwoStatsCard(ctx: CanvasRenderingContext2D, card: WrappedCard): voi
 }
 
 // Title + optional subtitle + optional longer quote/sentence + optional
-// footer tagline — "cover", "treasures", "closing" cards.
+// footer tagline — "cover", "treasures", "closing", "compass_evolution" cards.
 function drawSentenceCard(ctx: CanvasRenderingContext2D, card: WrappedCard): void {
   const centerX = CARD_WIDTH / 2
   let y = CARD_HEIGHT * 0.4
@@ -138,7 +138,7 @@ async function renderWrappedCard(card: WrappedCard): Promise<HTMLCanvasElement> 
 
   if (card.title2 !== undefined) {
     drawTwoStatsCard(ctx, card)
-  } else if (card.kind === "cover" || card.kind === "treasures" || card.kind === "closing") {
+  } else if (card.kind === "cover" || card.kind === "treasures" || card.kind === "closing" || card.kind === "compass_evolution") {
     drawSentenceCard(ctx, card)
   } else {
     drawBigNumberCard(ctx, card)

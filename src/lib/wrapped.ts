@@ -11,6 +11,8 @@ import { calculateBestStreakFromDates, calculateBestAnchorStreakWithGrace, isAnc
 import { moodToValue } from "@/lib/constants"
 import { monthBounds } from "@/lib/pdf/data"
 import { resolveIntentionLabel } from "@/lib/intentions"
+import { getCompassValueTags } from "@/lib/compass"
+import { matchByValues } from "@/lib/daily-suggestion"
 import type { User } from "@supabase/supabase-js"
 import type {
   CustomIntention,
@@ -50,13 +52,15 @@ interface WrappedRawData {
   journalEntries: JournalEntry[]
   gratitudes: { text: string; created_at: string }[]
   prevMonthMoods: MoodLog[]
+  acceptedSuggestions: { suggestion_text: string }[]
+  compassValueTags: string[]
 }
 
 async function fetchWrappedData(userId: string, monthIso: string): Promise<WrappedRawData> {
   const { monthStart, monthEnd } = monthBounds(monthIso)
   const { monthStart: prevStart, monthEnd: prevEnd } = monthBounds(addMonthsIso(monthIso, -1))
 
-  const [moodsRes, anchorsRes, journalRes, gratitudesRes, prevMoodsRes] = await Promise.all([
+  const [moodsRes, anchorsRes, journalRes, gratitudesRes, prevMoodsRes, suggestionsRes, compassValueTags] = await Promise.all([
     supabase.from("mood_logs").select("*").eq("user_id", userId).gte("date", monthStart).lte("date", monthEnd),
     supabase.from("daily_anchors").select("*").eq("user_id", userId).gte("date", monthStart).lte("date", monthEnd),
     supabase.from("journal_entries").select("*").eq("user_id", userId).gte("date", monthStart).lte("date", monthEnd),
@@ -67,6 +71,18 @@ async function fetchWrappedData(userId: string, monthIso: string): Promise<Wrapp
       .gte("created_at", `${monthStart}T00:00:00.000Z`)
       .lte("created_at", `${monthEnd}T23:59:59.999Z`),
     supabase.from("mood_logs").select("*").eq("user_id", userId).gte("date", prevStart).lte("date", prevEnd),
+    // Feeds the Compass evolution note (see computeCompassTopValues below) —
+    // only accepted suggestions count as a real lean toward something.
+    supabase
+      .from("daily_suggestions")
+      .select("suggestion_text")
+      .eq("user_id", userId)
+      .eq("status", "accepted")
+      .gte("date", monthStart)
+      .lte("date", monthEnd),
+    // Never throws — no Compass (or a read failure) resolves to [], which
+    // computeCompassTopValues already treats as "hide the section".
+    getCompassValueTags(userId),
   ])
 
   return {
@@ -77,6 +93,8 @@ async function fetchWrappedData(userId: string, monthIso: string): Promise<Wrapp
     journalEntries: (journalRes.data as JournalEntry[]) || [],
     gratitudes: gratitudesRes.data || [],
     prevMonthMoods: (prevMoodsRes.data as MoodLog[]) || [],
+    acceptedSuggestions: (suggestionsRes.data as { suggestion_text: string }[]) || [],
+    compassValueTags,
   }
 }
 
@@ -109,6 +127,37 @@ function halfMonthDominantIntention(
   }
   const top = Object.entries(freq).sort((a, b) => b[1] - a[1])[0]
   return top ? top[0] : null
+}
+
+// A gentle, non-judgmental mirror — never a score or a ranking chart, just
+// "here's what you leaned toward". Requires both a filled Compass AND a
+// meaningful sample of accepted suggestions; either missing means silence
+// rather than a shaky result from thin data.
+export const MIN_ACCEPTED_SUGGESTIONS_FOR_COMPASS_NOTE = 3
+
+// Reuses matchByValues (src/lib/daily-suggestion.ts) — the exact same
+// keyword logic that biases which suggestion gets picked in the first
+// place — rather than a second matching implementation. Counts, per
+// Compass value, how many of this month's ACCEPTED suggestions resonate
+// with it, then returns the top 1-2 values with at least one match.
+// Ties break by the value's position in her own Compass (stable, not
+// arbitrary) rather than alphabetically or by insertion order of counts.
+export function computeCompassTopValues(
+  values: string[],
+  acceptedSuggestions: { suggestion_text: string }[]
+): string[] | null {
+  if (values.length === 0) return null
+  if (acceptedSuggestions.length < MIN_ACCEPTED_SUGGESTIONS_FOR_COMPASS_NOTE) return null
+
+  const titled = acceptedSuggestions.map((s) => ({ title: s.suggestion_text }))
+  const counts = values
+    .map((value) => ({ value, count: matchByValues(titled, [value]).length }))
+    .filter((c) => c.count > 0)
+
+  if (counts.length === 0) return null
+
+  counts.sort((a, b) => b.count - a.count || values.indexOf(a.value) - values.indexOf(b.value))
+  return counts.slice(0, 2).map((c) => c.value)
 }
 
 function computeWrappedStats(data: WrappedRawData): WrappedStats {
@@ -153,6 +202,7 @@ function computeWrappedStats(data: WrappedRawData): WrappedStats {
     moodTrend,
     startIntention: halfMonthDominantIntention(data.anchors, data.monthStart, data.monthEnd, "first"),
     endIntention: halfMonthDominantIntention(data.anchors, data.monthStart, data.monthEnd, "second"),
+    compassTopValues: computeCompassTopValues(data.compassValueTags, data.acceptedSuggestions),
   }
 }
 
@@ -296,7 +346,15 @@ export async function ensureWrappedGenerated(user: User, profile: Profile | null
 // both the on-screen viewer (src/pages/wrapped.tsx) and the canvas share
 // renderer (src/lib/wrapped-share.ts) read from this same shape.
 
-export type WrappedCardKind = "cover" | "days" | "intention" | "streaks" | "mood_trend" | "treasures" | "closing"
+export type WrappedCardKind =
+  | "cover"
+  | "days"
+  | "intention"
+  | "streaks"
+  | "mood_trend"
+  | "treasures"
+  | "compass_evolution"
+  | "closing"
 
 export interface WrappedCard {
   kind: WrappedCardKind
@@ -395,6 +453,20 @@ export function buildWrappedCards(
       title: s.gratitudeCount > 0 ? String(s.gratitudeCount) : "✨",
       subtitle: s.gratitudeCount > 0 ? t("wrapped.card_treasures_subtitle") : t("wrapped.card_treasures_subtitle_journal_only"),
       body: s.journalHighlight ? `“${s.journalHighlight.sentence}”` : undefined,
+    })
+  }
+
+  // Compass evolution note — a soft mirror, never a score/ranking. Absent
+  // whenever compassTopValues is null/undefined (no Compass, too few
+  // accepted suggestions this month, or an older recap from before this
+  // field existed) — silence rather than a shaky result from thin data.
+  if (s.compassTopValues && s.compassTopValues.length > 0) {
+    const values = s.compassTopValues.map((v) => t(`compass.values.${v.toLowerCase()}`)).join(", ")
+    cards.push({
+      kind: "compass_evolution",
+      eyebrow: t("wrapped.card_compass_eyebrow"),
+      title: t("wrapped.card_compass_title", { values }),
+      subtitle: "",
     })
   }
 

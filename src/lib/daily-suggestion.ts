@@ -55,10 +55,13 @@ function isRealRow(s: MoveSuggestion): boolean {
   return !!s.id && !s.id.startsWith("default-") && s.id !== "absence-fallback"
 }
 
-// Move entries whose title matches at least one keyword of at least one of
-// the user's selected values. Empty when she has no Compass values, or none
-// of them resonate with anything currently in the pool.
-export function matchByValues(pool: MoveSuggestion[], values: string[]): MoveSuggestion[] {
+// Entries whose title matches at least one keyword of at least one of the
+// given values. Empty when there are no values, or none of them resonate
+// with anything in the pool. Generic over anything with a `title` (not just
+// MoveSuggestion) so other callers — e.g. src/lib/wrapped.ts, matching
+// accepted daily_suggestions rows against Compass values for the monthly
+// recap — can reuse this exact matching logic instead of duplicating it.
+export function matchByValues<T extends { title: string }>(pool: T[], values: string[]): T[] {
   if (values.length === 0) return []
   const keywords = values.flatMap((v) => VALUE_KEYWORDS[v] ?? [])
   if (keywords.length === 0) return []

@@ -502,7 +502,30 @@
     "decline": "Not today",
     "another": "Another suggestion",
     "accepted_ack": "Nice — it's yours for today.",
-    "declined_ack": "All good. No pressure."
+    "declined_ack": "All good. No pressure.",
+    "open_detail": "Open today's suggestion",
+    "follow_up_question": "A couple of days ago, you {{suggestion}}. How did that feel?",
+    "follow_up_better": "Better than I expected",
+    "follow_up_neutral": "Neutral",
+    "follow_up_prefer_not": "I'd rather not say",
+    "follow_up_dismiss": "Dismiss"
+  },
+  "anchor_screen": {
+    "title": "Your anchor",
+    "subtitle": "Today's suggestion, your 3 anchors, and the week so far.",
+    "back": "Back",
+    "suggestion_intro": "Today's suggestion",
+    "suggestion_note": "One small thing, pulled from your Move ideas. Do it, skip it, or swap it — it won't touch your streak.",
+    "suggestion_none": "No suggestion today.",
+    "lock_on_home": "Set up and lock your day on Home",
+    "history_title": "Last 7 days",
+    "history_empty": "No suggestions yet this week.",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "days_ago": "{{count}} days ago",
+    "status_done": "Done",
+    "status_skipped": "Skipped",
+    "status_none": "No response"
   },
   "timegate": {
     "evening_title": "The evening will come gently",

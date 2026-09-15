@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next"
+import { ChevronRight } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AppIcon } from "@/components/icons/app-icon"
@@ -12,13 +13,24 @@ interface DailySuggestionCardProps {
   onAccept: () => void
   onDecline: () => void
   onAnother: () => void
+  // When provided (Home), the suggestion text becomes a button that opens
+  // the dedicated /anchor screen. Omitted on /anchor itself.
+  onOpenDetail?: () => void
 }
 
-// Purely presentational — src/hooks/use-daily-suggestion.ts owns the row,
-// the pick, and the rotation. The three responses carry equal visual
+// Purely presentational — src/lib/daily-suggestion-context.tsx owns the
+// row, the pick, and the rotation. The three responses carry equal visual
 // weight on purpose (spec): none of them is the "right" answer, and none
 // feeds the streak or shows anything discouraging.
-export function DailySuggestionCard({ text, status, busy, onAccept, onDecline, onAnother }: DailySuggestionCardProps) {
+export function DailySuggestionCard({
+  text,
+  status,
+  busy,
+  onAccept,
+  onDecline,
+  onAnother,
+  onOpenDetail,
+}: DailySuggestionCardProps) {
   const { t } = useTranslation()
   const accepted = status === "accepted"
   const declined = status === "declined"
@@ -36,7 +48,21 @@ export function DailySuggestionCard({ text, status, busy, onAccept, onDecline, o
           </p>
         </div>
 
-        <p className="font-heading text-base font-semibold leading-snug text-foreground">{text}</p>
+        {onOpenDetail ? (
+          <button
+            type="button"
+            onClick={onOpenDetail}
+            aria-label={t("daily_suggestion.open_detail")}
+            className="group flex w-full items-start justify-between gap-2 rounded-anchor-input text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          >
+            <span className="font-heading text-base font-semibold leading-snug text-foreground group-hover:underline">
+              {text}
+            </span>
+            <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          </button>
+        ) : (
+          <p className="font-heading text-base font-semibold leading-snug text-foreground">{text}</p>
+        )}
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <Button

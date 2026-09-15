@@ -502,7 +502,30 @@
     "decline": "Si leo",
     "another": "Pendekezo lingine",
     "accepted_ack": "Vizuri — ni lako kwa leo.",
-    "declined_ack": "Sawa kabisa. Hakuna shinikizo."
+    "declined_ack": "Sawa kabisa. Hakuna shinikizo.",
+    "open_detail": "Fungua pendekezo la leo",
+    "follow_up_question": "Siku kadhaa zilizopita, ulifanya: {{suggestion}}. Ilikuwaje?",
+    "follow_up_better": "Bora kuliko nilivyotarajia",
+    "follow_up_neutral": "Wastani",
+    "follow_up_prefer_not": "Afadhali nisiseme",
+    "follow_up_dismiss": "Ondoa"
+  },
+  "anchor_screen": {
+    "title": "Nanga yako",
+    "subtitle": "Pendekezo la leo, nanga zako 3, na wiki hadi sasa.",
+    "back": "Rudi",
+    "suggestion_intro": "Pendekezo la leo",
+    "suggestion_note": "Jambo dogo moja, lililotolewa kwenye mawazo yako ya Move. Lifanye, liruke, au libadilishe — halitagusa mfululizo wako.",
+    "suggestion_none": "Hakuna pendekezo leo.",
+    "lock_on_home": "Weka na ufunge siku yako kwenye Nyumbani",
+    "history_title": "Siku 7 zilizopita",
+    "history_empty": "Bado hakuna mapendekezo wiki hii.",
+    "today": "Leo",
+    "yesterday": "Jana",
+    "days_ago": "Siku {{count}} zilizopita",
+    "status_done": "Imefanyika",
+    "status_skipped": "Imerukwa",
+    "status_none": "Hakuna jibu"
   },
   "timegate": {
     "evening_title": "Jioni litakuja polepole",

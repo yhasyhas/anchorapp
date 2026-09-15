@@ -12,7 +12,7 @@ import { moodToValue } from "@/lib/constants"
 import { monthBounds } from "@/lib/pdf/data"
 import { resolveIntentionLabel } from "@/lib/intentions"
 import { getCompassValueTags } from "@/lib/compass"
-import { matchByValues } from "@/lib/daily-suggestion"
+import { topResonatingValues } from "@/lib/daily-suggestion"
 import type { User } from "@supabase/supabase-js"
 import type {
   CustomIntention,
@@ -135,29 +135,20 @@ function halfMonthDominantIntention(
 // rather than a shaky result from thin data.
 export const MIN_ACCEPTED_SUGGESTIONS_FOR_COMPASS_NOTE = 3
 
-// Reuses matchByValues (src/lib/daily-suggestion.ts) — the exact same
-// keyword logic that biases which suggestion gets picked in the first
-// place — rather than a second matching implementation. Counts, per
-// Compass value, how many of this month's ACCEPTED suggestions resonate
-// with it, then returns the top 1-2 values with at least one match.
-// Ties break by the value's position in her own Compass (stable, not
-// arbitrary) rather than alphabetically or by insertion order of counts.
+// Delegates the actual ranking to topResonatingValues (src/lib/daily-
+// suggestion.ts) — the same shared core Patterns' rolling-30-day version of
+// this note uses (see computePatternsCompassGrowth there), just gated by
+// Wrapped's own calendar-month threshold rather than duplicating the
+// counting/tie-break logic a second time.
 export function computeCompassTopValues(
   values: string[],
   acceptedSuggestions: { suggestion_text: string }[]
 ): string[] | null {
-  if (values.length === 0) return null
   if (acceptedSuggestions.length < MIN_ACCEPTED_SUGGESTIONS_FOR_COMPASS_NOTE) return null
-
-  const titled = acceptedSuggestions.map((s) => ({ title: s.suggestion_text }))
-  const counts = values
-    .map((value) => ({ value, count: matchByValues(titled, [value]).length }))
-    .filter((c) => c.count > 0)
-
-  if (counts.length === 0) return null
-
-  counts.sort((a, b) => b.count - a.count || values.indexOf(a.value) - values.indexOf(b.value))
-  return counts.slice(0, 2).map((c) => c.value)
+  return topResonatingValues(
+    values,
+    acceptedSuggestions.map((s) => ({ title: s.suggestion_text }))
+  )
 }
 
 function computeWrappedStats(data: WrappedRawData): WrappedStats {

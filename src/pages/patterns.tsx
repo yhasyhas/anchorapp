@@ -7,6 +7,8 @@ import { moodToValue, moodInk } from "@/lib/constants"
 import { localDateStr } from "@/lib/utils"
 import { formatWeekRange } from "@/lib/letters"
 import { resolveIntentionLabel } from "@/lib/intentions"
+import { getCompassValueTags } from "@/lib/compass"
+import { computePatternsCompassGrowth } from "@/lib/daily-suggestion"
 import { useCustomIntentions } from "@/hooks/use-custom-intentions"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -37,6 +39,10 @@ export function PatternsPage() {
   const { user, profile } = useAuth()
   const { customIntentions } = useCustomIntentions(user?.id)
   const [chartData, setChartData] = useState<{ day: string; value: number; mood: string | null }[]>([])
+  // Compass values her accepted daily suggestions leaned toward over the
+  // trailing 30 days — null hides the section (no Compass, or fewer than
+  // MIN_ACCEPTED_FOR_PATTERNS_GROWTH_NOTE accepted in the window).
+  const [compassGrowthValues, setCompassGrowthValues] = useState<string[] | null>(null)
   const [insights, setInsights] = useState<InsightItem[]>([])
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -97,7 +103,15 @@ export function PatternsPage() {
       thirtyAgo.setDate(thirtyAgo.getDate() - 30)
       const thirtyStr = localDateStr(thirtyAgo)
 
-      const [{ data: weekMoods }, { data: monthMoods }, { data: anchors }, { data: checkIns }, { data: journal }] = await Promise.all([
+      const [
+        { data: weekMoods },
+        { data: monthMoods },
+        { data: anchors },
+        { data: checkIns },
+        { data: journal },
+        { data: acceptedSuggestions },
+        compassValueTags,
+      ] = await Promise.all([
         supabase
           .from("mood_logs")
           .select("*")
@@ -128,9 +142,27 @@ export function PatternsPage() {
           .eq("user_id", user.id)
           .gte("date", thirtyStr)
           .order("date", { ascending: false }),
+        // Feeds the "Lately, you've leaned toward..." note below — a rolling
+        // 30-day window (not stored anywhere, recomputed on every load like
+        // the rest of this page's derived stats).
+        supabase
+          .from("daily_suggestions")
+          .select("suggestion_text")
+          .eq("user_id", user.id)
+          .eq("status", "accepted")
+          .gte("date", thirtyStr),
+        // Never throws — no Compass (or a read failure) resolves to [],
+        // which computePatternsCompassGrowth already treats as "hide it".
+        getCompassValueTags(user.id),
       ])
 
       setJournalEntries((journal as JournalEntry[]) || [])
+      setCompassGrowthValues(
+        computePatternsCompassGrowth(
+          compassValueTags,
+          ((acceptedSuggestions as { suggestion_text: string }[]) || []).map((s) => s.suggestion_text)
+        )
+      )
 
       if (weekMoods && weekMoods.length > 0) {
         setChartData(buildChartData(weekMoods as MoodLog[]))
@@ -404,6 +436,20 @@ export function PatternsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Compass growth note — a soft mirror of the last 30 rolling days,
+          never a score/ranking, sitting right next to the week's mood chart
+          without touching it. Absent whenever compassGrowthValues is null
+          (no Compass, or fewer than MIN_ACCEPTED_FOR_PATTERNS_GROWTH_NOTE
+          accepted suggestions in the window) — same "silence over a shaky
+          result" rule as Wrapped's monthly version of this note. */}
+      {compassGrowthValues && compassGrowthValues.length > 0 && (
+        <p className="-mt-2 text-center text-xs italic text-muted-foreground">
+          {t("patterns.compass_growth_note", {
+            values: compassGrowthValues.map((v) => t(`compass.values.${v.toLowerCase()}`)).join(", "),
+          })}
+        </p>
+      )}
 
       {/* AI Insights Header */}
       <div className="flex items-center justify-between">

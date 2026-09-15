@@ -71,6 +71,40 @@ export function matchByValues<T extends { title: string }>(pool: T[], values: st
   })
 }
 
+// Ranks each given Compass value by how many of the accepted entries
+// resonate with it (via matchByValues), returns the top 1-2 with at least
+// one match, or null when none resonate. Ties break by the value's
+// position in `values` (i.e. her own Compass order) — stable, not
+// alphabetical or count-insertion-order. Deliberately has no opinion on
+// minimum sample size: callers (Wrapped's monthly note, Patterns' rolling
+// 30-day note — each with its own threshold) gate that themselves before
+// calling this, so the ranking logic itself is never duplicated between them.
+export function topResonatingValues(values: string[], accepted: { title: string }[]): string[] | null {
+  if (values.length === 0) return null
+  const counts = values
+    .map((value) => ({ value, count: matchByValues(accepted, [value]).length }))
+    .filter((c) => c.count > 0)
+  if (counts.length === 0) return null
+  counts.sort((a, b) => b.count - a.count || values.indexOf(a.value) - values.indexOf(b.value))
+  return counts.slice(0, 2).map((c) => c.value)
+}
+
+// Patterns' "Lately, you've leaned toward: X, Y" note — a rolling 30-day
+// window (not a calendar month, so a different threshold than Wrapped's
+// MIN_ACCEPTED_SUGGESTIONS_FOR_COMPASS_NOTE in src/lib/wrapped.ts): 5
+// rather than 3, since 30 rolling days is a noticeably longer sample than
+// a fresh calendar month can offer early on, so a slightly higher bar
+// still means "enough signal" without waiting unreasonably long for it.
+export const MIN_ACCEPTED_FOR_PATTERNS_GROWTH_NOTE = 5
+
+export function computePatternsCompassGrowth(values: string[], acceptedSuggestionTexts: string[]): string[] | null {
+  if (acceptedSuggestionTexts.length < MIN_ACCEPTED_FOR_PATTERNS_GROWTH_NOTE) return null
+  return topResonatingValues(
+    values,
+    acceptedSuggestionTexts.map((title) => ({ title }))
+  )
+}
+
 export interface PickDailySuggestionParams {
   pool: MoveSuggestion[]
   // Compass value tags (may be empty — then it's pure rotation).

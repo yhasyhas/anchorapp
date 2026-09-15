@@ -193,7 +193,8 @@
     "jar_status_count": "{{count}} drops",
     "wrapped_status_available": "{{month}} ready",
     "wrapped_status_next": "Next month",
-    "compass": "Compass"
+    "compass": "Compass",
+    "reflections": "Reflections"
   },
   "pause": {
     "title": "Take a Pause",
@@ -895,6 +896,30 @@
     "load_error": "Couldn't load your Compass. Please try again.",
     "edit_hint": "Changes are only kept when you tap Save.",
     "onboarding_hint": "You can always come back to this from Settings."
+  },
+  "reflection": {
+    "offer_question": "Want to go a little deeper tonight?",
+    "offer_yes": "Yes",
+    "offer_no": "Just the check-in is enough",
+    "title": "A little deeper",
+    "mood_reminder": "You felt {{mood}} today",
+    "meaningful_label": "What was meaningful today?",
+    "meaningful_placeholder": "A conversation, a small win, a quiet moment...",
+    "learned_label": "What did you learn?",
+    "learned_placeholder": "About yourself, someone else, or just today...",
+    "better_label": "What could be better tomorrow?",
+    "better_placeholder": "Something small you'd shift, if anything...",
+    "save": "Save reflection",
+    "saved": "Saved",
+    "error_save": "Couldn't save. Please try again.",
+    "edit": "Edit",
+    "cancel": "Cancel",
+    "loading": "Loading...",
+    "history_title": "Reflections",
+    "history_subtitle": "Your past evening reflections, by date.",
+    "history_empty": "No reflections yet",
+    "history_empty_sub": "Go a little deeper after check-in, and it'll show up here.",
+    "history_error_load": "Couldn't load your reflections. Please try again."
   },
   "landing": {
     "page_title": "Anchor — A gentle space to align who you are",

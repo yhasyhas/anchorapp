@@ -449,3 +449,16 @@ export interface FutureLetter {
   delivered_at: string | null
   opened_at: string | null
 }
+
+// Optional deeper evening reflection — additive alongside the evening
+// check-in and Journal, never required. One row per user per day
+// (reflections, UNIQUE on user_id,date), absent until the first explicit save.
+export interface Reflection {
+  id: string
+  user_id: string
+  date: string
+  meaningful_today: string
+  learned_today: string
+  better_tomorrow: string
+  created_at: string
+}

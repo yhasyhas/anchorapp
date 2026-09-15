@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Haptics, ImpactStyle } from "@capacitor/haptics"
 import { useAuth } from "@/lib/auth-context"
@@ -13,6 +14,7 @@ import { AppIcon } from "@/components/icons/app-icon"
 import { moodConfig, moodInk, moodWash } from "@/lib/constants"
 import { isCheckInTime } from "@/lib/utils"
 import { EveningReleaseAnimation } from "@/components/anchor/evening-release-animation"
+import { ReflectionCard } from "@/components/anchor/reflection-card"
 import { useCheckIn } from "@/hooks/use-checkin"
 
 function moodNoteBucket(mood: string): "heavy" | "good" | "neutral" {
@@ -26,6 +28,16 @@ export function CheckInPage() {
   const { user, profile } = useAuth()
   const lang: "en" | "sw" = i18n.language === "sw" ? "sw" : "en"
   const cycle = useCheckIn(user, profile, lang)
+
+  // One-way latch: true once today's check-in row is known to exist in the
+  // DB, either loaded on mount (checkIn.id set — saved earlier today, this
+  // device or another) or just saved this visit (cycle.saved, which itself
+  // reverts to false after 2s). Reflection is only ever offered once this
+  // is true — "after the usual check-in", never before or in place of it.
+  const [hasCheckedInToday, setHasCheckedInToday] = useState(false)
+  useEffect(() => {
+    if (cycle.checkIn.id || cycle.saved) setHasCheckedInToday(true)
+  }, [cycle.checkIn.id, cycle.saved])
 
   const softModeActive = profile?.soft_mode ?? false
   const [q1, q2] = cycle.dailyQuestions
@@ -414,6 +426,10 @@ export function CheckInPage() {
       <Button onClick={cycle.handleSave} className="w-full" size="lg">
         {cycle.saved ? t("checkin.saved") : t("checkin.save")}
       </Button>
+
+      {/* Optional deeper reflection — offered only once the check-in above
+          is actually saved, never before it and never as a required step. */}
+      <ReflectionCard mood={cycle.checkIn.evening_mood ?? null} hasCheckedInToday={hasCheckedInToday} />
     </div>
   )
 }

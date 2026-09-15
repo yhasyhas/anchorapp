@@ -21,6 +21,7 @@ const CircleInvitePage = lazy(() => import("@/pages/circle-invite").then((m) => 
 const HomePage = lazy(() => import("@/pages/home").then((m) => ({ default: m.HomePage })))
 const AnchorPage = lazy(() => import("@/pages/anchor").then((m) => ({ default: m.AnchorPage })))
 const CompassPage = lazy(() => import("@/pages/compass").then((m) => ({ default: m.CompassPage })))
+const ReflectionsHistoryPage = lazy(() => import("@/pages/reflections").then((m) => ({ default: m.ReflectionsHistoryPage })))
 const PatternsPage = lazy(() => import("@/pages/patterns").then((m) => ({ default: m.PatternsPage })))
 const CheckInPage = lazy(() => import("@/pages/checkin").then((m) => ({ default: m.CheckInPage })))
 const MovePage = lazy(() => import("@/pages/move").then((m) => ({ default: m.MovePage })))
@@ -94,6 +95,7 @@ export default function App() {
             <Route index element={<HomePage />} />
             <Route path="anchor" element={<AnchorPage />} />
             <Route path="compass" element={<CompassPage />} />
+            <Route path="reflections" element={<ReflectionsHistoryPage />} />
             <Route path="patterns" element={<PatternsPage />} />
             <Route path="checkin" element={<CheckInPage />} />
             <Route path="move" element={<MovePage />} />

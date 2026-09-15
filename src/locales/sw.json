@@ -193,7 +193,8 @@
     "jar_status_count": "Matone {{count}}",
     "wrapped_status_available": "{{month}} tayari",
     "wrapped_status_next": "Mwezi ujao",
-    "compass": "Dira"
+    "compass": "Dira",
+    "reflections": "Tafakari za kina"
   },
   "pause": {
     "title": "Chukua Mapumziko",
@@ -895,6 +896,30 @@
     "load_error": "Imeshindwa kupakia Dira yako. Tafadhali jaribu tena.",
     "edit_hint": "Mabadiliko huhifadhiwa tu unapogusa Hifadhi.",
     "onboarding_hint": "Unaweza kurudi hapa wakati wowote kupitia Mipangilio."
+  },
+  "reflection": {
+    "offer_question": "Ungependa kwenda ndani zaidi usiku huu?",
+    "offer_yes": "Ndiyo",
+    "offer_no": "Kujiangalia tu kunatosha",
+    "title": "Ndani zaidi",
+    "mood_reminder": "Ulijisikia {{mood}} leo",
+    "meaningful_label": "Ni nini kilichokuwa na maana leo?",
+    "meaningful_placeholder": "Mazungumzo, ushindi mdogo, wakati wa utulivu...",
+    "learned_label": "Ulijifunza nini?",
+    "learned_placeholder": "Kuhusu wewe mwenyewe, mtu mwingine, au leo tu...",
+    "better_label": "Ni nini kingekuwa bora kesho?",
+    "better_placeholder": "Kitu kidogo ungebadilisha, kama kipo...",
+    "save": "Hifadhi tafakari ya kina",
+    "saved": "Imehifadhiwa",
+    "error_save": "Imeshindwa kuhifadhi. Tafadhali jaribu tena.",
+    "edit": "Hariri",
+    "cancel": "Ghairi",
+    "loading": "Inapakia...",
+    "history_title": "Tafakari za kina",
+    "history_subtitle": "Tafakari zako za jioni zilizopita, kwa tarehe.",
+    "history_empty": "Bado hakuna tafakari",
+    "history_empty_sub": "Nenda ndani zaidi baada ya kujiangalia, nayo itaonekana hapa.",
+    "history_error_load": "Imeshindwa kupakia tafakari zako. Tafadhali jaribu tena."
   },
   "landing": {
     "page_title": "Anchor — Nafasi ya upole ya kujiona",

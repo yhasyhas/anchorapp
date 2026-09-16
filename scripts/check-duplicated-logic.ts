@@ -21,8 +21,9 @@ import {
   calculateBestAnchorStreakWithGrace as insightsBestAnchorStreak,
   isAnchorDayComplete as insightsIsAnchorDayComplete,
 } from "../api/insights.ts"
-import { capWords as remindersCapWords } from "../api/cron/reminders.ts"
+import { capWords as remindersCapWords, mondayOfLocalDate } from "../api/cron/reminders.ts"
 import { capWords as letterCapWords } from "../api/cron/weekly-letter.ts"
+import { weekStartStr as canonicalWeekStartStr } from "../src/lib/week-dates.ts"
 
 let failures = 0
 
@@ -77,6 +78,29 @@ const WORD_FIXTURES: [string, number][] = [
 for (const [text, maxWords] of WORD_FIXTURES) {
   const context = `"${text}" @ ${maxWords} words`
   check("capWords", context, remindersCapWords(text, maxWords), letterCapWords(text, maxWords))
+}
+
+// mondayOfLocalDate (api/cron/reminders.ts) takes an already-timezone-
+// resolved "YYYY-MM-DD" string, while weekStartStr (src/lib/week-dates.ts)
+// takes a Date and reads the RUNTIME's local timezone — different
+// signatures for the same "Monday of this week" concept (see
+// mondayOfLocalDate's own comment on why). Constructing `new Date(y, m-1,
+// d)` for a given fixture string reproduces the same calendar day in
+// local-Date terms regardless of which timezone this check happens to run
+// in, so the two are still meaningfully comparable here.
+const WEEK_START_FIXTURES: string[] = [
+  "2026-09-14", // Monday — maps to itself
+  "2026-09-20", // Sunday — end of the same week as above
+  "2026-09-13", // Sunday — a different week
+  "2026-01-01", // Thursday, year boundary
+  "2025-12-31", // Wednesday, year boundary
+  "2026-03-01", // Sunday, month boundary
+]
+
+for (const dateStr of WEEK_START_FIXTURES) {
+  const [y, m, d] = dateStr.split("-").map(Number)
+  const asLocalDate = new Date(y, m - 1, d)
+  check("weekStart (mondayOfLocalDate vs weekStartStr)", dateStr, mondayOfLocalDate(dateStr), canonicalWeekStartStr(asLocalDate))
 }
 
 if (failures > 0) {

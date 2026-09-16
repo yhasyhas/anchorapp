@@ -680,6 +680,8 @@
     "card_treasures_subtitle_journal_only": "a moment worth keeping",
     "card_compass_eyebrow": "Your Compass",
     "card_compass_title": "This month, you leaned most toward: {{values}}",
+    "card_untouched_goal_singular": "{{goal}} hasn't found its anchor yet this month.",
+    "card_untouched_goal_plural": "A few goals haven't found their anchor yet this month.",
     "card_closing_eyebrow": "Your becoming",
     "card_closing_title": "This month, in one sentence",
     "card_closing_tagline": "That's not a coincidence — that's you becoming. ⚓"

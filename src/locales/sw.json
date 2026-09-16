@@ -680,6 +680,8 @@
     "card_treasures_subtitle_journal_only": "wakati mmoja unaostahili kuhifadhiwa",
     "card_compass_eyebrow": "Dira Yako",
     "card_compass_title": "Mwezi huu, ulielekea zaidi kwa: {{values}}",
+    "card_untouched_goal_singular": "{{goal}} bado haijapata nanga yake mwezi huu.",
+    "card_untouched_goal_plural": "Malengo machache bado hayajapata nanga yake mwezi huu.",
     "card_closing_eyebrow": "Mabadiliko yako",
     "card_closing_title": "Mwezi huu, katika sentensi moja",
     "card_closing_tagline": "Hiyo si bahati mbaya — hiyo ni wewe ukibadilika. ⚓"

@@ -11,10 +11,12 @@ import { calculateBestStreakFromDates, calculateBestAnchorStreakWithGrace, isAnc
 import { moodToValue } from "@/lib/constants"
 import { monthBounds } from "@/lib/pdf/data"
 import { resolveIntentionLabel } from "@/lib/intentions"
-import { getCompassValueTags } from "@/lib/compass"
+import { getCompass } from "@/lib/compass"
 import { topResonatingValues } from "@/lib/daily-suggestion"
+import { untouchedGoals } from "@/lib/weekly-review"
 import type { User } from "@supabase/supabase-js"
 import type {
+  CompassGoal,
   CustomIntention,
   DailyAnchor,
   JournalEntry,
@@ -54,13 +56,14 @@ interface WrappedRawData {
   prevMonthMoods: MoodLog[]
   acceptedSuggestions: { suggestion_text: string }[]
   compassValueTags: string[]
+  compassGoals: CompassGoal[]
 }
 
 async function fetchWrappedData(userId: string, monthIso: string): Promise<WrappedRawData> {
   const { monthStart, monthEnd } = monthBounds(monthIso)
   const { monthStart: prevStart, monthEnd: prevEnd } = monthBounds(addMonthsIso(monthIso, -1))
 
-  const [moodsRes, anchorsRes, journalRes, gratitudesRes, prevMoodsRes, suggestionsRes, compassValueTags] = await Promise.all([
+  const [moodsRes, anchorsRes, journalRes, gratitudesRes, prevMoodsRes, suggestionsRes, compass] = await Promise.all([
     supabase.from("mood_logs").select("*").eq("user_id", userId).gte("date", monthStart).lte("date", monthEnd),
     supabase.from("daily_anchors").select("*").eq("user_id", userId).gte("date", monthStart).lte("date", monthEnd),
     supabase.from("journal_entries").select("*").eq("user_id", userId).gte("date", monthStart).lte("date", monthEnd),
@@ -71,7 +74,8 @@ async function fetchWrappedData(userId: string, monthIso: string): Promise<Wrapp
       .gte("created_at", `${monthStart}T00:00:00.000Z`)
       .lte("created_at", `${monthEnd}T23:59:59.999Z`),
     supabase.from("mood_logs").select("*").eq("user_id", userId).gte("date", prevStart).lte("date", prevEnd),
-    // Feeds the Compass evolution note (see computeCompassTopValues below) —
+    // Feeds both the Compass evolution note (computeCompassTopValues) and
+    // the untouched-goals mirror (computeUntouchedCompassGoals) below —
     // only accepted suggestions count as a real lean toward something.
     supabase
       .from("daily_suggestions")
@@ -80,9 +84,10 @@ async function fetchWrappedData(userId: string, monthIso: string): Promise<Wrapp
       .eq("status", "accepted")
       .gte("date", monthStart)
       .lte("date", monthEnd),
-    // Never throws — no Compass (or a read failure) resolves to [], which
-    // computeCompassTopValues already treats as "hide the section".
-    getCompassValueTags(userId),
+    // Full Compass (value_tags + goals) in one read rather than two — never
+    // throws, no Compass (or a read failure) resolves to null, which both
+    // compute functions below already treat as "hide the section".
+    getCompass(userId).catch(() => null),
   ])
 
   return {
@@ -94,7 +99,8 @@ async function fetchWrappedData(userId: string, monthIso: string): Promise<Wrapp
     gratitudes: gratitudesRes.data || [],
     prevMonthMoods: (prevMoodsRes.data as MoodLog[]) || [],
     acceptedSuggestions: (suggestionsRes.data as { suggestion_text: string }[]) || [],
-    compassValueTags,
+    compassValueTags: compass?.value_tags ?? [],
+    compassGoals: compass?.goals ?? [],
   }
 }
 
@@ -151,6 +157,31 @@ export function computeCompassTopValues(
   )
 }
 
+// A second, independent mirror alongside the dominant-values note above:
+// which Compass goals (if any) no accepted suggestion this month resonated
+// with — never a question, never an action to take, just a quiet fact (the
+// weekly review's own goal check, by contrast, actually asks about one
+// stale goal — this never does). Delegates the actual matching to
+// untouchedGoals (src/lib/weekly-review.ts), the same keyword-based
+// goal<->suggestion match the weekly review's own staleness check uses,
+// rather than duplicating it. No minimum-sample threshold like
+// computeCompassTopValues above: "no goals were touched" is a true fact
+// worth a gentle mention even in a quiet month, not a shaky statistic that
+// needs volume to be meaningful — unlike ranking values by count, this is
+// pure presence/absence.
+export function computeUntouchedCompassGoals(
+  goals: CompassGoal[],
+  acceptedSuggestions: { suggestion_text: string }[]
+): string[] | null {
+  if (goals.length === 0) return null
+  const untouched = untouchedGoals(
+    goals,
+    acceptedSuggestions.map((s) => ({ title: s.suggestion_text }))
+  )
+  if (untouched.length === 0) return null // every goal was touched this month
+  return untouched.map((g) => g.text)
+}
+
 function computeWrappedStats(data: WrappedRawData): WrappedStats {
   const presentDates = new Set<string>()
   for (const m of data.moods) presentDates.add(m.date)
@@ -194,6 +225,7 @@ function computeWrappedStats(data: WrappedRawData): WrappedStats {
     startIntention: halfMonthDominantIntention(data.anchors, data.monthStart, data.monthEnd, "first"),
     endIntention: halfMonthDominantIntention(data.anchors, data.monthStart, data.monthEnd, "second"),
     compassTopValues: computeCompassTopValues(data.compassValueTags, data.acceptedSuggestions),
+    untouchedGoalTexts: computeUntouchedCompassGoals(data.compassGoals, data.acceptedSuggestions),
   }
 }
 
@@ -451,13 +483,33 @@ export function buildWrappedCards(
   // whenever compassTopValues is null/undefined (no Compass, too few
   // accepted suggestions this month, or an older recap from before this
   // field existed) — silence rather than a shaky result from thin data.
-  if (s.compassTopValues && s.compassTopValues.length > 0) {
-    const values = s.compassTopValues.map((v) => t(`compass.values.${v.toLowerCase()}`)).join(", ")
+  // The untouched-goals mirror shares this same card (title + subtitle)
+  // rather than getting a card of its own, so the two read as one
+  // movement — reusing/extending the sentence-card shape wrapped.tsx and
+  // wrapped-share.ts already render for "compass_evolution" needs no
+  // changes to either renderer. Either mention can appear without the
+  // other (each has its own independent gate); when only the untouched-
+  // goals mirror applies, it becomes the card's title instead of riding as
+  // a subtitle under nothing.
+  const hasTopValues = !!s.compassTopValues && s.compassTopValues.length > 0
+  const hasUntouchedGoals = !!s.untouchedGoalTexts && s.untouchedGoalTexts.length > 0
+  if (hasTopValues || hasUntouchedGoals) {
+    const valuesLine = hasTopValues
+      ? t("wrapped.card_compass_title", {
+          values: s.compassTopValues!.map((v) => t(`compass.values.${v.toLowerCase()}`)).join(", "),
+        })
+      : null
+    const untouchedLine = hasUntouchedGoals
+      ? s.untouchedGoalTexts!.length === 1
+        ? t("wrapped.card_untouched_goal_singular", { goal: s.untouchedGoalTexts![0] })
+        : t("wrapped.card_untouched_goal_plural")
+      : null
+
     cards.push({
       kind: "compass_evolution",
       eyebrow: t("wrapped.card_compass_eyebrow"),
-      title: t("wrapped.card_compass_title", { values }),
-      subtitle: "",
+      title: valuesLine ?? untouchedLine ?? "",
+      subtitle: valuesLine && untouchedLine ? untouchedLine : "",
     })
   }
 

@@ -220,6 +220,13 @@ export interface WrappedStats {
   // key the same as null (section hidden); recaps are snapshots and are
   // never backfilled.
   compassTopValues?: string[] | null
+  // Compass goal texts (snapshotted at generation time) that no accepted
+  // suggestion this month resonated with — a quiet mirror, never a
+  // question (contrast the weekly review, which actually asks about one
+  // stale goal). Null when there's nothing to show: no Compass goals at
+  // all, or every goal was touched this month. Optional for the same
+  // "older recap predates this field" reason as compassTopValues above.
+  untouchedGoalTexts?: string[] | null
 }
 
 export interface MonthlyRecap {

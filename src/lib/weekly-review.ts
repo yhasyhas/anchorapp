@@ -89,6 +89,17 @@ function goalHasRecentMatch(goal: CompassGoal, acceptedTitles: { title: string }
   return filterByKeywords(acceptedTitles, keywords).length > 0
 }
 
+// Compass goals with no accepted-suggestion match anywhere in the given
+// list — the same underlying keyword match pickGoalToPrompt's own staleness
+// check uses, exposed directly for callers that just want "which goals
+// are untouched" without the weekly-specific stale-window/cooldown
+// selection on top of it (e.g. Wrapped's monthly untouched-goals mirror in
+// src/lib/wrapped.ts, which imports this rather than duplicating the
+// keyword-matching logic a second time).
+export function untouchedGoals(goals: CompassGoal[], acceptedTitles: { title: string }[]): CompassGoal[] {
+  return goals.filter((g) => !goalHasRecentMatch(g, acceptedTitles))
+}
+
 // Among the user's Compass goals, picks the single oldest one that's both
 // stale (no matching accepted suggestion in the last GOAL_STALE_WEEKS) and
 // not in cooldown (not asked about in the last GOAL_COOLDOWN_WEEKS) — or
@@ -98,9 +109,7 @@ export function pickGoalToPrompt(
   acceptedTitlesSinceStale: { title: string }[],
   recentlyPromptedGoalIds: Set<string>
 ): CompassGoal | null {
-  const eligible = goals.filter(
-    (g) => !recentlyPromptedGoalIds.has(g.id) && !goalHasRecentMatch(g, acceptedTitlesSinceStale)
-  )
+  const eligible = untouchedGoals(goals, acceptedTitlesSinceStale).filter((g) => !recentlyPromptedGoalIds.has(g.id))
   if (eligible.length === 0) return null
   eligible.sort((a, b) => a.created_at.localeCompare(b.created_at))
   return eligible[0]

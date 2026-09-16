@@ -527,6 +527,9 @@ export interface WeeklyReview {
   summary_snapshot: WeeklyReviewSnapshot
   goal_prompted_id: string | null
   goal_response: WeeklyReviewGoalResponse | null
+  // Stamped by api/cron/reminders.ts once the "your week in review is
+  // ready" push has gone out for this row — never written by the client.
+  notification_sent_at: string | null
   created_at: string
 }
 

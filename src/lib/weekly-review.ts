@@ -10,24 +10,12 @@ import { getCompass } from "@/lib/compass"
 import { filterByKeywords, topResonatingValues } from "@/lib/daily-suggestion"
 import { localDateStr } from "@/lib/utils"
 import { getUserLocalData, setUserLocalData } from "@/lib/user-storage"
+import { weekStartStr, isWeeklyReviewEligibleDay } from "@/lib/week-dates"
 import type { CompassGoal, WeeklyReview, WeeklyReviewGoalResponse, WeeklyReviewSnapshot } from "@/types"
 
+export { weekStartStr, isWeeklyReviewEligibleDay }
+
 // ==================== WEEK BOUNDARIES ====================
-
-// Monday-Sunday week, matching the ISO-week convention already used
-// elsewhere (getISOWeek in daily-suggestion-context.tsx / ai-service.ts).
-function mondayOf(date: Date): Date {
-  const d = new Date(date)
-  d.setHours(0, 0, 0, 0)
-  const day = d.getDay() // 0=Sun..6=Sat
-  const diff = day === 0 ? -6 : 1 - day
-  d.setDate(d.getDate() + diff)
-  return d
-}
-
-export function weekStartStr(date: Date = new Date()): string {
-  return localDateStr(mondayOf(date))
-}
 
 function weekEndStr(weekStart: string): string {
   const [y, m, d] = weekStart.split("-").map(Number)
@@ -41,18 +29,6 @@ function addDaysStr(dateStr: string, deltaDays: number): string {
   const date = new Date(y, m - 1, d)
   date.setDate(date.getDate() + deltaDays)
   return localDateStr(date)
-}
-
-// Eligibility window: exactly Sunday, the last day of a Monday-Sunday week.
-// The spec's parenthetical ("or any day left in the week, as long as next
-// Monday hasn't started") collapses to this single day once the week is
-// defined as Monday-Sunday — there IS no day left in the week after Sunday
-// but before the next Monday, so rather than invent slack the spec didn't
-// actually ask for, this stays exactly one day. todayStr()/localDateStr()
-// already resolve to the viewer's own local calendar day (see utils.ts), so
-// no separate timezone handling is needed here either.
-export function isWeeklyReviewEligibleDay(date: Date = new Date()): boolean {
-  return date.getDay() === 0
 }
 
 // ==================== ACTIVITY / VALUES THRESHOLDS ====================

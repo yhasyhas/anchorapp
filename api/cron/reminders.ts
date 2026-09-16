@@ -90,6 +90,18 @@ const LETTER_REMINDER_PUSH: Record<Language, (count: number) => { title: string;
   }),
 }
 
+// Same static-not-tone-varied posture as FUTURE_LETTER_PUSH/LETTER_REMINDER_PUSH
+// above — a one-time delivery announcement, not an emotional companion line.
+// Never includes anything from the review itself (no values, no counts, no
+// goal question) — just an invitation to open the app, same "no content in
+// the notification" rule as the letter pushes. No urgency wording, no emoji
+// implying she's missing out — the review will still be there whenever she
+// opens the app, same as everything else this file sends.
+const WEEKLY_REVIEW_PUSH: Record<Language, { title: string; body: string }> = {
+  en: { title: "Your week in review is ready", body: "A quiet look back, whenever you'd like." },
+  sw: { title: "Muhtasari wa wiki yako uko tayari", body: "Muda mtulivu wa kuangalia nyuma, wakati wowote utakapotaka." },
+}
+
 const STATIC_FALLBACKS: Record<Slot, Record<Language, string[]>> = {
   morning: {
     en: [
@@ -192,6 +204,27 @@ function addDays(dateStr: string, days: number): string {
 function dayIndex(dateStr: string): number {
   const [year, month, day] = dateStr.split("-").map(Number)
   return Math.floor(Date.UTC(year, month - 1, day) / 86400000)
+}
+
+// Duplicated (not imported — each Vercel function is bundled separately,
+// same reasoning as capWords/calculateBestStreakFromDates elsewhere in this
+// file) from weekStartStr in src/lib/week-dates.ts, ported to operate on an
+// already-timezone-resolved "YYYY-MM-DD" local calendar date string (from
+// getLocalParts) instead of a bare Date object. A Date's .getDay()/
+// .setDate() read the RUNTIME's local timezone, which is UTC on Vercel, not
+// the user's own IANA timezone the way it correctly is in a browser — so
+// this can't just be the client function called with the same Date, it has
+// to work off the pre-resolved date string instead. Same Monday-of-week
+// concept as weekStartStr, verified behaviorally equivalent against it via
+// scripts/check-duplicated-logic.ts. Exported for that script.
+export function mondayOfLocalDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number)
+  const asUtc = Date.UTC(y, m - 1, d)
+  const dow = new Date(asUtc).getUTCDay() // 0=Sun..6=Sat
+  const diffDays = dow === 0 ? -6 : 1 - dow
+  const monday = new Date(asUtc)
+  monday.setUTCDate(monday.getUTCDate() + diffDays)
+  return monday.toISOString().slice(0, 10)
 }
 
 // Current streak of "great"/"okay" mood days ending yesterday (today isn't
@@ -447,6 +480,84 @@ async function processFutureLetterReminders(rest: RestConfig, now: Date): Promis
   return { sent }
 }
 
+interface WeeklyReviewRow {
+  id: string
+  user_id: string
+  week_start: string
+}
+
+// MISSION: notify once a weekly review becomes visible, never generate one.
+// The actual eligibility/threshold logic (enough activity this week, a
+// filled Compass, etc.) lives entirely client-side in
+// src/lib/weekly-review.ts's getOrCreateWeeklyReview — it needs a live
+// Supabase session + localStorage and isn't safely importable from this
+// file (see mondayOfLocalDate's own comment on the import.meta.env crash
+// risk), so this never recomputes that decision. It only notices a row the
+// client already created (status pending/shown) for the CURRENT local
+// week and, if it hasn't been notified yet, sends one push and stamps
+// notification_sent_at — same idempotency shape as future_letters'
+// reminder_sent_at. A user who never opens the app on her eligible Sunday
+// simply gets no row and no notification that week, same as the review
+// itself staying silent for her. Respects reminders_enabled like
+// processFutureLetterReminders above; unlike the 3 daily slots, no sub-
+// toggle, no quiet-hours check — there is no dedicated per-feature toggle
+// for this, matching how future-letter reminders behave.
+async function processWeeklyReviewNotifications(rest: RestConfig, now: Date): Promise<{ sent: number }> {
+  const prefsRows = await restGet<{ user_id: string }>(
+    rest,
+    "notification_preferences?reminders_enabled=eq.true&select=user_id"
+  )
+  if (prefsRows.length === 0) return { sent: 0 }
+
+  const userIds = prefsRows.map((p) => p.user_id)
+  const idList = userIds.join(",")
+
+  const [profiles, reviews] = await Promise.all([
+    restGet<FutureLetterProfileRow>(rest, `profiles?id=in.(${idList})&select=id,timezone,preferred_language`),
+    restGet<WeeklyReviewRow>(
+      rest,
+      `weekly_reviews?user_id=in.(${idList})&status=in.(pending,shown)&notification_sent_at=is.null&select=id,user_id,week_start`
+    ),
+  ])
+  if (reviews.length === 0) return { sent: 0 }
+
+  const profileById = new Map(profiles.map((p) => [p.id, p]))
+  // At most one un-notified pending/shown row per (user, week) by
+  // construction, but keyed on both anyway — a stale un-notified row from
+  // an older week (e.g. a past send failure) simply won't match this
+  // week's computed key and is left alone rather than surfaced late.
+  const reviewByUserWeek = new Map(reviews.map((r) => [`${r.user_id}|${r.week_start}`, r]))
+
+  let sent = 0
+  await Promise.all(
+    userIds.map(async (userId) => {
+      const profile = profileById.get(userId)
+      if (!profile) return
+
+      const { dateStr } = getLocalParts(profile.timezone || "Africa/Nairobi", now)
+      const weekStart = mondayOfLocalDate(dateStr)
+      const review = reviewByUserWeek.get(`${userId}|${weekStart}`)
+      if (!review) return
+
+      const language: Language = profile.preferred_language === "sw" ? "sw" : "en"
+      const { title, body } = WEEKLY_REVIEW_PUSH[language]
+
+      try {
+        await sendPushToUser({ userId, title, body, url: "/" })
+        await restUpdate(rest, `weekly_reviews?id=eq.${review.id}`, {
+          notification_sent_at: new Date().toISOString(),
+        })
+        sent++
+      } catch {
+        // Leave notification_sent_at null so the next run retries — same
+        // reasoning as processFutureLetters/processFutureLetterReminders above.
+      }
+    })
+  )
+
+  return { sent }
+}
+
 function groupBy<T extends { user_id: string }>(rows: T[]): Map<string, T[]> {
   const map = new Map<string, T[]>()
   for (const row of rows) {
@@ -625,6 +736,11 @@ export async function GET(request: Request): Promise<Response> {
   // finds below.
   const futureLetters = await processFutureLetters(rest, now)
   const letterReminders = await processFutureLetterReminders(rest, now)
+  // Also independent of the 3 daily slots below — same
+  // reminders_enabled-only gating as processFutureLetterReminders (it does
+  // its own prefs fetch rather than reusing prefsRows, same self-contained
+  // shape as that function).
+  const weeklyReviewNotifications = await processWeeklyReviewNotifications(rest, now)
 
   const prefsRows = await restGet<PrefsRow>(
     rest,
@@ -632,7 +748,13 @@ export async function GET(request: Request): Promise<Response> {
   )
   if (prefsRows.length === 0) {
     return jsonResponse(
-      { processed: 0, sent: 0, futureLettersDelivered: futureLetters.delivered, futureLettersReminded: letterReminders.sent },
+      {
+        processed: 0,
+        sent: 0,
+        futureLettersDelivered: futureLetters.delivered,
+        futureLettersReminded: letterReminders.sent,
+        weeklyReviewsNotified: weeklyReviewNotifications.sent,
+      },
       200
     )
   }
@@ -660,7 +782,13 @@ export async function GET(request: Request): Promise<Response> {
 
   if (dueToday.size === 0) {
     return jsonResponse(
-      { processed: 0, sent: 0, futureLettersDelivered: futureLetters.delivered, futureLettersReminded: letterReminders.sent },
+      {
+        processed: 0,
+        sent: 0,
+        futureLettersDelivered: futureLetters.delivered,
+        futureLettersReminded: letterReminders.sent,
+        weeklyReviewsNotified: weeklyReviewNotifications.sent,
+      },
       200
     )
   }
@@ -831,6 +959,7 @@ export async function GET(request: Request): Promise<Response> {
       skipped,
       futureLettersDelivered: futureLetters.delivered,
       futureLettersReminded: letterReminders.sent,
+      weeklyReviewsNotified: weeklyReviewNotifications.sent,
     },
     200
   )

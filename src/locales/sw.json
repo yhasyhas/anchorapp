@@ -337,6 +337,10 @@
     "danger_delete_success": "Akaunti yako imefutwa.",
     "danger_delete_error": "Imeshindikana kufuta akaunti yako. Tafadhali jaribu tena."
   },
+  "welcome_back": {
+    "message": "Ni vizuri kukuona tena. Hakuna cha kufuatilia — anza popote panapokufaa leo.",
+    "dismiss": "Funga"
+  },
   "soft_mode": {
     "proposal_title": "Siku hizi zinahisi nzito. Unataka nikupunguzie mambo kwa muda? 💜",
     "proposal_accept": "Ndiyo, punguza",

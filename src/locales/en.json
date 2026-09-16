@@ -337,6 +337,10 @@
     "danger_delete_success": "Your account has been deleted.",
     "danger_delete_error": "Could not delete your account. Please try again."
   },
+  "welcome_back": {
+    "message": "It's good to have you here again. Nothing to catch up on — just pick up wherever feels right today.",
+    "dismiss": "Dismiss"
+  },
   "soft_mode": {
     "proposal_title": "These days feel heavy. Want me to lighten things for a while? 💜",
     "proposal_accept": "Yes, lighten it",

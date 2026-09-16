@@ -22,6 +22,7 @@ import { MovePickerSheet } from "@/components/anchor/move-picker-sheet"
 import { DailySuggestionCard } from "@/components/anchor/daily-suggestion-card"
 import { SuggestionFollowUpCard } from "@/components/anchor/suggestion-follow-up-card"
 import { WeeklyReviewCard } from "@/components/anchor/weekly-review-card"
+import { WelcomeBackBanner } from "@/components/anchor/welcome-back-banner"
 import { PlanningAnchorCard, AnchorChipRow, TrackingAnchorChip } from "@/components/anchor/anchor-cards"
 import { useDailySuggestion } from "@/lib/daily-suggestion-context"
 import { MIN_STREAK_FOR_INTENTION } from "@/lib/streaks"
@@ -365,6 +366,14 @@ export function HomePage() {
           />
         </div>
       )}
+
+      {/* ── Welcome back — a discreet, one-time banner (not a card, not a
+          modal) after a ≥21-day gap in significant activity. Sits below the
+          daily suggestion so it never competes with it — a word of welcome,
+          not the screen's main content. See src/lib/welcome-back.ts. ── */}
+      <div className="lg:col-span-12">
+        <WelcomeBackBanner />
+      </div>
 
       {/* ── Weekly review — a once-a-week, rule-based bilan tying the
           week's activity back to Compass. Below the daily suggestion (and

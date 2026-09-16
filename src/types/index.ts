@@ -12,6 +12,10 @@ export interface Profile {
   share_presence_enabled: boolean
   soft_mode: boolean
   soft_mode_since: string | null
+  // Stamped once the one-time welcome-back banner (see
+  // src/lib/welcome-back.ts) has been shown for her current absence
+  // stretch — null until the first time it fires.
+  welcome_back_shown_at: string | null
   created_at: string
 }
 

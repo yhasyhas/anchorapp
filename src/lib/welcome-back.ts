@@ -6,11 +6,11 @@
 //
 // "Last significant activity" is deliberately NOT the same thing streaks
 // already track (calculateBestStreakFromDates in src/lib/streaks.ts is
-// mood-only, and api/cron/reminders.ts's 3-strikes circuit breaker only
-// looks at mood_logs/daily_anchors/check_ins) — this spec explicitly asks
-// for mood check-in, a suggestion response, Journal, or Reflection, so it's
-// its own small computation rather than reusing either of those narrower
-// ones.
+// mood-only, and api/cron/reminders.ts's 3-strikes circuit breaker looks at
+// mood_logs/daily_anchors/check_ins/daily_suggestions/reflections/
+// weekly_reviews, but not Journal) — this spec explicitly asks for mood
+// check-in, a suggestion response, Journal, or Reflection, so it's its own
+// small computation rather than reusing either of those.
 import { supabase } from "@/lib/supabase"
 import { localDateStr } from "@/lib/utils"
 

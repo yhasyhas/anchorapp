@@ -349,6 +349,35 @@ interface LogRow {
   sent_at: string
 }
 
+interface SuggestionActivityRow {
+  user_id: string
+  responded_at: string
+}
+
+interface ReflectionActivityRow {
+  user_id: string
+  created_at: string
+}
+
+interface WeeklyReviewActivityRow {
+  user_id: string
+  interacted_at: string
+}
+
+// 3-strikes circuit breaker: if the last 3 reminders sent (any slot) all
+// predate the user's most recent activity of any kind, she hasn't engaged
+// since — pause. No stored "suspended" flag: this is recomputed every run,
+// so it self-clears the moment fresh activity shows up. `sentAtDesc` is
+// her notification_log timestamps, newest first; `activityTimestamps` is
+// every timestamp that counts as engagement, from any source. Exported for
+// verification only — the only caller is the handler below.
+export function isPausedByInactivity(sentAtDesc: string[], activityTimestamps: string[]): boolean {
+  if (sentAtDesc.length < 3) return false
+  const oldestOfLast3 = Math.min(...sentAtDesc.slice(0, 3).map((s) => new Date(s).getTime()))
+  const lastActivity = Math.max(0, ...activityTimestamps.map((t) => new Date(t).getTime()))
+  return lastActivity < oldestOfLast3
+}
+
 interface FutureLetterRow {
   id: string
   user_id: string
@@ -797,7 +826,7 @@ export async function GET(request: Request): Promise<Response> {
   const dueIdList = dueIds.join(",")
   const historyFloor = addDays(new Date().toISOString().slice(0, 10), -HISTORY_DAYS)
 
-  const [moodLogs, anchors, checkIns, logs] = await Promise.all([
+  const [moodLogs, anchors, checkIns, logs, suggestions, reflections, weeklyReviews] = await Promise.all([
     restGet<MoodLogRow>(
       rest,
       `mood_logs?user_id=in.(${dueIdList})&date=gte.${historyFloor}&select=user_id,date,mood,timestamp&order=date.asc`
@@ -814,12 +843,35 @@ export async function GET(request: Request): Promise<Response> {
       rest,
       `notification_log?user_id=in.(${dueIdList})&select=user_id,slot,sent_at&order=sent_at.desc&limit=1000`
     ),
+    // The 3 sources below only feed the circuit-breaker's "last activity"
+    // (see isPausedByInactivity) — nothing else in this handler reads them.
+    // A still-pending/snoozed suggestion isn't a response, so only
+    // accepted/declined rows with a responded_at count.
+    restGet<SuggestionActivityRow>(
+      rest,
+      `daily_suggestions?user_id=in.(${dueIdList})&status=in.(accepted,declined)&responded_at=gte.${historyFloor}&select=user_id,responded_at`
+    ),
+    restGet<ReflectionActivityRow>(
+      rest,
+      `reflections?user_id=in.(${dueIdList})&date=gte.${historyFloor}&select=user_id,created_at`
+    ),
+    // interacted_at is a newer column (see its migration): if this deploy
+    // ever lands before the migration is applied, degrade to the old
+    // breaker behavior for this one source rather than failing the whole
+    // cron run — every reminder would stop otherwise.
+    restGet<WeeklyReviewActivityRow>(
+      rest,
+      `weekly_reviews?user_id=in.(${dueIdList})&interacted_at=gte.${historyFloor}&select=user_id,interacted_at`
+    ).catch(() => [] as WeeklyReviewActivityRow[]),
   ])
 
   const moodByUser = groupBy(moodLogs)
   const anchorsByUser = groupBy(anchors)
   const checkInsByUser = groupBy(checkIns)
   const logsByUser = groupBy(logs)
+  const suggestionsByUser = groupBy(suggestions)
+  const reflectionsByUser = groupBy(reflections)
+  const weeklyReviewsByUser = groupBy(weeklyReviews)
 
   let sent = 0
   let skipped = 0
@@ -868,24 +920,24 @@ export async function GET(request: Request): Promise<Response> {
       const userAnchors = anchorsByUser.get(userId) || []
       const userCheckIns = checkInsByUser.get(userId) || []
 
-      // 3-strikes circuit breaker: if the last 3 reminders sent (any slot)
-      // all predate the user's most recent activity of any kind, she hasn't
-      // engaged since — pause. No stored "suspended" flag: this is
-      // recomputed every run, so it self-clears the moment fresh activity
-      // (a new mood/anchor/check-in row) shows up.
-      if (userLogs.length >= 3) {
-        const last3 = userLogs.slice(0, 3)
-        const oldestOfLast3 = Math.min(...last3.map((l) => new Date(l.sent_at).getTime()))
-        const lastActivity = Math.max(
-          0,
-          ...userMoods.map((m) => new Date(m.timestamp).getTime()),
-          ...userAnchors.map((a) => new Date(a.created_at).getTime()),
-          ...userCheckIns.map((c) => new Date(c.created_at).getTime())
-        )
-        if (lastActivity < oldestOfLast3) {
-          skipped++
-          return
-        }
+      // 3-strikes circuit breaker — see isPausedByInactivity above. "Activity"
+      // is any of: a mood log, a daily_anchors row, a check-in, a daily
+      // suggestion she accepted/declined, a saved reflection, or a weekly
+      // review she dismissed / answered the goal question of.
+      const paused = isPausedByInactivity(
+        userLogs.map((l) => l.sent_at),
+        [
+          ...userMoods.map((m) => m.timestamp),
+          ...userAnchors.map((a) => a.created_at),
+          ...userCheckIns.map((c) => c.created_at),
+          ...(suggestionsByUser.get(userId) || []).map((s) => s.responded_at),
+          ...(reflectionsByUser.get(userId) || []).map((r) => r.created_at),
+          ...(weeklyReviewsByUser.get(userId) || []).map((w) => w.interacted_at),
+        ]
+      )
+      if (paused) {
+        skipped++
+        return
       }
 
       const todayMood = userMoods.find((m) => m.date === localDate)

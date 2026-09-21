@@ -267,7 +267,10 @@ export async function markWeeklyReviewShown(review: WeeklyReview): Promise<void>
 // asked — the goal still counts as "prompted" (goal_prompted_id is already
 // set from generation) so its cooldown still applies.
 export async function dismissWeeklyReview(review: WeeklyReview): Promise<void> {
-  const { error } = await supabase.from("weekly_reviews").update({ status: "dismissed" }).eq("id", review.id)
+  const { error } = await supabase
+    .from("weekly_reviews")
+    .update({ status: "dismissed", interacted_at: new Date().toISOString() })
+    .eq("id", review.id)
   if (error) throw error
 }
 
@@ -275,6 +278,9 @@ export async function respondWeeklyReviewGoal(
   review: WeeklyReview,
   response: WeeklyReviewGoalResponse
 ): Promise<void> {
-  const { error } = await supabase.from("weekly_reviews").update({ goal_response: response }).eq("id", review.id)
+  const { error } = await supabase
+    .from("weekly_reviews")
+    .update({ goal_response: response, interacted_at: new Date().toISOString() })
+    .eq("id", review.id)
   if (error) throw error
 }

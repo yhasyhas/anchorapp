@@ -547,6 +547,44 @@ export interface WeeklyReview {
   created_at: string
 }
 
+// Companion data foundations — see supabase/migrations/20260922120000_create_companion_tables.sql
+// and src/lib/companion-triggers.ts. Detection only: nothing generates text
+// from these rows yet.
+export interface CompanionMessage {
+  id: string
+  user_id: string
+  role: "user" | "companion"
+  content: string
+  created_at: string
+}
+
+export type CompanionObservationType = "pattern" | "gap" | "celebration" | "first_time" | "weekly_checkin"
+
+export interface CompanionObservation {
+  id: string
+  user_id: string
+  type: CompanionObservationType
+  // Always carries a string `dedupeKey` (unique per user in the DB) plus
+  // whatever the later generation prompt needs — see CompanionObservationDraft.
+  payload: Record<string, unknown>
+  created_at: string
+  shown_at: string | null
+  acknowledged: boolean
+  user_response: string | null
+}
+
+export type CompanionWeeklyCheckinStatus = "pending" | "completed" | "skipped"
+
+export interface CompanionWeeklyCheckin {
+  id: string
+  user_id: string
+  week_start: string
+  status: CompanionWeeklyCheckinStatus
+  summary: string | null
+  user_response: string | null
+  created_at: string
+}
+
 // Display-ready shape returned by getTodaysAweThought — already resolved
 // to the caller's language, so the card never has to know about content_en
 // vs content_sw.

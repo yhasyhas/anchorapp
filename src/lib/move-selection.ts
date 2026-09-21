@@ -141,7 +141,7 @@ export function getRecentlyUsedTitles(recentAnchors: DailyAnchor[], days: number
   return titles
 }
 
-const LOW_MOODS = new Set(["low", "stressed"])
+export const LOW_MOODS = new Set(["low", "stressed"])
 const GOOD_MOODS = new Set(["great", "okay"])
 
 function daysAgoStr(n: number): string {

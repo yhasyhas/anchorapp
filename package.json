@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "check-i18n": "node check-i18n-keys.cjs",
     "check-duplicates": "tsx scripts/check-duplicated-logic.ts",
+    "check-companion-triggers": "tsx scripts/check-companion-triggers.ts",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -13,7 +13,7 @@ npm run preview     # Preview production build
 
 There is no test suite and no lint script configured in this repo. `npm run build` is the closest thing to CI — it will fail on type errors.
 
-Two more verification scripts worth running after any i18n- or logic-touching change: `node check-i18n-keys.cjs` (en/sw key parity + flags static `t("...")` calls with no matching key) and `npm run check-duplicates` (flags duplicated logic pairs that silently diverged).
+Two more verification scripts worth running after any i18n- or logic-touching change: `node check-i18n-keys.cjs` (en/sw key parity + flags static `t("...")` calls with no matching key) and `npm run check-duplicates` (flags duplicated logic pairs that silently diverged). After touching `src/lib/companion-triggers.ts`, also run `npm run check-companion-triggers` (fixture-based positive/negative cases for every Companion detector, plus a detect→store→detect idempotency pass).
 
 **`/api/*` routes are Vercel Serverless Functions and do not run under plain `npm run dev`** (Vite only serves the frontend) — testing them locally needs `vercel dev` instead, or a deployed preview. `generateAiInsights` special-cases this (calls Groq directly in dev via `VITE_GROQ_API_KEY`, see AI insights below), but most others have no dev fallback: e.g. [api/delete-account.ts](api/delete-account.ts) (Settings → Danger zone → Delete my account) silently fails/no-ops under `npm run dev` — if you need to actually delete a disposable test account created while testing locally, do it from the Supabase dashboard instead.
 
@@ -71,6 +71,10 @@ Locking day (`doLockDay`) stamps `anchor_locked_at_<userId>_<date>` in localStor
 - `processSyncQueue()` is flushed on the `online` browser event and on every route change in [src/pages/app-layout.tsx](src/pages/app-layout.tsx).
 
 When adding a new synced field/table, follow this same pattern (write local first, queue if offline, flush on reconnect) rather than introducing a new persistence mechanism.
+
+### Companion data foundations (detection only)
+
+Data layer for a future conversational Companion — **no text generation and no UI yet**. Tables `companion_messages` (empty chat log), `companion_observations` (one row per detected condition, `shown_at` NULL until a later prompt surfaces it) and `companion_weekly_checkins` (Sunday ritual row) — see [supabase/migrations/20260922120000_create_companion_tables.sql](supabase/migrations/20260922120000_create_companion_tables.sql), strict per-user RLS. [src/lib/companion-triggers.ts](src/lib/companion-triggers.ts) holds the pure detectors (hard moment / goal gap / first time / celebration, plus the weekly-row decision); [src/lib/companion-detection.ts](src/lib/companion-detection.ts) fetches, runs them and inserts, at most once per user per local day, triggered by `useCompanionDetection()` on Home. Duplicate protection is enforced in the DB (unique `payload->>'dedupeKey'` per user, at most one un-acknowledged `pattern`), so every new detector must put a stable `dedupeKey` in its payload. The goal↔suggestion keyword matching is shared with weekly-review/Wrapped via [src/lib/goal-matching.ts](src/lib/goal-matching.ts) (split out so it's importable without the supabase client).
 
 ### AI insights & companion message — three tiers
 

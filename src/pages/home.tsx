@@ -68,6 +68,7 @@ import { useSoftMode } from "@/hooks/use-soft-mode"
 import { useAnchorDefs } from "@/hooks/use-anchor-defs"
 import { useNudgeArbitration } from "@/hooks/use-nudge-arbitration"
 import { useDailyCycle } from "@/hooks/use-daily-cycle"
+import { useCompanionDetection } from "@/hooks/use-companion-detection"
 import type { TFunction } from "i18next"
 import type { AnchorCategory, CircleSharedIntention, CustomIntention } from "@/types"
 
@@ -103,6 +104,8 @@ export function HomePage() {
   const language = i18n.language === "sw" ? "sw" : "en"
   const { user, profile, updateProfile } = useAuth()
   const { customIntentions } = useCustomIntentions(user?.id)
+  // Data-only, renders nothing: records Companion observations once a day.
+  useCompanionDetection()
   const [isSpeakingCompanion, setIsSpeakingCompanion] = useState(false)
 
   useEffect(() => {

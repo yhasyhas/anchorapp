@@ -89,14 +89,32 @@ export interface CompanionDetectionResult {
   weeklyCheckinCreated: boolean
 }
 
+export interface CompanionDetectionSubject {
+  userId: string
+  // profiles.created_at, for the weekly ritual's minimum tenure.
+  profileCreatedAt: string
+  // profiles.ai_enabled — Settings' "Enable AI insights" toggle (default
+  // false, opt-in). The Companion is an AI-adjacent feature, so with it off
+  // nothing here runs at all. See the guard at the top of both entry points.
+  aiEnabled: boolean
+}
+
+const NOTHING_DETECTED: CompanionDetectionResult = { observationsCreated: [], weeklyCheckinCreated: false }
+
 // One full detection pass. Throws if a core read or an insert fails (a
 // duplicate is not a failure) so the caller can leave the once-a-day flag
 // unset and retry next session.
+//
+// Guard first: with "Enable AI insights" off this returns immediately —
+// before any read, before any insert (observations AND the weekly ritual
+// row), leaving nothing behind.
 export async function runCompanionDetection(
-  userId: string,
-  profileCreatedAt: string,
+  subject: CompanionDetectionSubject,
   now: Date = new Date()
 ): Promise<CompanionDetectionResult> {
+  if (!subject.aiEnabled) return NOTHING_DETECTED
+
+  const { userId, profileCreatedAt } = subject
   const today = localDateStr(now)
   const historyFloor = addDays(today, -HISTORY_DAYS)
 
@@ -194,17 +212,22 @@ const attemptedThisSession = new Set<string>()
 // persisted flag unset (so the next session retries) but isn't retried
 // again within the same page load.
 export async function runCompanionDetectionOncePerDay(
-  userId: string,
-  profileCreatedAt: string,
+  subject: CompanionDetectionSubject,
   now: Date = new Date()
 ): Promise<CompanionDetectionResult | null> {
+  // Checked before the once-a-day bookkeeping below on purpose: a skipped
+  // run must not burn today's slot, or turning the toggle on later the same
+  // day would still be locked out until tomorrow.
+  if (!subject.aiEnabled) return null
+
+  const { userId } = subject
   const today = localDateStr(now)
   const sessionKey = `${userId}:${today}`
   if (attemptedThisSession.has(sessionKey)) return null
   if (getUserLocalData<string>(RAN_KEY_BASE, userId) === today) return null
   attemptedThisSession.add(sessionKey)
 
-  const result = await runCompanionDetection(userId, profileCreatedAt, now)
+  const result = await runCompanionDetection(subject, now)
   setUserLocalData(RAN_KEY_BASE, userId, today)
   return result
 }

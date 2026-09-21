@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm run dev        # Start Vite dev server
 npm run build       # tsc -b (project references type check) + vite build
-npm run typecheck   # tsc --noEmit only
+npm run typecheck   # tsc -b (type-checks src/ and the vite/node config via project references; no emit)
 npm run preview     # Preview production build
 ```
 

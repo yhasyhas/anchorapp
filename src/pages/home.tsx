@@ -69,6 +69,7 @@ import { useAnchorDefs } from "@/hooks/use-anchor-defs"
 import { useNudgeArbitration } from "@/hooks/use-nudge-arbitration"
 import { useDailyCycle } from "@/hooks/use-daily-cycle"
 import { useCompanionDetection } from "@/hooks/use-companion-detection"
+import { useCompanionGeneration } from "@/hooks/use-companion-generation"
 import type { TFunction } from "i18next"
 import type { AnchorCategory, CircleSharedIntention, CustomIntention } from "@/types"
 
@@ -106,6 +107,10 @@ export function HomePage() {
   const { customIntentions } = useCustomIntentions(user?.id)
   // Data-only, renders nothing: records Companion observations once a day.
   useCompanionDetection()
+  // Data-only, renders nothing: generates text for observations detection
+  // already recorded (see src/lib/companion-generation.ts). No UI reads
+  // generated_text yet — that's a separate, later prompt.
+  useCompanionGeneration()
   const [isSpeakingCompanion, setIsSpeakingCompanion] = useState(false)
 
   useEffect(() => {

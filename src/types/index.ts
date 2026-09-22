@@ -571,6 +571,12 @@ export interface CompanionObservation {
   shown_at: string | null
   acknowledged: boolean
   user_response: string | null
+  // NULL until src/lib/companion-generation.ts fills it in — once, never
+  // regenerated. Either a real generated message (Claude Haiku, via
+  // api/insights.ts's "companion_observation" type) or, when
+  // companion-distress-filter.ts fires first, the fixed SAFETY_FALLBACK_TEXT
+  // — the model is never called in that case.
+  generated_text: string | null
 }
 
 export type CompanionWeeklyCheckinStatus = "pending" | "completed" | "skipped"

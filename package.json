@@ -11,6 +11,8 @@
     "check-duplicates": "tsx scripts/check-duplicated-logic.ts",
     "check-companion-triggers": "tsx scripts/check-companion-triggers.ts",
     "check-companion-detection": "node scripts/check-companion-detection.mjs",
+    "check-companion-distress-filter": "tsx scripts/check-companion-distress-filter.ts",
+    "check-companion-generation": "node scripts/check-companion-generation.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

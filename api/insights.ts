@@ -259,6 +259,35 @@ function validateMoveSuggestionsBody(body: any): string | null {
   return null
 }
 
+const COMPANION_OBSERVATION_TYPES = ["pattern", "gap", "celebration", "first_time", "weekly_checkin"] as const
+const MAX_EXCERPTS = 3
+const MAX_EXCERPT_LENGTH = 200
+const MAX_COMPASS_ITEMS = 8
+const MAX_COMPASS_ITEM_LENGTH = 120
+const TIME_OF_DAY_VALUES = ["morning", "afternoon", "evening", "night"] as const
+
+function validateCompanionObservationBody(body: any): string | null {
+  if (!COMPANION_OBSERVATION_TYPES.includes(body.observationType)) return "invalid observationType"
+  if (typeof body.payload !== "object" || body.payload === null) return "payload must be an object"
+  if (body.language !== "en" && body.language !== "sw") return "invalid language"
+  if (typeof body.localDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(body.localDate)) return "invalid localDate"
+  if (!TIME_OF_DAY_VALUES.includes(body.timeOfDay)) return "invalid timeOfDay"
+  for (const [field, list] of [
+    ["compassValues", body.compassValues],
+    ["compassGoals", body.compassGoals],
+  ] as const) {
+    if (!Array.isArray(list) || list.some((v: unknown) => typeof v !== "string")) return `${field} must be an array of strings`
+    if (list.length > MAX_COMPASS_ITEMS) return `${field} too large (max ${MAX_COMPASS_ITEMS})`
+    if (list.some((v: string) => v.length > MAX_COMPASS_ITEM_LENGTH)) return `${field} entry too long`
+  }
+  if (!Array.isArray(body.excerpts) || body.excerpts.some((e: unknown) => typeof e !== "string")) {
+    return "excerpts must be an array of strings"
+  }
+  if (body.excerpts.length > MAX_EXCERPTS) return `excerpts too large (max ${MAX_EXCERPTS})`
+  if (body.excerpts.some((e: string) => e.length > MAX_EXCERPT_LENGTH)) return "excerpt too long"
+  return null
+}
+
 const MAX_FOLLOWUP_ENTRIES = 7
 const FOLLOWUP_ENTRY_STRING_FIELDS = [
   "whatMatters",
@@ -300,15 +329,17 @@ export default async function handler(request: Request) {
   }
 
   const GROQ_API_KEY = process.env.GROQ_API_KEY
+  // Companion observation generation uses Anthropic instead of Groq — see the
+  // "COMPANION OBSERVATION" section below for why. Checked per-type, not
+  // here, since the two providers' keys are independent: a Groq outage
+  // shouldn't block Companion generation and vice versa.
+  const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
   // Réutilise les mêmes URL/anon key que le client (VITE_*) — ce sont des valeurs
   // publiques par conception (le client les embarque déjà), donc pas de nouveau secret
   // à provisionner pour cette Edge Function.
   const SUPABASE_URL = process.env.VITE_SUPABASE_URL
   const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY
 
-  if (!GROQ_API_KEY) {
-    return jsonResponse({ error: "API key not configured" }, 500)
-  }
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     return jsonResponse({ error: "Server misconfigured" }, 500)
   }
@@ -347,6 +378,21 @@ export default async function handler(request: Request) {
   const { type = "insights" } = body
 
   try {
+    // Dispatched before the GROQ_API_KEY check below — this type never
+    // touches Groq, so a missing/misconfigured Groq key must not block it.
+    if (type === "companion_observation") {
+      if (!ANTHROPIC_API_KEY) {
+        return jsonResponse({ error: "API key not configured" }, 500)
+      }
+      const validationError = validateCompanionObservationBody(body)
+      if (validationError) return jsonResponse({ error: validationError }, 400)
+      return await handleCompanionObservation(body, ANTHROPIC_API_KEY)
+    }
+
+    if (!GROQ_API_KEY) {
+      return jsonResponse({ error: "API key not configured" }, 500)
+    }
+
     if (type === "companion") {
       const validationError = validateCompanionBody(body)
       if (validationError) return jsonResponse({ error: validationError }, 400)
@@ -954,6 +1000,282 @@ Rules:
       headers: { "Content-Type": "application/json" },
     })
   }
+}
+
+// ==================== COMPANION OBSERVATION : provider = Anthropic Claude Haiku, not Groq ====================
+//
+// The only type in this file that calls Anthropic instead of Groq — see
+// anchor-companion-design.md section 6 (needs closer instruction-following
+// than the rest of the app's generation, which is why it gets its own
+// provider). Its own call function rather than folding a second HTTP shape
+// into the Groq-style handlers above, so the two providers' request/response
+// formats never mix inside one function.
+const ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
+
+export async function callAnthropicHaiku(
+  system: string,
+  userMessage: string,
+  maxTokens: number,
+  apiKey: string
+): Promise<string | null> {
+  // Only needed for a key that isn't scoped to a single workspace (Anthropic
+  // then requires the caller to say which workspace to bill/run under) —
+  // read directly from process.env rather than threaded through every
+  // caller, since it's a fixed piece of server config, not a per-call value.
+  // Omitted entirely for a workspace-scoped key, where it's not required.
+  const workspaceId = process.env.ANTHROPIC_WORKSPACE_ID
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+      ...(workspaceId ? { "anthropic-workspace-id": workspaceId } : {}),
+    },
+    body: JSON.stringify({
+      model: ANTHROPIC_MODEL,
+      max_tokens: maxTokens,
+      system,
+      messages: [{ role: "user", content: userMessage }],
+    }),
+  })
+  if (!response.ok) return null
+  const json = await response.json()
+  const text = json.content?.[0]?.text
+  return typeof text === "string" && text.trim() ? text.trim() : null
+}
+
+// Verbatim from anchor-companion-design.md section 5 (the two already-
+// validated tone additions — occasional self-correction, temporal/seasonal
+// grounding — are already baked into the bullet list below, not layered on
+// separately), with ONE deliberate removal: the closing "you will never be
+// asked to handle distress" note. That case is filtered out entirely before
+// this endpoint is ever called — src/lib/companion-distress-filter.ts runs
+// client-side, before any network call, and a positive match never reaches
+// here at all. The model has no path to seeing a distress case, so there is
+// nothing left for the prompt to disclaim about it.
+//
+// Everything else, including the "Letters" and "companion_observations.
+// acknowledged" references below, is kept exactly as written even though
+// this call doesn't actually provide Letters content or DB access — the
+// surrounding clauses ("whenever you have them available") already make
+// those a no-op rather than a fabrication risk.
+//
+// ADDED (not in the design doc, added after a quality review): the
+// "Examples" block below. A first quality pass on real fixtures showed every
+// message ending in an open question, as instructed, but NONE including the
+// explicit "no need to answer" exit the hard rules also require — a plain
+// bullet-point rule wasn't enough on its own. Two English few-shot examples
+// fixed that for English output but did NOT reliably transfer to Swahili
+// generation, and NEVER fixed it for `celebration` specifically (the design
+// doc's own celebration template has no question/exit line at all — a real
+// design gap, not just a prompting one). A follow-up pass added a Swahili
+// example (fixed `pattern`, not `celebration`) and surfaced a second,
+// separate problem: numbers/time-of-day getting reworded in the model's own
+// words — "3 days" came back as "Saa tatu" (reads as "three o'clock", not
+// three days) in Swahili, and a given "afternoon" came back as "evening".
+// Fixed both here: a dedicated `celebration` example closes the exit-phrase
+// gap for every type, and formatObservationFacts below now hands the model
+// an opaque [[TOKEN]] instead of the actual number/time-of-day — it can
+// never reword a fact it was never actually given. See
+// substituteLiteralTokens below: the real value is substituted in AFTER
+// generation, deterministically, so no LLM step ever touches the digits.
+export const COMPANION_OBSERVATION_SYSTEM_PROMPT = `You are Anchor's Companion — a quiet, honest presence, not a hype coach and not a
+passive mirror. Your role is to help the person notice the connection between what
+they do day to day and who they've said they want to become.
+
+Tone: warm, direct, never performative. Short sentences. No emojis unless the user
+uses them first. Never exclamation points as a default register.
+
+Hard rules, always:
+- End almost every proactive message with an open question, never a verdict.
+- Always give an explicit way out ("no need to answer", "tell me if you'd rather
+  not talk about it").
+- Never repeat an observation you've already made and that the user didn't want
+  to engage with — check companion_observations.acknowledged before speaking.
+- Never mention percentages, scores, or comparisons to other users.
+- Never present a streak as an achievement in itself — if you mention consistency,
+  tie it to the identity/value behind it, not the count.
+- Ground what you say in the user's own words (Journal, Jar, Letters, Compass)
+  whenever you have them available — quote loosely, don't fabricate quotes.
+- Never diagnose. You can name a pattern you noticed; you cannot name a condition.
+- You may occasionally correct yourself if an earlier observation seems to have
+  misread the person — brief, honest, no false certainty maintained for its own sake.
+- You may ground a message in the real moment (local time of day, season) when it
+  feels natural — never systematically, only when it adds warmth.
+
+You are speaking AS Anchor, in first person, with your own voice — not merely
+echoing the user's words back at them. You may offer a small piece of your own
+perspective, briefly, when it's earned — but you are not the main character.
+
+Numbers and time-of-day: some facts below appear as a literal token like
+[[RUN_LENGTH]] or [[TIME_OF_DAY]] instead of a plain number or word. Copy
+that token EXACTLY, character for character including the double brackets,
+wherever you want to reference that fact — do not translate it, spell it
+out, convert its unit, or write your own version of it in any language. The
+token already includes any unit it needs (e.g. a day count) — never add your
+own unit word directly next to it ("[[RUN_LENGTH]] days" is wrong, just
+"[[RUN_LENGTH]]" is right). You may write freely around it. If you don't
+want to reference it, just leave it out entirely.
+
+Examples of the expected shape — notice EACH one gives an explicit way out
+BEFORE its closing question (not just an open question on its own, and not
+skipped just because the observation is a celebration), copies any [[TOKEN]]
+verbatim, AND uses ONLY facts given in the context below (no invented
+details — no people, objects, weather, or events that weren't actually
+named). This pattern applies no matter which language you're asked to
+respond in — the Swahili example below follows the exact same shape as the
+English ones, not a looser one:
+- "I've noticed the last few days have felt heavier for you. No need to get
+  into why, if you'd rather not — I'm just here. What's been the hardest part?"
+- "It's been a while since 'meditate every morning' showed up in what you've
+  done. Tell me if you'd rather not talk about it — but has that shifted into
+  something else for you, or just fallen off?"
+- "You've been showing up for [[MILESTONE]] now — that's not an accident,
+  that's you choosing to keep going. No need to make a big deal of it if
+  that's not your style — but what's been making it feel doable lately?"
+- "Wiki chache zilizopita ulisema unataka 'kutafakari kila asubuhi'. Sijaona
+  ikionekana tena hivi karibuni. Niambie kama hutaki kuzungumzia hili — je,
+  jambo hilo limebadilika kuwa kitu kingine?"
+
+Write ONE short message, 2-4 sentences, following every rule above exactly —
+including an explicit way out before the closing question, as shown above,
+for every observation type without exception, including celebrations.
+Respond in the language named below. Return ONLY the message text itself — no
+preamble, no quotation marks, no explanation.`
+
+// The trigger payloads from src/lib/companion-triggers.ts, turned into a
+// plain factual sentence the model can build from — never the message
+// itself, just the facts, so the model still has to write the actual words
+// (and follow the voice/hard-rules above) rather than being handed a
+// template to fill in. Every number is an opaque [[TOKEN]], not the actual
+// digit — see buildLiteralTokens/substituteLiteralTokens below for why.
+export function formatObservationFacts(observationType: string, payload: any): string {
+  switch (observationType) {
+    case "pattern":
+      return `She has logged a low/stressed mood for [[RUN_LENGTH]] in a row, since ${payload.runStart}.`
+    case "gap":
+      return `[[GAP_WEEKS]] ago she set this Compass goal: "${payload.goalText}". Nothing she's accepted since has matched it.`
+    case "celebration":
+      return `She just reached an anchor streak of [[MILESTONE]] (currently at [[CURRENT_STREAK]]).`
+    case "first_time":
+      if (payload.trigger === "circle_return") {
+        return `She reached out on Circle today, after [[ABSENCE_DAYS]] without doing so.`
+      }
+      return payload.isVeryFirst
+        ? `She just accepted her very first suggestion ever, in the "${payload.category}" category.`
+        : `She just accepted her first-ever suggestion in the "${payload.category}" category.`
+    case "weekly_checkin":
+      return "It's her weekly check-in moment."
+    default:
+      return ""
+  }
+}
+
+// Deterministic, language-correct replacement text for each [[TOKEN]] that
+// can appear in formatObservationFacts' output above — always a numeral
+// (never a spelled-out number, sidestepping spelled-out-number translation
+// entirely) plus a fixed unit word per language. The model never sees these
+// strings while generating; substituteLiteralTokens splices them in after.
+const TIME_OF_DAY_LABEL: Record<"en" | "sw", Record<string, string>> = {
+  en: { morning: "morning", afternoon: "afternoon", evening: "evening", night: "night" },
+  sw: { morning: "asubuhi", afternoon: "mchana", evening: "jioni", night: "usiku" },
+}
+
+function dayCountPhrase(n: number, language: "en" | "sw"): string {
+  return language === "sw" ? `siku ${n}` : `${n} day${n === 1 ? "" : "s"}`
+}
+
+function weekCountPhrase(n: number, language: "en" | "sw"): string {
+  return language === "sw" ? `wiki ${n}+` : `${n}+ week${n === 1 ? "" : "s"}`
+}
+
+// Builds the token -> literal map for one request, only including the
+// tokens actually relevant to this observationType/payload — a token the
+// model never had reason to see (e.g. [[MILESTONE]] for a "gap" row) is
+// simply never in the map, so it's a no-op for substituteLiteralTokens.
+export function buildLiteralTokens(observationType: string, payload: any, language: "en" | "sw", timeOfDay: string) {
+  const tokens: Record<string, string> = {
+    "[[TIME_OF_DAY]]": TIME_OF_DAY_LABEL[language][timeOfDay] ?? timeOfDay,
+  }
+  if (observationType === "pattern" && typeof payload.runLength === "number") {
+    tokens["[[RUN_LENGTH]]"] = dayCountPhrase(payload.runLength, language)
+  }
+  if (observationType === "gap" && typeof payload.weeks === "number") {
+    tokens["[[GAP_WEEKS]]"] = weekCountPhrase(payload.weeks, language)
+  }
+  if (observationType === "celebration") {
+    if (typeof payload.milestone === "number") tokens["[[MILESTONE]]"] = dayCountPhrase(payload.milestone, language)
+    if (typeof payload.currentAnchorStreak === "number") {
+      tokens["[[CURRENT_STREAK]]"] = dayCountPhrase(payload.currentAnchorStreak, language)
+    }
+  }
+  if (observationType === "first_time" && payload.trigger === "circle_return" && typeof payload.absenceDays === "number") {
+    tokens["[[ABSENCE_DAYS]]"] = dayCountPhrase(payload.absenceDays, language)
+  }
+  return tokens
+}
+
+// Plain split/join, not a regex replace — token strings are fixed literals
+// ([[RUN_LENGTH]] etc.), so there's no pattern-escaping to get wrong, and
+// this replaces every occurrence (a model that uses a token twice is still
+// covered) without needing the global-flag/RegExp-injection considerations
+// a dynamic regex would raise.
+export function substituteLiteralTokens(text: string, tokens: Record<string, string>): string {
+  let out = text
+  for (const [token, value] of Object.entries(tokens)) {
+    out = out.split(token).join(value)
+  }
+  return out
+}
+
+// Belt-and-suspenders cleanup for a real artifact a quality pass caught:
+// dayCountPhrase/weekCountPhrase already include their unit word (e.g. "3
+// days"), but the model sometimes ALSO writes its own unit word right next
+// to the token in its own sentence (e.g. "...for [[RUN_LENGTH]] days in a
+// row"), which becomes "3 days days" after substitution. The system prompt
+// now says not to do this, but that's a request, not a guarantee — this
+// collapses an immediately-repeated unit word deterministically regardless
+// of whether the prompt instruction was followed. Language-scoped (only the
+// unit words this app's own tokens ever produce) rather than a generic
+// repeated-word collapse, so it can't accidentally eat an intentional
+// repetition elsewhere in the message.
+export function collapseDuplicateUnitWords(text: string, language: "en" | "sw"): string {
+  const units = language === "sw" ? ["siku", "wiki"] : ["days", "day", "weeks", "week"]
+  let out = text
+  for (const u of units) {
+    out = out.replace(new RegExp(`\\b(${u})\\b(\\s+\\1\\b)+`, "gi"), "$1")
+  }
+  return out
+}
+
+async function handleCompanionObservation(body: any, apiKey: string) {
+  const { observationType, payload, compassValues, compassGoals, excerpts, language, localDate, timeOfDay } = body
+
+  const literalTokens = buildLiteralTokens(observationType, payload, language, timeOfDay)
+
+  const contextLines = [
+    `Observation type: ${observationType}`,
+    formatObservationFacts(observationType, payload),
+    compassValues.length > 0 ? `Her Compass values: ${compassValues.join(", ")}` : null,
+    compassGoals.length > 0 ? `Her Compass goals: ${compassGoals.map((g: string) => `"${g}"`).join("; ")}` : null,
+    excerpts.length > 0
+      ? `Recent things she's written (Journal/Jar):\n${excerpts.map((e: string) => `- "${e}"`).join("\n")}`
+      : null,
+    `Current local moment: ${localDate}, [[TIME_OF_DAY]].`,
+    ``,
+    `Language: ${language === "sw" ? "Swahili" : "English"}.`,
+    `Write the message now.`,
+  ].filter((l) => l !== null)
+
+  const message = await callAnthropicHaiku(COMPANION_OBSERVATION_SYSTEM_PROMPT, contextLines.join("\n"), 300, apiKey)
+
+  if (!message) {
+    return jsonResponse({ error: "anthropic_error" }, 502)
+  }
+
+  const withLiterals = substituteLiteralTokens(message, literalTokens)
+  return jsonResponse({ message: collapseDuplicateUnitWords(withLiterals, language) }, 200)
 }
 
 function buildSystemPrompt(): string {

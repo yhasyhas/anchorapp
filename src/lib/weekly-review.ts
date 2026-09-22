@@ -8,9 +8,9 @@
 import { supabase } from "@/lib/supabase"
 import { getCompass } from "@/lib/compass"
 import { topResonatingValues } from "@/lib/daily-suggestion"
-import { untouchedGoals } from "@/lib/goal-matching"
+import { GOAL_COOLDOWN_WEEKS, GOAL_STALE_WEEKS, pickGoalToPrompt, untouchedGoals } from "@/lib/goal-matching"
 import { localDateStr } from "@/lib/utils"
-import { getUserLocalData, setUserLocalData } from "@/lib/user-storage"
+import { isDoneThisPeriod, markDoneThisPeriod } from "@/lib/once-per-period"
 import { weekStartStr, isWeeklyReviewEligibleDay } from "@/lib/week-dates"
 import type { CompassGoal, WeeklyReview, WeeklyReviewGoalResponse, WeeklyReviewSnapshot } from "@/types"
 
@@ -49,37 +49,16 @@ export const MIN_WEEKLY_ACTIVITY = 2
 // majority of the week's suggestions to land the same way.
 export const MIN_ACCEPTED_FOR_WEEKLY_VALUES = 2
 
-// A Compass goal counts as "stale" once none of the accepted suggestions in
-// this many trailing weeks resonate with it.
-export const GOAL_STALE_WEEKS = 4
-
-// Once a goal has been asked about (goal_prompted_id set on a past weekly
-// review), it's skipped from selection for this many weeks — regardless of
-// whether she answered the sub-question or just dismissed the card.
-export const GOAL_COOLDOWN_WEEKS = 8
-
 // ==================== GOAL <-> SUGGESTION MATCHING ====================
 
-// The keyword-matching itself (goalKeywords / untouchedGoals) lives in
-// src/lib/goal-matching.ts so it stays importable without this module's
-// supabase dependency chain; re-exported here so existing importers
-// (src/lib/wrapped.ts) keep working unchanged.
-export { untouchedGoals }
-
-// Among the user's Compass goals, picks the single oldest one that's both
-// stale (no matching accepted suggestion in the last GOAL_STALE_WEEKS) and
-// not in cooldown (not asked about in the last GOAL_COOLDOWN_WEEKS) — or
-// null when none qualify. Never more than one, per spec.
-export function pickGoalToPrompt(
-  goals: CompassGoal[],
-  acceptedTitlesSinceStale: { title: string }[],
-  recentlyPromptedGoalIds: Set<string>
-): CompassGoal | null {
-  const eligible = untouchedGoals(goals, acceptedTitlesSinceStale).filter((g) => !recentlyPromptedGoalIds.has(g.id))
-  if (eligible.length === 0) return null
-  eligible.sort((a, b) => a.created_at.localeCompare(b.created_at))
-  return eligible[0]
-}
+// The keyword-matching AND the stale-goal selection (GOAL_STALE_WEEKS,
+// GOAL_COOLDOWN_WEEKS, pickGoalToPrompt) live in src/lib/goal-matching.ts —
+// pure, supabase-free — so companion-triggers.ts's "gap" detector can reuse
+// the exact same selection this weekly review uses, rather than each
+// system independently picking (and potentially disagreeing about) which
+// stale goal to surface. Re-exported here so existing importers
+// (src/lib/wrapped.ts, this file's own use below) keep working unchanged.
+export { untouchedGoals, GOAL_STALE_WEEKS, GOAL_COOLDOWN_WEEKS, pickGoalToPrompt }
 
 // ==================== GENERATION ====================
 
@@ -104,15 +83,27 @@ async function fetchWeekActivity(userId: string, weekStart: string, weekEnd: str
   return { suggestions, moodCount }
 }
 
-async function fetchRecentlyPromptedGoalIds(userId: string, beforeWeekStart: string): Promise<Set<string>> {
-  const cutoff = addDaysStr(beforeWeekStart, -GOAL_COOLDOWN_WEEKS * 7)
+// Exported (not just used internally) so companion-triggers.ts's caller —
+// companion-detection.ts — can fetch the exact same cooldown state
+// pickGoalToPrompt itself reads, rather than each system tracking its own.
+// `uptoWeekStart` is INCLUSIVE (`<=`, not `<`) specifically for that cross-
+// system case: weekly_reviews' own row for the current week (if it already
+// ran earlier this same Sunday, before Companion detection got to it) must
+// count toward the cooldown immediately, not just from next week — a `<`
+// bound would let the Companion's own gap detector re-pick the very goal
+// weekly-review just asked about this week. Harmless no-op for this
+// module's own call below: at that call site no row for the current
+// `weekStart` exists yet (we're about to create it), so `<=` vs `<`
+// changes nothing there.
+export async function fetchRecentlyPromptedGoalIds(userId: string, uptoWeekStart: string): Promise<Set<string>> {
+  const cutoff = addDaysStr(uptoWeekStart, -GOAL_COOLDOWN_WEEKS * 7)
   const { data } = await supabase
     .from("weekly_reviews")
     .select("goal_prompted_id")
     .eq("user_id", userId)
     .not("goal_prompted_id", "is", null)
     .gte("week_start", cutoff)
-    .lt("week_start", beforeWeekStart)
+    .lte("week_start", uptoWeekStart)
   return new Set(((data as { goal_prompted_id: string | null }[] | null) ?? []).map((r) => r.goal_prompted_id as string))
 }
 
@@ -130,18 +121,23 @@ async function fetchAcceptedTitlesSince(userId: string, sinceDate: string): Prom
 // it's not the eligible day, a review already exists but the week was
 // silent (never generated), or this week doesn't have enough activity yet
 // — in every "null" case the caller shows nothing, never a placeholder.
-// A localStorage flag (per user, per week) short-circuits repeat calls the
-// same way ensureWrappedGenerated's WRAPPED_CHECKED_KEY_BASE does, so a
-// quiet week isn't re-queried on every Home mount that same Sunday.
+// The once-per-period bookkeeping (src/lib/once-per-period.ts, shared with
+// companion-detection.ts/companion-generation.ts) short-circuits repeat
+// calls, so a quiet week isn't re-queried on every Home mount that same
+// Sunday — used via its lower-level isDoneThisPeriod/markDoneThisPeriod
+// here rather than the runOncePerPeriod wrapper, because this function has
+// three different "done" exit points (existing row / genuinely quiet week /
+// freshly generated) and the existing-row path must still hit the DB and
+// return a live value on every call, not short-circuit to null like the
+// other two call sites can.
 export async function getOrCreateWeeklyReview(userId: string): Promise<WeeklyReview | null> {
   const now = new Date()
   if (!isWeeklyReviewEligibleDay(now)) return null
 
   const weekStart = weekStartStr(now)
   const weekEnd = weekEndStr(weekStart)
-  const checkedKey = `${WEEKLY_REVIEW_CHECKED_KEY_BASE}_${weekStart}`
 
-  const alreadyChecked = getUserLocalData<boolean>(checkedKey, userId)
+  const alreadyChecked = isDoneThisPeriod(WEEKLY_REVIEW_CHECKED_KEY_BASE, userId, weekStart)
 
   const { data: existing } = await supabase
     .from("weekly_reviews")
@@ -151,7 +147,7 @@ export async function getOrCreateWeeklyReview(userId: string): Promise<WeeklyRev
     .maybeSingle()
 
   if (existing) {
-    setUserLocalData(checkedKey, userId, true)
+    markDoneThisPeriod(WEEKLY_REVIEW_CHECKED_KEY_BASE, userId, weekStart)
     return existing as WeeklyReview
   }
 
@@ -164,7 +160,7 @@ export async function getOrCreateWeeklyReview(userId: string): Promise<WeeklyRev
   if (totalActivity < MIN_WEEKLY_ACTIVITY) {
     // Genuinely silent week — no row, ever, for this week_start. Flag it
     // checked so we don't re-query it again today.
-    setUserLocalData(checkedKey, userId, true)
+    markDoneThisPeriod(WEEKLY_REVIEW_CHECKED_KEY_BASE, userId, weekStart)
     return null
   }
 
@@ -216,7 +212,7 @@ export async function getOrCreateWeeklyReview(userId: string): Promise<WeeklyRev
     .select()
     .single()
 
-  setUserLocalData(checkedKey, userId, true)
+  markDoneThisPeriod(WEEKLY_REVIEW_CHECKED_KEY_BASE, userId, weekStart)
   if (error) throw error
   return inserted as WeeklyReview
 }

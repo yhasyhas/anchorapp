@@ -6,7 +6,10 @@
 // as check-companion-detection.mjs. The one thing this file exists to prove
 // beyond doubt: a distress-signal fixture NEVER reaches the network — not
 // "produces the safe fallback text" (checked too), but literally zero calls
-// to fetch. Run with `npm run check-companion-generation`.
+// to fetch. Also covers the weekly_reviews.companion_text consolidation
+// (formerly companion_weekly_checkins): tenure gate, current-week-only
+// pickup, and the anchoring facts (summary_snapshot) sent instead of raw
+// Compass data. Run with `npm run check-companion-generation`.
 import assert from "node:assert/strict"
 import { mkdtempSync, rmSync, existsSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -23,7 +26,7 @@ const db = (globalThis.__companionGenFakeDb ??= { tables: {}, calls: [], compass
 function builder(name) {
   let op = "select", payload = null
   const filters = []
-  let orderCol = null, orderAsc = true, limitN = null
+  let orderCol = null, orderAsc = true, limitN = null, single = false
   const api = {
     select() { return api },
     insert(row) { op = "insert"; payload = row; return api },
@@ -33,6 +36,7 @@ function builder(name) {
     is(c, v) { filters.push((r) => (r[c] ?? null) === v); return api },
     order(c, opts) { orderCol = c; orderAsc = !(opts && opts.ascending === false); return api },
     limit(n) { limitN = n; return api },
+    maybeSingle() { single = true; return api },
     then(resolve) {
       db.calls.push(op + ":" + name)
       const table = (db.tables[name] ??= [])
@@ -41,15 +45,15 @@ function builder(name) {
         return resolve({ data: null, error: null })
       }
       if (op === "update") {
-        let updated = 0
         for (const row of table) {
-          if (filters.every((f) => f(row))) { Object.assign(row, payload); updated++ }
+          if (filters.every((f) => f(row))) Object.assign(row, payload)
         }
         return resolve({ data: null, error: null })
       }
       let rows = table.filter((r) => filters.every((f) => f(r)))
       if (orderCol) rows = [...rows].sort((a, b) => (a[orderCol] < b[orderCol] ? -1 : a[orderCol] > b[orderCol] ? 1 : 0) * (orderAsc ? 1 : -1))
       if (limitN != null) rows = rows.slice(0, limitN)
+      if (single) return resolve({ data: rows[0] ?? null, error: null })
       return resolve({ data: rows, error: null })
     },
   }
@@ -117,15 +121,50 @@ try {
   const rowsIn = (name) => db.tables[name] ?? []
   const dayFlag = (uid) => store.get(`anchor_companion_generation_ran_${uid}`)
 
-  function seed(uid, { observations = [], weekly = [], journal = [], gratitude = [], compass = null } = {}) {
+  // ---- date/week helpers (small, deliberate duplication of week-dates.ts's
+  // weekStartStr — this file runs under plain node, not tsx, so it can't
+  // import the real .ts module; same reasoning as mondayOfSunday in
+  // check-companion-detection.mjs) ----
+  const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+  function weekStartStr(date) {
+    const d = new Date(date)
+    d.setHours(0, 0, 0, 0)
+    const day = d.getDay()
+    d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day))
+    return fmt(d)
+  }
+  const FIXED_NOW = new Date("2026-09-22T09:00:00")
+  const CURRENT_WEEK_START = weekStartStr(FIXED_NOW)
+  const daysBefore = (n) => new Date(FIXED_NOW.getTime() - n * 86400000).toISOString()
+  const TENURE_OK = daysBefore(30) // >= WEEKLY_CHECKIN_MIN_TENURE_DAYS (21)
+  const TENURE_TOO_YOUNG = daysBefore(5)
+
+  function seed(uid, { observations = [], weeklyReview = null, journal = [], gratitude = [], compass = null } = {}) {
     db.tables.companion_observations = observations.map((o) => ({ user_id: uid, generated_text: null, ...o }))
-    db.tables.companion_weekly_checkins = weekly.map((w) => ({ user_id: uid, status: "pending", summary: null, ...w }))
+    db.tables.weekly_reviews = weeklyReview
+      ? [
+          {
+            user_id: uid,
+            week_start: CURRENT_WEEK_START,
+            companion_text: null,
+            summary_snapshot: { weekStart: CURRENT_WEEK_START, weekEnd: "2026-09-27", acceptedCount: 0, declinedCount: 0, dominantValues: null, goalPromptedText: null },
+            ...weeklyReview,
+          },
+        ]
+      : []
     db.tables.journal_entries = journal.map((j) => ({ user_id: uid, ...j }))
     db.tables.gratitudes = gratitude.map((g) => ({ user_id: uid, ...g }))
     db.compassByUser[uid] = compass
     db.calls = []
     fetchCalls = []
   }
+
+  const subject = (userId, aiEnabled, language, profileCreatedAt = TENURE_OK) => ({
+    userId,
+    aiEnabled,
+    language,
+    profileCreatedAt,
+  })
 
   let count = 0
   const ok = (name) => console.log(`ok   ${++count}. ${name}`)
@@ -144,16 +183,16 @@ try {
   // ================= AI toggle guard =================
 
   seed("off1", { observations: [PATTERN_OBS("off1")] })
-  const off = await runCompanionObservationGeneration({ userId: "off1", aiEnabled: false, language: "en" })
+  const off = await runCompanionObservationGeneration(subject("off1", false, "en"), FIXED_NOW)
   assert.deepEqual(off, { generated: 0, safetyFallbackUsed: false })
   assert.equal(db.calls.length, 0)
   assert.equal(fetchCalls.length, 0)
   ok("toggle OFF: zero DB calls, zero fetch calls")
 
-  // ================= Nothing pending =================
+  // ================= Nothing pending (no observations, no weekly_reviews row) =================
 
   seed("empty1")
-  const empty = await runCompanionObservationGeneration({ userId: "empty1", aiEnabled: true, language: "en" })
+  const empty = await runCompanionObservationGeneration(subject("empty1", true, "en"), FIXED_NOW)
   assert.deepEqual(empty, { generated: 0, safetyFallbackUsed: false })
   assert.equal(fetchCalls.length, 0)
   ok("nothing pending: zero fetch calls, no error")
@@ -162,69 +201,119 @@ try {
 
   seed("distress1", {
     observations: [PATTERN_OBS("distress1"), GAP_OBS("distress1")],
-    weekly: [{ id: "w1", week_start: "2026-09-21" }],
+    weeklyReview: { id: "w1" },
     journal: [
       { date: "2026-09-19", sentence: "had a fine day" },
       { date: "2026-09-20", sentence: "I want to kill myself" },
     ],
     gratitude: [{ text: "my dog", created_at: "2026-09-20T10:00:00Z" }],
   })
-  const distressResult = await runCompanionObservationGeneration({ userId: "distress1", aiEnabled: true, language: "en" })
+  const distressResult = await runCompanionObservationGeneration(subject("distress1", true, "en"), FIXED_NOW)
   assert.equal(fetchCalls.length, 0, `expected 0 fetch calls, got ${fetchCalls.length}: ${JSON.stringify(fetchCalls)}`)
   assert.equal(distressResult.safetyFallbackUsed, true)
-  assert.equal(distressResult.generated, 3) // 2 observations + 1 weekly row
+  assert.equal(distressResult.generated, 3) // 2 observations + 1 weekly_reviews row
   const distressObs = rowsIn("companion_observations")
   assert.ok(distressObs.every((o) => o.generated_text && o.generated_text.includes("https://findahelpline.com")))
   assert.ok(!distressObs.some((o) => o.generated_text === "MOCK GENERATED TEXT"))
-  const distressWeekly = rowsIn("companion_weekly_checkins")
-  assert.ok(distressWeekly[0].summary.includes("https://findahelpline.com"))
-  ok("distress signal in Journal: ZERO network calls, every pending row gets the fixed safety text, not a generated one")
+  assert.ok(rowsIn("weekly_reviews")[0].companion_text.includes("https://findahelpline.com"))
+  ok("distress signal in Journal: ZERO network calls, every pending row (observations AND weekly_reviews) gets the fixed safety text")
 
   // Same, but the signal is in the Jar/gratitude entries instead of Journal.
   seed("distress2", {
     observations: [PATTERN_OBS("distress2")],
     gratitude: [{ text: "grateful for my sister", created_at: "2026-09-20T10:00:00Z" }, { text: "I wish I didn't exist", created_at: "2026-09-21T10:00:00Z" }],
   })
-  const distressResult2 = await runCompanionObservationGeneration({ userId: "distress2", aiEnabled: true, language: "sw" })
+  const distressResult2 = await runCompanionObservationGeneration(subject("distress2", true, "sw"), FIXED_NOW)
   assert.equal(fetchCalls.length, 0)
   assert.equal(rowsIn("companion_observations")[0].generated_text, "Hii inaonekana nzito kuliko ninavyoweza kuishughulikia vizuri kupitia ujumbe. Tafadhali wasiliana na mtu halisi sasa hivi — https://findahelpline.com ina msaada wa bure na wa siri, mchana na usiku, katika nchi nyingi. Huhitaji kubeba hili peke yako.")
   ok("distress signal in Jar entries: also zero network calls, correct-language fixed text stored")
 
-  // ================= NORMAL PATH: no distress -> model IS called =================
+  // ================= NORMAL PATH: no distress -> model IS called, weekly_reviews gets summary_snapshot facts =================
 
   seed("normal1", {
     observations: [PATTERN_OBS("normal1"), GAP_OBS("normal1")],
-    weekly: [{ id: "w2", week_start: "2026-09-21" }],
+    weeklyReview: {
+      id: "w2",
+      summary_snapshot: {
+        weekStart: CURRENT_WEEK_START,
+        weekEnd: "2026-09-27",
+        acceptedCount: 4,
+        declinedCount: 1,
+        dominantValues: ["Growth"],
+        goalPromptedText: "Meditate every morning",
+      },
+    },
     journal: [{ date: "2026-09-20", sentence: "a calm, ordinary day" }],
     gratitude: [{ text: "morning coffee", created_at: "2026-09-20T10:00:00Z" }],
     compass: { value_tags: ["Growth", "Peace"], goals: [{ id: "g1", text: "Meditate every morning", created_at: "2026-01-01" }] },
   })
-  const normalResult = await runCompanionObservationGeneration({ userId: "normal1", aiEnabled: true, language: "en" })
-  assert.equal(fetchCalls.length, 3) // 2 observations + 1 weekly row
+  const normalResult = await runCompanionObservationGeneration(subject("normal1", true, "en"), FIXED_NOW)
+  assert.equal(fetchCalls.length, 3) // 2 observations + 1 weekly_reviews row
   assert.equal(normalResult.generated, 3)
   assert.equal(normalResult.safetyFallbackUsed, false)
   assert.ok(rowsIn("companion_observations").every((o) => o.generated_text === "MOCK GENERATED TEXT"))
-  assert.ok(rowsIn("companion_weekly_checkins").every((w) => w.summary === "MOCK GENERATED TEXT"))
-  const firstCallBody = JSON.parse(fetchCalls[0].opts.body)
-  assert.equal(firstCallBody.type, "companion_observation")
-  assert.ok(["pattern", "gap", "weekly_checkin"].includes(firstCallBody.observationType))
-  assert.deepEqual(firstCallBody.compassValues, ["Growth", "Peace"])
-  ok("no distress signal: model IS called once per pending row, generated_text/summary stored from the response")
+  assert.equal(rowsIn("weekly_reviews")[0].companion_text, "MOCK GENERATED TEXT")
 
-  // ================= SWAHILI GATE: disabled in prod, treated like a missing API key =================
+  const bodies = fetchCalls.map((c) => JSON.parse(c.opts.body))
+  const obsCallBody = bodies.find((b) => b.observationType === "pattern")
+  assert.equal(obsCallBody.type, "companion_observation")
+  assert.deepEqual(obsCallBody.compassValues, ["Growth", "Peace"]) // observations still get the raw Compass list
+  const weeklyCallBody = bodies.find((b) => b.observationType === "weekly_checkin")
+  assert.ok(weeklyCallBody, `expected a weekly_checkin call, got types: ${bodies.map((b) => b.observationType)}`)
+  // The consolidation's core point: summary_snapshot facts, not raw Compass data.
+  assert.equal(weeklyCallBody.payload.acceptedCount, 4)
+  assert.equal(weeklyCallBody.payload.declinedCount, 1)
+  assert.deepEqual(weeklyCallBody.payload.dominantValues, ["Growth"])
+  assert.equal(weeklyCallBody.payload.goalPromptedText, "Meditate every morning")
+  assert.deepEqual(weeklyCallBody.compassValues, [])
+  assert.deepEqual(weeklyCallBody.compassGoals, [])
+  ok("no distress signal: model called per pending row; weekly_checkin call carries summary_snapshot facts, not raw value_tags")
+
+  // ================= TENURE GATE: too young for the weekly enrichment (observations unaffected) =================
+
+  seed("young1", {
+    observations: [PATTERN_OBS("young1")],
+    weeklyReview: { id: "w4" },
+  })
+  const youngResult = await runCompanionObservationGeneration(subject("young1", true, "en", TENURE_TOO_YOUNG), FIXED_NOW)
+  assert.equal(youngResult.generated, 1) // the observation only
+  assert.equal(rowsIn("weekly_reviews")[0].companion_text, null)
+  const youngBodies = fetchCalls.map((c) => JSON.parse(c.opts.body))
+  assert.ok(!youngBodies.some((b) => b.observationType === "weekly_checkin"), "no weekly_checkin call should fire under the tenure bar")
+  ok("account younger than WEEKLY_CHECKIN_MIN_TENURE_DAYS: weekly_reviews query skipped entirely, observations still generate normally")
+
+  // ================= A weekly_reviews row for a DIFFERENT week is never picked up =================
+
+  seed("otherweek1", { weeklyReview: { id: "w5", week_start: "2020-01-06" } })
+  const otherWeekResult = await runCompanionObservationGeneration(subject("otherweek1", true, "en"), FIXED_NOW)
+  assert.deepEqual(otherWeekResult, { generated: 0, safetyFallbackUsed: false })
+  assert.equal(fetchCalls.length, 0)
+  assert.equal(rowsIn("weekly_reviews")[0].companion_text, null)
+  ok("a weekly_reviews row that isn't for the current week is never queried/generated")
+
+  // ================= A weekly_reviews row that already has companion_text is never re-sent =================
+
+  seed("wskip1", { weeklyReview: { id: "w6", companion_text: "already there" } })
+  const wSkipResult = await runCompanionObservationGeneration(subject("wskip1", true, "en"), FIXED_NOW)
+  assert.deepEqual(wSkipResult, { generated: 0, safetyFallbackUsed: false })
+  assert.equal(fetchCalls.length, 0)
+  assert.equal(rowsIn("weekly_reviews")[0].companion_text, "already there")
+  ok("a weekly_reviews row with companion_text already set is excluded from the query (never re-generated)")
+
+  // ================= SWAHILI GATE: disabled in prod, treated like a missing API key (both observations AND weekly) =================
 
   seed("sw1", {
     observations: [PATTERN_OBS("sw1"), GAP_OBS("sw1")],
-    weekly: [{ id: "w3", week_start: "2026-09-21" }],
+    weeklyReview: { id: "w3" },
     journal: [{ date: "2026-09-20", sentence: "siku ya kawaida" }],
     compass: { value_tags: ["Amani"], goals: [] },
   })
-  const swResult = await runCompanionObservationGeneration({ userId: "sw1", aiEnabled: true, language: "sw" })
+  const swResult = await runCompanionObservationGeneration(subject("sw1", true, "sw"), FIXED_NOW)
   assert.equal(fetchCalls.length, 0, `expected 0 fetch calls for a Swahili user, got ${fetchCalls.length}`)
   assert.equal(swResult.generated, 0)
   assert.equal(swResult.safetyFallbackUsed, false) // no distress here — this is the language gate, not the safety gate
   assert.ok(rowsIn("companion_observations").every((o) => o.generated_text === null))
-  assert.ok(rowsIn("companion_weekly_checkins").every((w) => w.summary === null))
+  assert.equal(rowsIn("weekly_reviews")[0].companion_text, null)
   ok("preferred_language=sw, no distress: ZERO network calls, rows stay NULL for retry (same shape as a missing API key)")
 
   // Same account, English: must work completely normally (nothing else regressed).
@@ -233,27 +322,27 @@ try {
     journal: [{ date: "2026-09-20", sentence: "an ordinary day" }],
     compass: { value_tags: ["Peace"], goals: [] },
   })
-  const enResult = await runCompanionObservationGeneration({ userId: "en2", aiEnabled: true, language: "en" })
+  const enResult = await runCompanionObservationGeneration(subject("en2", true, "en"), FIXED_NOW)
   assert.equal(fetchCalls.length, 1)
   assert.equal(enResult.generated, 1)
   assert.equal(rowsIn("companion_observations")[0].generated_text, "MOCK GENERATED TEXT")
   ok("preferred_language=en: unaffected, generates normally (1 fetch call, text stored)")
 
-  // ================= Already-generated rows are never re-sent =================
+  // ================= Already-generated observation rows are never re-sent =================
 
   seed("skip1", {
     observations: [{ ...PATTERN_OBS("skip1"), generated_text: "already there" }],
   })
-  const skipResult = await runCompanionObservationGeneration({ userId: "skip1", aiEnabled: true, language: "en" })
+  const skipResult = await runCompanionObservationGeneration(subject("skip1", true, "en"), FIXED_NOW)
   assert.equal(fetchCalls.length, 0)
   assert.equal(skipResult.generated, 0)
-  ok("a row with generated_text already set is excluded from the query (never re-generated)")
+  ok("an observation row with generated_text already set is excluded from the query (never re-generated)")
 
   // ================= A failed model call leaves the row for next session =================
 
   seed("fail1", { observations: [PATTERN_OBS("fail1")] })
   fetchImpl = async () => ({ ok: false })
-  const failResult = await runCompanionObservationGeneration({ userId: "fail1", aiEnabled: true, language: "en" })
+  const failResult = await runCompanionObservationGeneration(subject("fail1", true, "en"), FIXED_NOW)
   assert.equal(failResult.generated, 0)
   assert.equal(rowsIn("companion_observations")[0].generated_text, null)
   fetchImpl = async () => ({ ok: true, json: async () => ({ message: "MOCK GENERATED TEXT" }) })
@@ -262,12 +351,11 @@ try {
   // ================= Once-per-day guard =================
 
   seed("day1", { observations: [PATTERN_OBS("day1")] })
-  const NOW = new Date("2026-09-22T09:00:00")
-  const r1 = await runCompanionObservationGenerationOncePerDay({ userId: "day1", aiEnabled: true, language: "en" }, NOW)
+  const r1 = await runCompanionObservationGenerationOncePerDay(subject("day1", true, "en"), FIXED_NOW)
   assert.equal(r1.generated, 1)
   assert.equal(dayFlag("day1"), JSON.stringify("2026-09-22"))
   const callsAfterFirst = fetchCalls.length
-  const r2 = await runCompanionObservationGenerationOncePerDay({ userId: "day1", aiEnabled: true, language: "en" }, NOW)
+  const r2 = await runCompanionObservationGenerationOncePerDay(subject("day1", true, "en"), FIXED_NOW)
   assert.equal(r2, null)
   assert.equal(fetchCalls.length, callsAfterFirst)
   ok("once-per-day guard: a second call the same day is a no-op, zero extra network calls")

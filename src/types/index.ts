@@ -544,12 +544,24 @@ export interface WeeklyReview {
   // Stamped by the client when she dismisses the card or answers its goal
   // question — read by the reminders circuit-breaker as "last activity".
   interacted_at: string | null
+  // NULL until src/lib/companion-generation.ts fills it in — once, never
+  // regenerated. The Companion's enriched take on the week, built from this
+  // same row's summary_snapshot (not raw Compass data) — consolidated here
+  // from the former standalone companion_weekly_checkins.summary once that
+  // table was found to duplicate this one's Sunday trigger and (worse)
+  // independently risk re-flagging the same stale goal. A later UI prompt
+  // shows this in place of the rule-based text when present. Either a real
+  // generated message (Claude Haiku, via api/insights.ts's
+  // "companion_observation" type) or, when companion-distress-filter.ts
+  // fires first, the fixed SAFETY_FALLBACK_TEXT — the model is never called
+  // in that case.
+  companion_text: string | null
   created_at: string
 }
 
-// Companion data foundations — see supabase/migrations/20260922120000_create_companion_tables.sql
-// and src/lib/companion-triggers.ts. Detection only: nothing generates text
-// from these rows yet.
+// Companion data foundations — see supabase/migrations/20260922120000_create_companion_tables.sql,
+// src/lib/companion-triggers.ts (detection) and src/lib/companion-generation.ts
+// (text generation, generated_text below).
 export interface CompanionMessage {
   id: string
   user_id: string
@@ -579,17 +591,10 @@ export interface CompanionObservation {
   generated_text: string | null
 }
 
-export type CompanionWeeklyCheckinStatus = "pending" | "completed" | "skipped"
-
-export interface CompanionWeeklyCheckin {
-  id: string
-  user_id: string
-  week_start: string
-  status: CompanionWeeklyCheckinStatus
-  summary: string | null
-  user_response: string | null
-  created_at: string
-}
+// Note: companion_weekly_checkins the TABLE still exists in the database
+// (see the migration that added weekly_reviews.companion_text) — only its
+// TypeScript type was removed here, since nothing in the codebase reads or
+// writes it any more.
 
 // Display-ready shape returned by getTodaysAweThought — already resolved
 // to the caller's language, so the card never has to know about content_en

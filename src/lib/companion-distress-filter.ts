@@ -77,8 +77,8 @@ export function hasDistressSignal(inputs: { journalSentences: string[]; gratitud
 // Fixed, pre-written text shown instead of any generated message when
 // hasDistressSignal() fires. NEVER passed through the model — this is the
 // exact string stored in companion_observations.generated_text /
-// companion_weekly_checkins.summary for that row. Warm presence, a real
-// human resource, no diagnosis, steady register (no exclamation points),
+// weekly_reviews.companion_text for that row. Warm presence, a real human
+// resource, no diagnosis, steady register (no exclamation points),
 // consistent with the rest of the Companion's fixed-fallback copy (see
 // LOCAL_REASSURANCE_FALLBACK in src/lib/ai-service.ts).
 export const SAFETY_FALLBACK_TEXT: Record<"en" | "sw", string> = {

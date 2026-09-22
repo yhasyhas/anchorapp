@@ -15,10 +15,9 @@
 // with a unique index (see the companion tables' migration), so two tabs
 // racing the same detection can't store it twice either.
 import { LOW_MOODS } from "@/lib/move-selection"
-import { goalKeywords, untouchedGoals } from "@/lib/goal-matching"
+import { goalKeywords, pickGoalToPrompt } from "@/lib/goal-matching"
 import { ANCHOR_STREAK_MILESTONES } from "@/lib/streaks"
 import { localDateStr } from "@/lib/utils"
-import { isWeeklyReviewEligibleDay, weekStartStr } from "@/lib/week-dates"
 import type { CompanionObservationType, CompassGoal, MoodLog, MoveSuggestion } from "@/types"
 
 // ==================== SHARED TYPES ====================
@@ -63,11 +62,15 @@ function addDays(dateStr: string, delta: number): string {
 // suggestion; 3 is the spec's bar for the Companion to say something.
 export const HARD_MOMENT_MIN_DAYS = 3
 
-// Goal gap: a Compass goal is a "gap" once it has existed at least this long
-// AND none of the accepted suggestions in that same trailing window resonate
-// with it. Deliberately longer than weekly-review's GOAL_STALE_WEEKS (4):
-// the weekly card asks a light question, a Companion observation is a
-// stronger claim and shouldn't fire on a short lull.
+// Goal gap: NOT a selection window any more (see detectGoalGap below — goal
+// selection itself is fully delegated to pickGoalToPrompt, the same
+// function weekly-review.ts's own goal question uses, so the two systems
+// can never independently pick — or flag — different stale goals). This is
+// now purely a message-appropriateness threshold: the goal pickGoalToPrompt
+// selected must ALSO be at least this old before Companion is willing to
+// call it a "gap" — a stronger claim than weekly-review's light question,
+// so it shouldn't fire on a goal that's simply too young to judge yet.
+// Deliberately longer than weekly-review's GOAL_STALE_WEEKS (4).
 export const GOAL_GAP_WEEKS = 6
 
 // How far back a "first time" event may sit and still be picked up. The
@@ -80,7 +83,10 @@ export const FIRST_TIME_LOOKBACK_DAYS = 7
 // the one before it.
 export const CIRCLE_RETURN_ABSENCE_DAYS = 60
 
-// Weekly ritual: only for accounts at least this old.
+// Companion's enriched take on the week (companion-generation.ts, written
+// to weekly_reviews.companion_text) only generates for accounts at least
+// this old — same bar the old standalone companion_weekly_checkins ritual
+// used before it was folded into weekly_reviews.
 export const WEEKLY_CHECKIN_MIN_TENURE_DAYS = 21
 
 // ==================== HARD MOMENT ====================
@@ -136,50 +142,66 @@ export function detectHardMoment(input: HardMomentInput): CompanionObservationDr
 
 export interface GoalGapInput {
   goals: CompassGoal[]
-  // Every accepted daily suggestion she has (any age) — the detector applies
-  // the GOAL_GAP_WEEKS window itself.
-  accepted: { date: string; title: string }[]
+  // Accepted suggestions from the last GOAL_STALE_WEEKS (goal-matching.ts's
+  // shared window, same one weekly-review.ts uses) — the CALLER filters by
+  // date (companion-detection.ts already has the full accepted history
+  // fetched for other detectors, so it slices in-memory rather than a
+  // second DB query). Not GOAL_GAP_WEEKS: staleness matching itself is
+  // pickGoalToPrompt's concern now, not this function's.
+  acceptedTitlesSinceStale: { title: string }[]
+  // The exact same rolling-cooldown state pickGoalToPrompt uses elsewhere
+  // (weekly_reviews.goal_prompted_id history, GOAL_COOLDOWN_WEEKS back,
+  // INCLUSIVE of the current week — see fetchRecentlyPromptedGoalIds in
+  // weekly-review.ts) — a goal in this set was already asked about by the
+  // weekly review this cycle (or recently enough to still be in cooldown)
+  // and is never independently re-picked here.
+  recentlyPromptedGoalIds: Set<string>
   today: string
   existing: ExistingObservation[]
 }
 
-// A Compass goal with no matching accepted suggestion for GOAL_GAP_WEEKS
-// weeks. Matching is untouchedGoals from src/lib/goal-matching.ts — the same
-// keyword match weekly-review and Wrapped use, not a second implementation.
-//
-// Three extra conditions, all specific to a gap being a *claim* about her:
-//  - the goal must be old enough to have had the whole window (a goal she
-//    set last week has no gap yet);
-//  - the goal must yield matchable keywords at all — untouchedGoals counts
-//    an unmatchable goal as "no match" (a fine default for the weekly
-//    card's light question), but the Companion shouldn't tell her she's
-//    neglected a goal the matcher was never able to evaluate;
-//  - once per goal, ever: an existing gap observation for the same goal id,
-//    acknowledged or not, blocks it.
-// Returns the oldest qualifying goal; the rest surface on later runs, one
-// at a time, rather than arriving together.
+// Goal SELECTION is fully delegated to pickGoalToPrompt (src/lib/goal-
+// matching.ts) — the exact same function weekly-review.ts's own goal
+// question calls, over the exact same cooldown state (recentlyPromptedGoalIds,
+// caller-fetched from weekly_reviews). This used to be a parallel
+// reimplementation (its own untouchedGoals filtering, its own age window,
+// its own "once per goal ever" cooldown via dedupeKey) — which meant the
+// weekly review and the Companion could each pick a DIFFERENT stale goal,
+// or worse, both pick and separately flag the SAME one, unaware of each
+// other. There is now exactly one selection; this function only decides
+// whether to say something ADDITIONAL about the goal that selection
+// already chose:
+//  - the goal must ALSO be old enough for Companion's stronger claim
+//    (GOAL_GAP_WEEKS — a message-appropriateness threshold, not a second
+//    selection pass: it can only suppress the shared pick, never choose a
+//    different goal);
+//  - the goal must yield matchable keywords at all — pickGoalToPrompt (via
+//    untouchedGoals) treats an unmatchable goal as "stale" by default (a
+//    fine default for the weekly card's light question), but Companion
+//    shouldn't claim neglect for a goal the matcher was never able to
+//    evaluate;
+//  - once per goal, ever, for COMPANION'S OWN observation specifically: an
+//    existing gap observation for the same goal id, acknowledged or not,
+//    blocks a repeat — independent of (and in addition to) the shared
+//    cooldown above.
 export function detectGoalGap(input: GoalGapInput): CompanionObservationDraft | null {
-  const { goals, accepted, today, existing } = input
+  const { goals, acceptedTitlesSinceStale, recentlyPromptedGoalIds, today, existing } = input
+
+  const goal = pickGoalToPrompt(goals, acceptedTitlesSinceStale, recentlyPromptedGoalIds)
+  if (!goal) return null
 
   const windowStart = addDays(today, -GOAL_GAP_WEEKS * 7)
-  const acceptedInWindow = accepted.filter((a) => a.date >= windowStart).map((a) => ({ title: a.title }))
+  if (localDateStr(new Date(goal.created_at)) > windowStart) return null
+  if (goalKeywords(goal.text).length === 0) return null
 
-  const candidates = goals.filter(
-    (g) =>
-      localDateStr(new Date(g.created_at)) <= windowStart &&
-      goalKeywords(g.text).length > 0 &&
-      !hasDedupeKey(existing, `gap:${g.id}`)
-  )
+  const dedupeKey = `gap:${goal.id}`
+  if (hasDedupeKey(existing, dedupeKey)) return null
 
-  const gaps = untouchedGoals(candidates, acceptedInWindow)
-  if (gaps.length === 0) return null
-
-  const goal = [...gaps].sort((a, b) => a.created_at.localeCompare(b.created_at))[0]
   return {
     type: "gap",
     payload: {
       trigger: "goal_gap",
-      dedupeKey: `gap:${goal.id}`,
+      dedupeKey,
       goalId: goal.id,
       goalText: goal.text,
       weeks: GOAL_GAP_WEEKS,
@@ -346,31 +368,3 @@ export function detectCelebration(input: CelebrationInput): CompanionObservation
   }
 }
 
-// ==================== WEEKLY RITUAL ====================
-
-export interface WeeklyCheckinInput {
-  now: Date
-  // profiles.created_at.
-  profileCreatedAt: string
-  // week_start of every companion_weekly_checkins row she already has.
-  existingWeekStarts: string[]
-}
-
-// Not a detection, just the decision to create this week's pending row:
-// it's Sunday (same eligible day as the weekly review), the account is at
-// least WEEKLY_CHECKIN_MIN_TENURE_DAYS old, and no row exists yet for this
-// week's Monday. UNIQUE (user_id, week_start) backs the last condition in
-// the database.
-export function planWeeklyCheckin(input: WeeklyCheckinInput): { week_start: string } | null {
-  const { now, profileCreatedAt, existingWeekStarts } = input
-
-  if (!isWeeklyReviewEligibleDay(now)) return null
-
-  const tenureMs = now.getTime() - new Date(profileCreatedAt).getTime()
-  if (!(tenureMs >= WEEKLY_CHECKIN_MIN_TENURE_DAYS * 86400000)) return null
-
-  const weekStart = weekStartStr(now)
-  if (existingWeekStarts.includes(weekStart)) return null
-
-  return { week_start: weekStart }
-}

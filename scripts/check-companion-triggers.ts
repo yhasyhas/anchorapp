@@ -10,17 +10,15 @@ import {
   FIRST_TIME_LOOKBACK_DAYS,
   GOAL_GAP_WEEKS,
   HARD_MOMENT_MIN_DAYS,
-  WEEKLY_CHECKIN_MIN_TENURE_DAYS,
   detectCelebration,
   detectFirstTime,
   detectGoalGap,
   detectHardMoment,
-  planWeeklyCheckin,
   resolveAcceptedCategories,
   type CompanionObservationDraft,
   type ExistingObservation,
 } from "../src/lib/companion-triggers.ts"
-import { untouchedGoals } from "../src/lib/goal-matching.ts"
+import { GOAL_COOLDOWN_WEEKS, GOAL_STALE_WEEKS, pickGoalToPrompt } from "../src/lib/goal-matching.ts"
 import { ANCHOR_STREAK_MILESTONES } from "../src/lib/streaks.ts"
 import type { CompassGoal, MoodType } from "../src/types/index.ts"
 
@@ -144,12 +142,25 @@ test("hard moment: an already-recorded low run isn't re-recorded once acknowledg
 })
 
 // ==================== GOAL GAP ====================
+// Selection itself is now fully delegated to pickGoalToPrompt (goal-
+// matching.ts) — the same function weekly-review.ts's own goal question
+// calls — so these tests mostly confirm detectGoalGap defers to it
+// correctly and layers its OWN extra conditions (age threshold, matchable
+// keywords, its own once-ever dedupeKey) on top, rather than re-verifying
+// pickGoalToPrompt's own selection logic (covered separately below).
+const noCooldown = new Set<string>()
 
-test("goal gap: old goal, no matching accepted suggestion in the window -> gap", () => {
+test("shared goal-matching constants weekly-review.ts and Companion both build on", () => {
+  assert.equal(GOAL_STALE_WEEKS, 4)
+  assert.equal(GOAL_COOLDOWN_WEEKS, 8)
+})
+
+test("goal gap: old goal, no matching accepted suggestion -> gap", () => {
   const g = goal("g1", "Meditate every morning", 50)
   const d = detectGoalGap({
     goals: [g],
-    accepted: [{ date: ago(3), title: "Take a walk outside" }],
+    acceptedTitlesSinceStale: [{ title: "Take a walk outside" }],
+    recentlyPromptedGoalIds: noCooldown,
     today: TODAY,
     existing: [],
   })
@@ -158,62 +169,124 @@ test("goal gap: old goal, no matching accepted suggestion in the window -> gap",
   assert.equal(key(d), "gap:g1")
 })
 
-test("goal gap: matching reuses untouchedGoals (same result as the shared matcher)", () => {
+test("goal gap: selection reuses pickGoalToPrompt (same result as the shared selector)", () => {
   const goals = [goal("g1", "Meditate every morning", 60), goal("g2", "Practice guitar weekly", 60)]
-  const accepted = [{ date: ago(5), title: "Meditate for five minutes" }]
-  const shared = untouchedGoals(goals, accepted.map((a) => ({ title: a.title }))).map((g) => g.id)
-  assert.deepEqual(shared, ["g2"])
-  assert.equal(detectGoalGap({ goals, accepted, today: TODAY, existing: [] })?.payload.goalId, "g2")
+  const acceptedTitlesSinceStale = [{ title: "Meditate for five minutes" }]
+  const shared = pickGoalToPrompt(goals, acceptedTitlesSinceStale, noCooldown)
+  assert.equal(shared?.id, "g2")
+  assert.equal(
+    detectGoalGap({ goals, acceptedTitlesSinceStale, recentlyPromptedGoalIds: noCooldown, today: TODAY, existing: [] })
+      ?.payload.goalId,
+    "g2"
+  )
 })
 
-test("goal gap: a goal younger than the window has no gap yet", () => {
+test("goal gap: a matching accepted title clears the shared pick entirely (null, not just skipped)", () => {
+  const g = goal("g1", "Meditate every morning", 90)
+  const d = detectGoalGap({
+    goals: [g],
+    acceptedTitlesSinceStale: [{ title: "Meditate for a few minutes" }],
+    recentlyPromptedGoalIds: noCooldown,
+    today: TODAY,
+    existing: [],
+  })
+  assert.equal(d, null)
+})
+
+test("goal gap: a goal younger than GOAL_GAP_WEEKS is picked by the shared selector but Companion stays silent", () => {
   const g = goal("g1", "Meditate every morning", GOAL_GAP_WEEKS * 7 - 7)
-  assert.equal(detectGoalGap({ goals: [g], accepted: [], today: TODAY, existing: [] }), null)
+  // Confirm the shared selector itself has no opinion on age (that's
+  // Companion's own extra threshold, applied on top, not a second
+  // selection pass).
+  assert.equal(pickGoalToPrompt([g], [], noCooldown)?.id, "g1")
+  assert.equal(
+    detectGoalGap({ goals: [g], acceptedTitlesSinceStale: [], recentlyPromptedGoalIds: noCooldown, today: TODAY, existing: [] }),
+    null
+  )
 })
 
 test("goal gap: a goal exactly GOAL_GAP_WEEKS old qualifies", () => {
   const g = goal("g1", "Meditate every morning", GOAL_GAP_WEEKS * 7)
-  assert.notEqual(detectGoalGap({ goals: [g], accepted: [], today: TODAY, existing: [] }), null)
+  assert.notEqual(
+    detectGoalGap({ goals: [g], acceptedTitlesSinceStale: [], recentlyPromptedGoalIds: noCooldown, today: TODAY, existing: [] }),
+    null
+  )
 })
 
-test("goal gap: a matching acceptance inside the window clears it", () => {
-  const g = goal("g1", "Meditate every morning", 90)
-  const accepted = [{ date: ago(GOAL_GAP_WEEKS * 7 - 1), title: "Meditate for a few minutes" }]
-  assert.equal(detectGoalGap({ goals: [g], accepted, today: TODAY, existing: [] }), null)
-})
-
-test("goal gap: a matching acceptance OLDER than the window does not clear it", () => {
-  const g = goal("g1", "Meditate every morning", 120)
-  const accepted = [{ date: ago(GOAL_GAP_WEEKS * 7 + 5), title: "Meditate for a few minutes" }]
-  assert.notEqual(detectGoalGap({ goals: [g], accepted, today: TODAY, existing: [] }), null)
-})
-
-test("goal gap: once per goal — an existing gap blocks it, acknowledged or not", () => {
+test("goal gap: once per goal, ever, for Companion's OWN observation — an existing gap blocks it, acknowledged or not", () => {
   const g = goal("g1", "Meditate every morning", 90)
   for (const acknowledged of [false, true]) {
     const existing = [obs("gap", { dedupeKey: "gap:g1" }, acknowledged)]
-    assert.equal(detectGoalGap({ goals: [g], accepted: [], today: TODAY, existing }), null)
+    assert.equal(
+      detectGoalGap({ goals: [g], acceptedTitlesSinceStale: [], recentlyPromptedGoalIds: noCooldown, today: TODAY, existing }),
+      null
+    )
   }
 })
 
 test("goal gap: a gap for another goal doesn't block this one", () => {
   const g = goal("g2", "Meditate every morning", 90)
   const existing = [obs("gap", { dedupeKey: "gap:g1" }, true)]
-  assert.equal(key(detectGoalGap({ goals: [g], accepted: [], today: TODAY, existing })), "gap:g2")
+  assert.equal(
+    key(
+      detectGoalGap({ goals: [g], acceptedTitlesSinceStale: [], recentlyPromptedGoalIds: noCooldown, today: TODAY, existing })
+    ),
+    "gap:g2"
+  )
 })
 
 test("goal gap: a goal with no matchable keywords is never claimed as a gap", () => {
   const g = goal("g1", "Be me", 90)
-  assert.equal(detectGoalGap({ goals: [g], accepted: [], today: TODAY, existing: [] }), null)
+  assert.equal(
+    detectGoalGap({ goals: [g], acceptedTitlesSinceStale: [], recentlyPromptedGoalIds: noCooldown, today: TODAY, existing: [] }),
+    null
+  )
 })
 
-test("goal gap: several qualify -> the oldest goal, one at a time", () => {
+test("goal gap: several qualify -> the oldest goal, same as the shared selector picks", () => {
   const goals = [goal("new", "Learn watercolour painting", 70), goal("old", "Meditate every morning", 200)]
-  assert.equal(key(detectGoalGap({ goals, accepted: [], today: TODAY, existing: [] })), "gap:old")
+  assert.equal(
+    key(
+      detectGoalGap({ goals, acceptedTitlesSinceStale: [], recentlyPromptedGoalIds: noCooldown, today: TODAY, existing: [] })
+    ),
+    "gap:old"
+  )
 })
 
 test("goal gap: no goals -> null", () => {
-  assert.equal(detectGoalGap({ goals: [], accepted: [], today: TODAY, existing: [] }), null)
+  assert.equal(
+    detectGoalGap({ goals: [], acceptedTitlesSinceStale: [], recentlyPromptedGoalIds: noCooldown, today: TODAY, existing: [] }),
+    null
+  )
+})
+
+// ---- The actual bug this consolidation fixes: shared cooldown state ----
+
+test("goal gap: a goal in recentlyPromptedGoalIds (weekly review already asked about it this cycle) is NEVER picked", () => {
+  const g = goal("g1", "Meditate every morning", 90)
+  const cooldown = new Set(["g1"])
+  assert.equal(
+    detectGoalGap({ goals: [g], acceptedTitlesSinceStale: [], recentlyPromptedGoalIds: cooldown, today: TODAY, existing: [] }),
+    null
+  )
+  // Confirm it's specifically the shared cooldown doing this, not some
+  // other condition — the exact same goal, same inputs, minus the
+  // cooldown, DOES qualify.
+  assert.notEqual(
+    detectGoalGap({ goals: [g], acceptedTitlesSinceStale: [], recentlyPromptedGoalIds: noCooldown, today: TODAY, existing: [] }),
+    null
+  )
+})
+
+test("goal gap: cooldown on one goal doesn't block a different, older, also-qualifying goal", () => {
+  const goals = [goal("asked", "Meditate every morning", 200), goal("not_asked", "Practice guitar weekly", 150)]
+  const cooldown = new Set(["asked"])
+  assert.equal(
+    key(
+      detectGoalGap({ goals, acceptedTitlesSinceStale: [], recentlyPromptedGoalIds: cooldown, today: TODAY, existing: [] })
+    ),
+    "gap:not_asked"
+  )
 })
 
 // ==================== FIRST TIME ====================
@@ -445,43 +518,6 @@ test("celebration: reaching the next milestone still fires", () => {
   assert.equal(detectCelebration({ currentAnchorStreak: 14, existing })?.payload.milestone, 14)
 })
 
-// ==================== WEEKLY RITUAL ====================
-
-const SUNDAY = new Date(2026, 8, 27, 10, 0, 0) // local Sunday 2026-09-27
-const iso = (d: Date) => d.toISOString()
-const daysBefore = (from: Date, n: number) => new Date(from.getTime() - n * 86400000)
-
-test("weekly ritual: Sunday, >= 3 weeks in, no row yet -> create this week's Monday", () => {
-  const plan = planWeeklyCheckin({ now: SUNDAY, profileCreatedAt: iso(daysBefore(SUNDAY, 30)), existingWeekStarts: [] })
-  assert.deepEqual(plan, { week_start: "2026-09-21" })
-})
-
-test("weekly ritual: not created on any day but Sunday", () => {
-  for (let day = 21; day <= 26; day++) {
-    const now = new Date(2026, 8, day, 10, 0, 0)
-    const plan = planWeeklyCheckin({ now, profileCreatedAt: iso(daysBefore(now, 60)), existingWeekStarts: [] })
-    assert.equal(plan, null, `day ${day}`)
-  }
-})
-
-test("weekly ritual: tenure threshold is exactly WEEKLY_CHECKIN_MIN_TENURE_DAYS", () => {
-  assert.equal(WEEKLY_CHECKIN_MIN_TENURE_DAYS, 21)
-  const at = (days: number) =>
-    planWeeklyCheckin({ now: SUNDAY, profileCreatedAt: iso(daysBefore(SUNDAY, days)), existingWeekStarts: [] })
-  assert.notEqual(at(21), null)
-  assert.equal(at(20), null)
-  assert.equal(at(0), null)
-})
-
-test("weekly ritual: no duplicate for a week_start that already has a row", () => {
-  const created = iso(daysBefore(SUNDAY, 60))
-  assert.equal(planWeeklyCheckin({ now: SUNDAY, profileCreatedAt: created, existingWeekStarts: ["2026-09-21"] }), null)
-  // A row for another week doesn't block this one.
-  assert.deepEqual(planWeeklyCheckin({ now: SUNDAY, profileCreatedAt: created, existingWeekStarts: ["2026-09-14"] }), {
-    week_start: "2026-09-21",
-  })
-})
-
 // ==================== IDEMPOTENCY (detect -> store -> detect) ====================
 
 test("no duplicates: a second pass over everything already detected yields nothing", () => {
@@ -498,7 +534,13 @@ test("no duplicates: a second pass over everything already detected yields nothi
   const pass = () => {
     const drafts = [
       detectHardMoment({ moods, today: TODAY, existing: store }),
-      detectGoalGap({ goals, accepted: acceptedTitles, today: TODAY, existing: store }),
+      detectGoalGap({
+        goals,
+        acceptedTitlesSinceStale: acceptedTitles,
+        recentlyPromptedGoalIds: noCooldown,
+        today: TODAY,
+        existing: store,
+      }),
       detectFirstTime({ accepted, circleActionDates, today: TODAY, existing: store }),
       detectCelebration({ currentAnchorStreak: 15, existing: store }),
     ].filter((d): d is CompanionObservationDraft => d !== null)

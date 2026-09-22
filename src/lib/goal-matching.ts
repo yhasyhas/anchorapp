@@ -49,3 +49,44 @@ function goalHasRecentMatch(goal: CompassGoal, acceptedTitles: { title: string }
 export function untouchedGoals(goals: CompassGoal[], acceptedTitles: { title: string }[]): CompassGoal[] {
   return goals.filter((g) => !goalHasRecentMatch(g, acceptedTitles))
 }
+
+// ==================== SHARED STALE-GOAL SELECTION ====================
+//
+// Moved here from weekly-review.ts (which re-exports both, so existing
+// importers there are unaffected) specifically so companion-triggers.ts can
+// reuse the exact same selection — not a parallel reimplementation of it —
+// without pulling in weekly-review.ts's supabase/compass dependency chain
+// (companion-triggers.ts must stay importable under plain tsx, same
+// reasoning as untouchedGoals/goalKeywords above). This was the actual bug
+// behind weekly_reviews and the Companion's "gap" observation being able to
+// independently pick, and separately flag, the SAME stale goal to the same
+// user the same week: two selection algorithms with two different cooldown
+// policies over the same underlying signal. There is now exactly one.
+
+// A Compass goal counts as "stale" once none of the accepted suggestions in
+// this many trailing weeks resonate with it.
+export const GOAL_STALE_WEEKS = 4
+
+// Once a goal has been asked about (goal_prompted_id set on a past weekly
+// review), it's skipped from selection for this many weeks — regardless of
+// whether she answered the sub-question or just dismissed the card.
+export const GOAL_COOLDOWN_WEEKS = 8
+
+// Among the user's Compass goals, picks the single oldest one that's both
+// stale (no matching accepted suggestion in the last GOAL_STALE_WEEKS) and
+// not in cooldown (not asked about in the last GOAL_COOLDOWN_WEEKS) — or
+// null when none qualify. Never more than one, per spec. The single
+// selection function both weekly_reviews' goal question (weekly-review.ts)
+// and the Companion's "gap" observation (companion-triggers.ts) call — see
+// that module's detectGoalGap for how it layers its own stronger-claim
+// threshold on top without re-selecting anything.
+export function pickGoalToPrompt(
+  goals: CompassGoal[],
+  acceptedTitlesSinceStale: { title: string }[],
+  recentlyPromptedGoalIds: Set<string>
+): CompassGoal | null {
+  const eligible = untouchedGoals(goals, acceptedTitlesSinceStale).filter((g) => !recentlyPromptedGoalIds.has(g.id))
+  if (eligible.length === 0) return null
+  eligible.sort((a, b) => a.created_at.localeCompare(b.created_at))
+  return eligible[0]
+}

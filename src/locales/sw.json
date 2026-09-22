@@ -469,6 +469,22 @@
     "listen": "Sikiliza",
     "stop": "Simamisha"
   },
+  "companion_panel": {
+    "entry_label": "Mwenzako",
+    "entry_label_with_new": "Mwenzako — kuna jambo jipya",
+    "title": "Mwenzako",
+    "empty_title": "Hakuna kitu kipya kwa sasa",
+    "empty_desc": "Mwenzako akiona jambo la kutaja, litaonekana hapa.",
+    "type_pattern": "Ujumbe wa upole",
+    "type_gap": "Pengo dogo",
+    "type_celebration": "Inafaa kusherehekewa",
+    "type_first_time": "Mara ya kwanza",
+    "acknowledge": "Nimeelewa",
+    "gap_reply_still_true": "Bado ni kweli",
+    "gap_reply_changed": "Mambo yamebadilika",
+    "celebration_reply_good": "Inasikika vizuri",
+    "celebration_reply_proud": "Ninajivunia hili"
+  },
   "streaks": {
     "mood": "Mfululizo wa hisia",
     "anchors": "Mfululizo wa nanga",

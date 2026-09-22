@@ -97,16 +97,27 @@ export function WeeklyReviewCard() {
           </button>
         </div>
 
-        {dominantValues && dominantValues.length > 0 && (
-          <p className="text-sm text-foreground/90">
-            {t("weekly_review.values", { values: dominantValues.map((v) => t(`compass.values.${v.toLowerCase()}`)).join(", ") })}
-          </p>
-        )}
+        {/* companion_text (Companion's enriched take on the week, grounded in
+            this same summary_snapshot — see companion-generation.ts) takes
+            over from the rule-based lines below when present. Never both at
+            once: either her Companion's own words, or the plain
+            values/counts sentences, never stacked. */}
+        {review.companion_text ? (
+          <p className="text-sm text-foreground/90">{review.companion_text}</p>
+        ) : (
+          <>
+            {dominantValues && dominantValues.length > 0 && (
+              <p className="text-sm text-foreground/90">
+                {t("weekly_review.values", { values: dominantValues.map((v) => t(`compass.values.${v.toLowerCase()}`)).join(", ") })}
+              </p>
+            )}
 
-        {hasSuggestionSummary && (
-          <p className="text-sm text-muted-foreground">
-            {t("weekly_review.suggestions_summary", { accepted: acceptedCount, declined: declinedCount })}
-          </p>
+            {hasSuggestionSummary && (
+              <p className="text-sm text-muted-foreground">
+                {t("weekly_review.suggestions_summary", { accepted: acceptedCount, declined: declinedCount })}
+              </p>
+            )}
+          </>
         )}
 
         {showGoalQuestion && (

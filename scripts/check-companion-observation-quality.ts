@@ -100,11 +100,21 @@ const FIXTURES: Fixture[] = [
     timeOfDay: "night",
   },
   {
-    label: "weekly_checkin — EN",
+    // Post-consolidation shape: anchoring facts come from weekly_reviews'
+    // own summary_snapshot (already computed by weekly-review.ts), not raw
+    // Compass data — see companion-generation.ts's weekly branch. No
+    // compassValues/compassGoals for this type any more.
+    label: "weekly_checkin — EN (from weekly_reviews.summary_snapshot)",
     observationType: "weekly_checkin",
-    payload: { weekStart: "2026-09-21" },
-    compassValues: ["Peace", "Growth"],
-    compassGoals: ["Be gentler with myself"],
+    payload: {
+      weekStart: "2026-09-21",
+      acceptedCount: 4,
+      declinedCount: 1,
+      dominantValues: ["Peace", "Growth"],
+      goalPromptedText: "Be gentler with myself",
+    },
+    compassValues: [],
+    compassGoals: [],
     excerpts: ["trying to notice when I'm being hard on myself"],
     language: "en",
     localDate: "2026-09-22",

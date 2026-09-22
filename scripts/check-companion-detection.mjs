@@ -27,6 +27,12 @@ function builder(name) {
     insert(row) { op = "insert"; payload = row; return api },
     eq(c, v) { filters.push((r) => r[c] === v); return api },
     gte(c, v) { filters.push((r) => r[c] >= v); return api },
+    lte(c, v) { filters.push((r) => r[c] <= v); return api },
+    // Only the one shape this app's code actually sends: .not(col, "is", null).
+    not(c, kind, v) {
+      if (kind === "is" && v === null) filters.push((r) => r[c] !== null && r[c] !== undefined)
+      return api
+    },
     then(resolve) {
       db.calls.push(op + ":" + name)
       const table = (db.tables[name] ??= [])
@@ -39,9 +45,6 @@ function builder(name) {
             table.some((r) => r.user_id === payload.user_id && r.type === "pattern" && !r.acknowledged)
           if (dup || pending) return resolve(violation)
           table.push({ acknowledged: false, shown_at: null, user_response: null, ...payload })
-        } else if (name === "companion_weekly_checkins") {
-          if (table.some((r) => r.user_id === payload.user_id && r.week_start === payload.week_start)) return resolve(violation)
-          table.push({ ...payload })
         } else table.push({ ...payload })
         return resolve({ data: null, error: null })
       }
@@ -114,21 +117,28 @@ try {
     d.setDate(d.getDate() - n)
     return d
   }
-  const CREATED_60_DAYS_AGO = daysAgo(60).toISOString()
   const sundayOnOrAfter = (d) => {
     const s = new Date(d)
     s.setDate(s.getDate() + ((7 - s.getDay()) % 7))
     s.setHours(10, 0, 0, 0)
     return s
   }
+  // weekStartStr always resolves to that week's MONDAY (see week-dates.ts),
+  // 6 days before the Sunday sundayOnOrAfter() returns — needed to build
+  // weekly_reviews fixture rows with a realistic week_start.
+  const mondayOfSunday = (sunday) => {
+    const m = new Date(sunday)
+    m.setDate(m.getDate() - 6)
+    return fmt(m)
+  }
 
-  // Data that trips ALL four detectors (and, on a Sunday, the weekly row):
-  // 3 low moods -> hard moment; a 90-day-old Compass goal nothing matches ->
-  // goal gap; a Circle return after 100 days + a first accepted "social"
-  // suggestion -> first_time; an 8-day complete anchor streak -> celebration.
-  // Everything is dated relative to `base` (the "now" the run is given) —
-  // except the anchors: calculateStreaks reads the real clock, so those stay
-  // relative to the real today.
+  // Data that trips ALL four detectors: 3 low moods -> hard moment; a
+  // 90-day-old Compass goal nothing matches, and no weekly_reviews cooldown
+  // on it -> goal gap; a Circle return after 100 days + a first accepted
+  // "social" suggestion -> first_time; an 8-day complete anchor streak ->
+  // celebration. Everything is dated relative to `base` (the "now" the run
+  // is given) — except the anchors: calculateStreaks reads the real clock,
+  // so those stay relative to the real today.
   function seed(uid, base = NOW) {
     db.tables = {}
     db.calls = []
@@ -148,7 +158,7 @@ try {
     db.goals = [{ id: "g1", text: "Meditate every morning", created_at: relativeTo(base, 90).toISOString() }]
     db.circle = [relativeTo(base, 1).toISOString(), relativeTo(base, 101).toISOString()]
   }
-  const subject = (userId, aiEnabled) => ({ userId, profileCreatedAt: CREATED_60_DAYS_AGO, aiEnabled })
+  const subject = (userId, aiEnabled) => ({ userId, aiEnabled })
   const rowsIn = (name) => db.tables[name] ?? []
   const insertsIn = (name) => db.calls.filter((c) => c === `insert:${name}`).length
   const dayFlag = (uid) => store.get(`anchor_companion_detection_ran_${uid}`)
@@ -164,33 +174,34 @@ try {
   seed("ctl", sunday)
   const control = await runCompanionDetection(subject("ctl", true), sunday)
   assert.equal(control.observationsCreated.length, 4, JSON.stringify(control))
-  assert.equal(control.weeklyCheckinCreated, true)
   assert.equal(rowsIn("companion_observations").length, 4)
-  assert.equal(rowsIn("companion_weekly_checkins").length, 1)
-  ok("control: toggle ON with this data stores 4 observations + the Sunday weekly row")
+  // The former standalone weekly ritual: this module must never write to
+  // that table any more (folded into weekly_reviews.companion_text,
+  // handled entirely by companion-generation.ts now).
+  assert.equal(rowsIn("companion_weekly_checkins").length, 0)
+  assert.ok(!db.calls.includes("insert:companion_weekly_checkins"))
+  ok("control: toggle ON with this data stores 4 observations, never touches companion_weekly_checkins")
 
   // 1. Toggle OFF, same data, orchestrator entry point: nothing at all.
   seed("off1", sunday)
   const off = await runCompanionDetection(subject("off1", false), sunday)
-  assert.deepEqual(off, { observationsCreated: [], weeklyCheckinCreated: false })
+  assert.deepEqual(off, { observationsCreated: [] })
   assert.equal(rowsIn("companion_observations").length, 0)
-  assert.equal(rowsIn("companion_weekly_checkins").length, 0)
   assert.equal(db.calls.length, 0, `expected zero calls, got ${JSON.stringify(db.calls)}`)
-  ok("toggle OFF (same triggering data, Sunday, 60-day account): 0 observations, 0 weekly rows, 0 network calls")
+  ok("toggle OFF (same triggering data, Sunday): 0 observations, 0 network calls")
 
   // 2. Toggle OFF through the once-per-day entry point the hook calls.
   seed("off2", sunday)
   assert.equal(await runCompanionDetectionOncePerDay(subject("off2", false), sunday), null)
-  assert.equal(insertsIn("companion_observations") + insertsIn("companion_weekly_checkins"), 0)
+  assert.equal(insertsIn("companion_observations"), 0)
   assert.equal(db.calls.length, 0)
-  assert.equal(rowsIn("companion_observations").length + rowsIn("companion_weekly_checkins").length, 0)
+  assert.equal(rowsIn("companion_observations").length, 0)
   ok("toggle OFF via runCompanionDetectionOncePerDay: returns null, zero calls, zero rows")
 
   // 3. A skipped run must not burn today's slot: enabling later the same day still runs.
   assert.equal(dayFlag("off2"), undefined)
   const enabledLater = await runCompanionDetectionOncePerDay(subject("off2", true), sunday)
   assert.equal(enabledLater.observationsCreated.length, 4)
-  assert.equal(enabledLater.weeklyCheckinCreated, true)
   assert.equal(dayFlag("off2"), JSON.stringify(fmt(sunday)))
   ok("toggle off -> on the same day: the skipped run didn't consume the day; detection then runs and stores")
 
@@ -218,7 +229,7 @@ try {
   // 6. The guard is strict: only a literal true enables it.
   seed("off5", sunday)
   for (const falsy of [false, undefined, null, 0, ""]) {
-    await runCompanionDetection({ userId: "off5", profileCreatedAt: CREATED_60_DAYS_AGO, aiEnabled: falsy }, sunday)
+    await runCompanionDetection({ userId: "off5", aiEnabled: falsy }, sunday)
   }
   assert.equal(db.calls.length, 0)
   ok("falsy aiEnabled values (false/undefined/null/0/'') are all treated as OFF")
@@ -265,27 +276,29 @@ try {
   assert.ok(retried && retried.observationsCreated.length >= 1)
   ok("a failed run leaves the day flag unset, isn't hammered this page load, and retries next day")
 
-  seed("U4")
-  const saturday = new Date(sunday)
-  saturday.setDate(saturday.getDate() - 1)
-  const sat = await runCompanionDetection(subject("U4", true), saturday)
-  assert.equal(sat.weeklyCheckinCreated, false)
-  assert.ok(!db.calls.includes("select:companion_weekly_checkins") && !db.calls.includes("insert:companion_weekly_checkins"))
-  const sun1 = await runCompanionDetection(subject("U4", true), sunday)
-  const sun2 = await runCompanionDetection(subject("U4", true), sunday)
-  assert.equal(sun1.weeklyCheckinCreated, true)
-  assert.equal(sun2.weeklyCheckinCreated, false)
-  assert.equal(rowsIn("companion_weekly_checkins").length, 1)
-  assert.equal(rowsIn("companion_weekly_checkins")[0].status, "pending")
-  ok("weekly ritual: none on Saturday, exactly one pending row on Sunday, no duplicate on a second run")
+  // ================= Consolidation: shared goal cooldown with weekly_reviews =================
+  // The actual bug this consolidation fixes: detectGoalGap must never flag a
+  // goal the weekly review already asked about (weekly_reviews.goal_prompted_id)
+  // within the shared cooldown window — proven here at the orchestrator level
+  // (fetchRecentlyPromptedGoalIds really reads weekly_reviews), not just at
+  // the pure-detectGoalGap level already covered in check-companion-triggers.ts.
 
-  seed("U5")
-  const young = await runCompanionDetection(
-    { userId: "U5", profileCreatedAt: daysAgo(10).toISOString(), aiEnabled: true },
-    sunday
-  )
-  assert.equal(young.weeklyCheckinCreated, false)
-  ok("weekly ritual: no row for an account under 3 weeks old")
+  const u4Now = sundayOnOrAfter(NOW)
+  seed("U4", u4Now)
+  db.tables.weekly_reviews = [
+    { user_id: "U4", week_start: mondayOfSunday(u4Now), goal_prompted_id: "g1", status: "shown" },
+  ]
+  const cooled = await runCompanionDetection(subject("U4", true), u4Now)
+  assert.deepEqual(rowsIn("companion_observations").map((o) => o.type).sort(), ["celebration", "first_time", "pattern"])
+  assert.equal(cooled.observationsCreated.length, 3, JSON.stringify(cooled))
+  ok("goal already prompted by weekly_reviews this week: Companion's gap detector stays silent on it (only 3 of the 4 usual observations)")
+
+  const u5Now = sundayOnOrAfter(NOW)
+  seed("U5", u5Now)
+  db.tables.weekly_reviews = [{ user_id: "U5", week_start: "2020-01-06", goal_prompted_id: "g1", status: "shown" }]
+  const notCooled = await runCompanionDetection(subject("U5", true), u5Now)
+  assert.equal(notCooled.observationsCreated.length, 4, JSON.stringify(notCooled))
+  ok("a weekly_reviews prompt from long before the cooldown window doesn't block the same goal")
 
   console.log(`\nall ${count} companion-detection checks passed`)
 } finally {

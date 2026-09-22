@@ -18,11 +18,13 @@ import { getAuthHeader } from "@/lib/ai-service"
 import { getCompass } from "@/lib/compass"
 import { goalKeywords } from "@/lib/goal-matching"
 import { filterByKeywords } from "@/lib/daily-suggestion"
+import { WEEKLY_CHECKIN_MIN_TENURE_DAYS } from "@/lib/companion-triggers"
+import { weekStartStr } from "@/lib/week-dates"
 import i18n from "@/lib/i18n"
 import { hasDistressSignal, SAFETY_FALLBACK_TEXT } from "@/lib/companion-distress-filter"
-import { getUserLocalData, setUserLocalData } from "@/lib/user-storage"
+import { runOncePerPeriod } from "@/lib/once-per-period"
 import { localDateStr } from "@/lib/utils"
-import type { CompanionObservation, CompanionWeeklyCheckin } from "@/types"
+import type { CompanionObservation, WeeklyReview } from "@/types"
 
 // How far back Journal/Jar entries are read — both for the safety filter
 // (wants a generous, conservative window) and as the pool excerpts get
@@ -110,6 +112,12 @@ export interface CompanionGenerationSubject {
   userId: string
   aiEnabled: boolean
   language: "en" | "sw"
+  // profiles.created_at — gates the weekly companion_text enrichment (below)
+  // to WEEKLY_CHECKIN_MIN_TENURE_DAYS, the same tenure bar the old
+  // standalone companion_weekly_checkins ritual used before it was folded
+  // into weekly_reviews. Not required for per-observation generation, which
+  // has no tenure gate of its own.
+  profileCreatedAt: string
 }
 
 export interface CompanionGenerationResult {
@@ -120,29 +128,41 @@ export interface CompanionGenerationResult {
 const NOTHING_GENERATED: CompanionGenerationResult = { generated: 0, safetyFallbackUsed: false }
 
 // One full generation pass: fills generated_text on every pending
-// companion_observations row and summary on every pending, un-summarized
-// companion_weekly_checkins row for this user. Throws if a core read/update
-// fails, mirroring runCompanionDetection's contract, so the caller can leave
-// the once-a-day flag unset and retry next session. An individual failed
-// *generation* call (Anthropic down, bad key, timeout) is NOT thrown — it's
-// caught and that one row is simply left for next session (see the per-row
-// try/catch below), exactly per anchor-companion-design.md section 6.
+// companion_observations row, and — separately — companion_text on THIS
+// week's weekly_reviews row, if one already exists (created by the
+// existing weekly-review.ts flow, which already validated minimum weekly
+// activity; this module never creates a weekly_reviews row itself) and the
+// account is old enough. Throws if a core read/update fails, mirroring
+// runCompanionDetection's contract, so the caller can leave the once-a-day
+// flag unset and retry next session. An individual failed *generation* call
+// (Anthropic down, bad key, timeout) is NOT thrown — it's caught and that
+// one row is simply left for next session (see the per-row try/catch
+// below), exactly per anchor-companion-design.md section 6.
 export async function runCompanionObservationGeneration(
   subject: CompanionGenerationSubject,
   now: Date = new Date()
 ): Promise<CompanionGenerationResult> {
   if (!subject.aiEnabled) return NOTHING_GENERATED
 
-  const { userId, language } = subject
+  const { userId, language, profileCreatedAt } = subject
 
-  const [obsRes, weeklyRes, journalRes, gratitudeRes, compass] = await Promise.all([
+  const tenureMs = now.getTime() - new Date(profileCreatedAt).getTime()
+  const tenureEligible = tenureMs >= WEEKLY_CHECKIN_MIN_TENURE_DAYS * 86400000
+
+  const [obsRes, weeklyReviewRes, journalRes, gratitudeRes, compass] = await Promise.all([
     supabase.from("companion_observations").select("*").eq("user_id", userId).is("generated_text", null),
-    supabase
-      .from("companion_weekly_checkins")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("status", "pending")
-      .is("summary", null),
+    // Only queried once the (cheap) tenure check already passed — an
+    // account too young for the weekly enrichment skips this read entirely,
+    // same "cheap gates before a query" shape the old planWeeklyCheckin had.
+    tenureEligible
+      ? supabase
+          .from("weekly_reviews")
+          .select("*")
+          .eq("user_id", userId)
+          .eq("week_start", weekStartStr(now))
+          .is("companion_text", null)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
     supabase
       .from("journal_entries")
       .select("sentence,date")
@@ -157,13 +177,15 @@ export async function runCompanionObservationGeneration(
       .limit(50),
     getCompass(userId),
   ])
-  for (const res of [obsRes, weeklyRes, journalRes, gratitudeRes]) {
+  for (const res of [obsRes, weeklyReviewRes, journalRes, gratitudeRes]) {
     if (res.error) throw res.error
   }
 
   const pendingObservations = (obsRes.data ?? []) as CompanionObservation[]
-  const pendingWeekly = (weeklyRes.data ?? []) as CompanionWeeklyCheckin[]
-  if (pendingObservations.length === 0 && pendingWeekly.length === 0) return NOTHING_GENERATED
+  // At most one — this week's row, if it exists, is old enough, and
+  // doesn't already have companion_text. Never created here.
+  const pendingWeeklyReview = (weeklyReviewRes.data ?? null) as WeeklyReview | null
+  if (pendingObservations.length === 0 && !pendingWeeklyReview) return NOTHING_GENERATED
 
   const journal = (journalRes.data ?? []) as JournalRow[]
   const gratitude = (gratitudeRes.data ?? []) as GratitudeRow[]
@@ -180,11 +202,11 @@ export async function runCompanionObservationGeneration(
       ...pendingObservations.map((o) =>
         supabase.from("companion_observations").update({ generated_text: fallback }).eq("id", o.id)
       ),
-      ...pendingWeekly.map((w) =>
-        supabase.from("companion_weekly_checkins").update({ summary: fallback }).eq("id", w.id)
-      ),
+      ...(pendingWeeklyReview
+        ? [supabase.from("weekly_reviews").update({ companion_text: fallback }).eq("id", pendingWeeklyReview.id)]
+        : []),
     ])
-    return { generated: pendingObservations.length + pendingWeekly.length, safetyFallbackUsed: true }
+    return { generated: pendingObservations.length + (pendingWeeklyReview ? 1 : 0), safetyFallbackUsed: true }
   }
 
   const compassValues = translateCompassValues((compass?.value_tags ?? []).slice(0, MAX_COMPASS_ITEMS), language)
@@ -215,24 +237,44 @@ export async function runCompanionObservationGeneration(
     }
   }
 
-  for (const wc of pendingWeekly) {
+  if (pendingWeeklyReview) {
     try {
+      const snapshot = pendingWeeklyReview.summary_snapshot
+      // Anchoring facts come from summary_snapshot — already computed by
+      // weekly-review.ts's own flow (accepted/declined counts, dominant
+      // values, the one stale goal it already asked about) — NOT the raw
+      // Compass value_tags/goals every other observation type gets, per
+      // the consolidation: this is the more precise, already-validated
+      // weekly signal, not a second guess at it.
       const excerpts = selectExcerpts("weekly_checkin", {}, journal, gratitude)
       const message = await requestCompanionObservationText({
         observationType: "weekly_checkin",
-        payload: { weekStart: wc.week_start },
-        compassValues,
-        compassGoals,
+        payload: {
+          weekStart: snapshot.weekStart,
+          acceptedCount: snapshot.acceptedCount,
+          declinedCount: snapshot.declinedCount,
+          dominantValues: snapshot.dominantValues,
+          goalPromptedText: snapshot.goalPromptedText,
+        },
+        compassValues: [],
+        compassGoals: [],
         excerpts,
         language,
         localDate,
         timeOfDay: timeBucket,
       })
-      if (!message) continue
-      const { error } = await supabase.from("companion_weekly_checkins").update({ summary: message }).eq("id", wc.id)
-      if (!error) generated++
+      if (message) {
+        // Anthropic call failed — leave NULL, retried next session (same
+        // "just don't write anything" outcome the observations loop's
+        // `if (!message) continue` gets, no loop to continue here).
+        const { error } = await supabase
+          .from("weekly_reviews")
+          .update({ companion_text: message })
+          .eq("id", pendingWeeklyReview.id)
+        if (!error) generated++
+      }
     } catch (err) {
-      console.error("Companion weekly check-in generation failed:", err)
+      console.error("Companion weekly review generation failed:", err)
     }
   }
 
@@ -293,24 +335,17 @@ async function requestCompanionObservationText(body: CompanionObservationRequest
   }
 }
 
-// Runs generation at most once per user per local day — same shape and same
-// reasoning as runCompanionDetectionOncePerDay in companion-detection.ts.
-const attemptedThisSession = new Set<string>()
-
+// Runs generation at most once per user per local day — the shared
+// once-per-period guard (src/lib/once-per-period.ts), same mechanism
+// runCompanionDetectionOncePerDay and weekly-review.ts's own once-per-week
+// check use.
 export async function runCompanionObservationGenerationOncePerDay(
   subject: CompanionGenerationSubject,
   now: Date = new Date()
 ): Promise<CompanionGenerationResult | null> {
   if (!subject.aiEnabled) return null
 
-  const { userId } = subject
-  const today = localDateStr(now)
-  const sessionKey = `${userId}:${today}`
-  if (attemptedThisSession.has(sessionKey)) return null
-  if (getUserLocalData<string>(RAN_KEY_BASE, userId) === today) return null
-  attemptedThisSession.add(sessionKey)
-
-  const result = await runCompanionObservationGeneration(subject, now)
-  setUserLocalData(RAN_KEY_BASE, userId, today)
-  return result
+  return runOncePerPeriod(RAN_KEY_BASE, subject.userId, localDateStr(now), () =>
+    runCompanionObservationGeneration(subject, now)
+  )
 }

@@ -1165,8 +1165,26 @@ export function formatObservationFacts(observationType: string, payload: any): s
       return payload.isVeryFirst
         ? `She just accepted her very first suggestion ever, in the "${payload.category}" category.`
         : `She just accepted her first-ever suggestion in the "${payload.category}" category.`
-    case "weekly_checkin":
-      return "It's her weekly check-in moment."
+    case "weekly_checkin": {
+      // Anchoring facts here come from weekly_reviews.summary_snapshot
+      // (already computed by weekly-review.ts's own flow — accepted/
+      // declined counts, dominant values, the one stale goal it already
+      // asked about this week), not a fresh guess at them. dominantValues/
+      // goalPromptedText are text, not numeric/temporal, so — unlike the
+      // counts — they're passed through as plain words, same as
+      // compassValues/compassGoals elsewhere: normal "ground in her words"
+      // territory, not digit-fidelity territory.
+      const lines = [
+        `This week she accepted [[ACCEPTED_COUNT]] suggestions and declined [[DECLINED_COUNT]].`,
+        Array.isArray(payload.dominantValues) && payload.dominantValues.length > 0
+          ? `Her week leaned toward: ${payload.dominantValues.join(", ")}.`
+          : null,
+        typeof payload.goalPromptedText === "string" && payload.goalPromptedText
+          ? `The weekly review already asked her about this goal, so don't ask about it again yourself — you can reference it, but don't repeat the question: "${payload.goalPromptedText}".`
+          : null,
+      ]
+      return lines.filter(Boolean).join(" ")
+    }
     default:
       return ""
   }
@@ -1188,6 +1206,20 @@ function dayCountPhrase(n: number, language: "en" | "sw"): string {
 
 function weekCountPhrase(n: number, language: "en" | "sw"): string {
   return language === "sw" ? `wiki ${n}+` : `${n}+ week${n === 1 ? "" : "s"}`
+}
+
+// Bare numeral, no unit — unlike dayCountPhrase/weekCountPhrase, a plain
+// count (accepted/declined suggestions) doesn't carry the "which unit"
+// ambiguity that motivated bundling a unit word into those (there's no
+// Swahili equivalent of the "siku" vs "saa" mixup for a bare number), and
+// the fact sentence itself already supplies "suggestions" in prose around
+// it. Still routed through the token scheme — never handed to the model as
+// a real digit — specifically to block the OTHER failure mode found in
+// review: a spelled-out fabrication ("saba" for 7) unrelated to the real
+// count. The model writes its own surrounding words; only the digit itself
+// is off-limits.
+function countPhrase(n: number): string {
+  return String(n)
 }
 
 // Builds the token -> literal map for one request, only including the
@@ -1212,6 +1244,10 @@ export function buildLiteralTokens(observationType: string, payload: any, langua
   }
   if (observationType === "first_time" && payload.trigger === "circle_return" && typeof payload.absenceDays === "number") {
     tokens["[[ABSENCE_DAYS]]"] = dayCountPhrase(payload.absenceDays, language)
+  }
+  if (observationType === "weekly_checkin") {
+    if (typeof payload.acceptedCount === "number") tokens["[[ACCEPTED_COUNT]]"] = countPhrase(payload.acceptedCount)
+    if (typeof payload.declinedCount === "number") tokens["[[DECLINED_COUNT]]"] = countPhrase(payload.declinedCount)
   }
   return tokens
 }

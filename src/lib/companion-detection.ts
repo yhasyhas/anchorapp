@@ -6,19 +6,20 @@
 import { supabase } from "@/lib/supabase"
 import i18n from "@/lib/i18n"
 import { getCompass } from "@/lib/compass"
+import { GOAL_STALE_WEEKS, fetchRecentlyPromptedGoalIds } from "@/lib/weekly-review"
 import { listSentEncouragements } from "@/lib/circle"
 import { listSentVoiceEncouragements } from "@/lib/circle-voice"
 import { listOwnSosHistory } from "@/lib/circle-sos"
 import { materializeDefaultSuggestions } from "@/lib/move-selection"
 import { calculateStreaks } from "@/lib/streaks"
-import { getUserLocalData, setUserLocalData } from "@/lib/user-storage"
+import { runOncePerPeriod } from "@/lib/once-per-period"
 import { localDateStr } from "@/lib/utils"
+import { weekStartStr } from "@/lib/week-dates"
 import {
   detectCelebration,
   detectFirstTime,
   detectGoalGap,
   detectHardMoment,
-  planWeeklyCheckin,
   resolveAcceptedCategories,
   type CompanionObservationDraft,
   type ExistingObservation,
@@ -86,50 +87,56 @@ async function fetchCircleActionDates(): Promise<string[]> {
 
 export interface CompanionDetectionResult {
   observationsCreated: string[]
-  weeklyCheckinCreated: boolean
 }
 
 export interface CompanionDetectionSubject {
   userId: string
-  // profiles.created_at, for the weekly ritual's minimum tenure.
-  profileCreatedAt: string
   // profiles.ai_enabled — Settings' "Enable AI insights" toggle (default
   // false, opt-in). The Companion is an AI-adjacent feature, so with it off
   // nothing here runs at all. See the guard at the top of both entry points.
   aiEnabled: boolean
 }
 
-const NOTHING_DETECTED: CompanionDetectionResult = { observationsCreated: [], weeklyCheckinCreated: false }
+const NOTHING_DETECTED: CompanionDetectionResult = { observationsCreated: [] }
 
 // One full detection pass. Throws if a core read or an insert fails (a
 // duplicate is not a failure) so the caller can leave the once-a-day flag
 // unset and retry next session.
 //
 // Guard first: with "Enable AI insights" off this returns immediately —
-// before any read, before any insert (observations AND the weekly ritual
-// row), leaving nothing behind.
+// before any read, before any insert, leaving nothing behind. (The weekly
+// ritual row this used to also create here — companion_weekly_checkins —
+// was folded into weekly_reviews.companion_text; see
+// src/lib/companion-generation.ts, which reads/writes that instead.)
 export async function runCompanionDetection(
   subject: CompanionDetectionSubject,
   now: Date = new Date()
 ): Promise<CompanionDetectionResult> {
   if (!subject.aiEnabled) return NOTHING_DETECTED
 
-  const { userId, profileCreatedAt } = subject
+  const { userId } = subject
   const today = localDateStr(now)
   const historyFloor = addDays(today, -HISTORY_DAYS)
+  const weekStart = weekStartStr(now)
 
-  const [moodsRes, anchorsRes, acceptedRes, moveRes, observationsRes, compass] = await Promise.all([
-    supabase.from("mood_logs").select("*").eq("user_id", userId).gte("date", historyFloor),
-    supabase.from("daily_anchors").select("*").eq("user_id", userId).gte("date", historyFloor),
-    supabase
-      .from("daily_suggestions")
-      .select("date,suggestion_text,source_move_item_id")
-      .eq("user_id", userId)
-      .eq("status", "accepted"),
-    supabase.from("move_suggestions").select("id,title,category").eq("user_id", userId),
-    supabase.from("companion_observations").select("type,payload,acknowledged").eq("user_id", userId),
-    getCompass(userId),
-  ])
+  const [moodsRes, anchorsRes, acceptedRes, moveRes, observationsRes, compass, recentlyPromptedGoalIds] =
+    await Promise.all([
+      supabase.from("mood_logs").select("*").eq("user_id", userId).gte("date", historyFloor),
+      supabase.from("daily_anchors").select("*").eq("user_id", userId).gte("date", historyFloor),
+      supabase
+        .from("daily_suggestions")
+        .select("date,suggestion_text,source_move_item_id")
+        .eq("user_id", userId)
+        .eq("status", "accepted"),
+      supabase.from("move_suggestions").select("id,title,category").eq("user_id", userId),
+      supabase.from("companion_observations").select("type,payload,acknowledged").eq("user_id", userId),
+      getCompass(userId),
+      // The exact same cooldown state pickGoalToPrompt uses for the weekly
+      // review's own goal question (weekly-review.ts) — see detectGoalGap's
+      // own comment for why this can't be a separate, independently-tracked
+      // cooldown any more.
+      fetchRecentlyPromptedGoalIds(userId, weekStart),
+    ])
   for (const res of [moodsRes, anchorsRes, acceptedRes, moveRes, observationsRes]) {
     if (res.error) throw res.error
   }
@@ -155,11 +162,20 @@ export async function runCompanionDetection(
   const circleActionDates = await fetchCircleActionDates()
   const currentAnchorStreak = calculateStreaks(moods, anchors).currentAnchorStreak
 
+  // Same GOAL_STALE_WEEKS window weekly-review.ts's own fetchAcceptedTitlesSince
+  // applies via a DB query — done in-memory here since acceptedRows already
+  // has the full all-time history fetched above for the other detectors.
+  const staleFloor = addDays(today, -GOAL_STALE_WEEKS * 7)
+  const acceptedTitlesSinceStale = acceptedRows
+    .filter((r) => r.date >= staleFloor)
+    .map((r) => ({ title: r.suggestion_text }))
+
   const drafts = [
     detectHardMoment({ moods, today, existing }),
     detectGoalGap({
       goals: compass?.goals ?? [],
-      accepted: acceptedRows.map((r) => ({ date: r.date, title: r.suggestion_text })),
+      acceptedTitlesSinceStale,
+      recentlyPromptedGoalIds,
       today,
       existing,
     }),
@@ -175,59 +191,24 @@ export async function runCompanionDetection(
     }
   }
 
-  // Weekly ritual: a plain row, only on the eligible Sunday.
-  let weeklyCheckinCreated = false
-  const weekly = planWeeklyCheckin({ now, profileCreatedAt, existingWeekStarts: [] })
-  if (weekly) {
-    // Only read this week's rows when the (cheap) date/tenure checks already
-    // passed — every other day of the week skips the query entirely.
-    const { data, error } = await supabase
-      .from("companion_weekly_checkins")
-      .select("week_start")
-      .eq("user_id", userId)
-      .eq("week_start", weekly.week_start)
-    if (error) throw error
-    const existingWeekStarts = ((data ?? []) as { week_start: string }[]).map((r) => r.week_start)
-    if (planWeeklyCheckin({ now, profileCreatedAt, existingWeekStarts })) {
-      const { error: insertError } = await supabase
-        .from("companion_weekly_checkins")
-        .insert({ user_id: userId, week_start: weekly.week_start, status: "pending" })
-      if (!insertError) weeklyCheckinCreated = true
-      else if (insertError.code !== UNIQUE_VIOLATION) throw insertError
-    }
-  }
-
-  return { observationsCreated, weeklyCheckinCreated }
+  return { observationsCreated }
 }
 
-// Session-level guard against StrictMode double-effects / Home remounting
-// while a run is in flight or has just failed: one attempt per user per day
-// per page load. A successful run additionally persists its date in
-// localStorage, so later sessions the same day skip even the attempt.
-const attemptedThisSession = new Set<string>()
-
-// Runs the detection at most once per user per local day. Not called per
-// render: the hook calls it from an effect keyed on the user, and this
-// guard turns repeat calls into a cheap no-op. A failed run leaves the
+// Runs the detection at most once per user per local day — the shared
+// once-per-period guard (src/lib/once-per-period.ts) against StrictMode
+// double-effects / Home remounting while a run is in flight or has just
+// failed, same mechanism companion-generation.ts's OncePerDay wrapper and
+// weekly-review.ts's own once-per-week check use. A failed run leaves the
 // persisted flag unset (so the next session retries) but isn't retried
 // again within the same page load.
 export async function runCompanionDetectionOncePerDay(
   subject: CompanionDetectionSubject,
   now: Date = new Date()
 ): Promise<CompanionDetectionResult | null> {
-  // Checked before the once-a-day bookkeeping below on purpose: a skipped
-  // run must not burn today's slot, or turning the toggle on later the same
-  // day would still be locked out until tomorrow.
+  // Checked before the once-a-day bookkeeping on purpose: a skipped run
+  // must not burn today's slot, or turning the toggle on later the same day
+  // would still be locked out until tomorrow.
   if (!subject.aiEnabled) return null
 
-  const { userId } = subject
-  const today = localDateStr(now)
-  const sessionKey = `${userId}:${today}`
-  if (attemptedThisSession.has(sessionKey)) return null
-  if (getUserLocalData<string>(RAN_KEY_BASE, userId) === today) return null
-  attemptedThisSession.add(sessionKey)
-
-  const result = await runCompanionDetection(subject, now)
-  setUserLocalData(RAN_KEY_BASE, userId, today)
-  return result
+  return runOncePerPeriod(RAN_KEY_BASE, subject.userId, localDateStr(now), () => runCompanionDetection(subject, now))
 }

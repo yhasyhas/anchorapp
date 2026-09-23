@@ -34,6 +34,8 @@ const CirclePage = lazy(() => import("@/pages/circle").then((m) => ({ default: m
 const JarPage = lazy(() => import("@/pages/jar").then((m) => ({ default: m.JarPage })))
 const WrappedHistoryPage = lazy(() => import("@/pages/wrapped-history").then((m) => ({ default: m.WrappedHistoryPage })))
 const WrappedPage = lazy(() => import("@/pages/wrapped").then((m) => ({ default: m.WrappedPage })))
+const DiscoverPage = lazy(() => import("@/pages/discover").then((m) => ({ default: m.DiscoverPage })))
+const DiscoverCategoryPage = lazy(() => import("@/pages/discover-category").then((m) => ({ default: m.DiscoverCategoryPage })))
 
 function FullScreenSpinner() {
   return (
@@ -107,6 +109,8 @@ export default function App() {
             <Route path="jar" element={<JarPage />} />
             <Route path="wrapped" element={<WrappedHistoryPage />} />
             <Route path="wrapped/:monthStart" element={<WrappedPage />} />
+            <Route path="discover" element={<DiscoverPage />} />
+            <Route path="discover/:category" element={<DiscoverCategoryPage />} />
           </Route>
           <Route
             path="/settings"

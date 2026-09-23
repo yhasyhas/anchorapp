@@ -195,6 +195,7 @@
     "wrapped_status_available": "{{month}} tayari",
     "wrapped_status_next": "Mwezi ujao",
     "compass": "Dira",
+    "discover": "Gundua",
     "reflections": "Tafakari za kina"
   },
   "pause": {
@@ -568,6 +569,13 @@
       "space": "Anga",
       "people": "Watu"
     }
+  },
+  "discover": {
+    "title": "Gundua",
+    "subtitle": "Maktaba ndogo ya mitazamo — vinjari kwa jamii.",
+    "category_count": "mawazo {{count}}",
+    "back_to_board": "Rudi kwenye Gundua",
+    "bridge_cta": "Gundua pia: {{category}}"
   },
   "weekly_review": {
     "title": "Wiki yako kwa maneno machache",

@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { Anchor as AnchorIcon } from "lucide-react"
+import { Anchor as AnchorIcon, Sparkles } from "lucide-react"
 import { AppIcon, type AppIconSource } from "@/components/icons/app-icon"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
@@ -18,6 +18,7 @@ const primaryNavItems: { path: string; icon: AppIconSource; labelKey: string }[]
 
 const secondaryNavItems: { path: string; icon: AppIconSource; labelKey: string }[] = [
   { path: "/compass", icon: "hub-compass", labelKey: "compass.nav_label" },
+  { path: "/discover", icon: Sparkles, labelKey: "hub.discover" },
   { path: "/letters", icon: "hub-letters", labelKey: "letters.title" },
   { path: "/circle", icon: "hub-circle", labelKey: "circle.page_title" },
   { path: "/jar", icon: "hub-jar", labelKey: "jar.page_title" },

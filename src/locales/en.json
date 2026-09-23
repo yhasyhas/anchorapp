@@ -195,6 +195,7 @@
     "wrapped_status_available": "{{month}} ready",
     "wrapped_status_next": "Next month",
     "compass": "Compass",
+    "discover": "Discover",
     "reflections": "Reflections"
   },
   "pause": {
@@ -568,6 +569,13 @@
       "space": "Space",
       "people": "People"
     }
+  },
+  "discover": {
+    "title": "Discover",
+    "subtitle": "A small library of perspective — browse by category.",
+    "category_count": "{{count}} thoughts",
+    "back_to_board": "Back to Discover",
+    "bridge_cta": "Also explore: {{category}}"
   },
   "weekly_review": {
     "title": "Your week in a few words",

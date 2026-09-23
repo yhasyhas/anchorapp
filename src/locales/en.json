@@ -469,6 +469,22 @@
     "listen": "Listen",
     "stop": "Stop"
   },
+  "companion_panel": {
+    "entry_label": "Companion",
+    "entry_label_with_new": "Companion — new observation available",
+    "title": "Your Companion",
+    "empty_title": "Nothing new right now",
+    "empty_desc": "When your Companion notices something worth mentioning, it'll show up here.",
+    "type_pattern": "A gentle notice",
+    "type_gap": "A little gap",
+    "type_celebration": "Worth celebrating",
+    "type_first_time": "A first",
+    "acknowledge": "Got it",
+    "gap_reply_still_true": "Still true",
+    "gap_reply_changed": "Things have changed",
+    "celebration_reply_good": "That feels good",
+    "celebration_reply_proud": "I'm proud of this"
+  },
   "streaks": {
     "mood": "Mood streak",
     "anchors": "Anchor streak",

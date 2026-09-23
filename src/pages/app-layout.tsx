@@ -1,6 +1,6 @@
 import { Outlet, NavLink, Link, useLocation } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { CloudOff, RefreshCw } from "lucide-react"
+import { CloudOff, RefreshCw, Sparkles } from "lucide-react"
 import { Suspense, useEffect, useRef, useState } from "react"
 import { Capacitor } from "@capacitor/core"
 import { Network } from "@capacitor/network"
@@ -10,6 +10,7 @@ import { useViewportTier } from "@/hooks/use-viewport"
 import { usePrefersReducedMotion } from "@/hooks/use-reduced-motion"
 import { useHomeBadges } from "@/hooks/use-home-badges"
 import { useHubStatus } from "@/hooks/use-hub-status"
+import { useCompanionObservationIndicator } from "@/hooks/use-companion-observation-indicator"
 import { useDialogFocusRestore } from "@/hooks/use-dialog-focus-restore"
 import { AppIcon, type AppIconSource } from "@/components/icons/app-icon"
 import { PauseModal, type PauseOption } from "@/components/anchor/pause-modal"
@@ -17,6 +18,7 @@ import { PauseBreathing } from "@/components/anchor/pause-breathing"
 import { PauseFocusSession } from "@/components/anchor/pause-focus-session"
 import { PauseRecenter } from "@/components/anchor/pause-recenter"
 import { HubModal } from "@/components/anchor/hub-modal"
+import { CompanionPanel } from "@/components/anchor/companion-panel"
 import { DailySuggestionProvider } from "@/lib/daily-suggestion-context"
 import { InstallPrompt } from "@/components/pwa/install-prompt"
 import { Spinner } from "@/components/ui/spinner"
@@ -49,9 +51,12 @@ export function AppLayout() {
   const [showPauseMenu, setShowPauseMenu] = useState(false)
   const [activePause, setActivePause] = useState<PauseOption | null>(null)
   const [showHubModal, setShowHubModal] = useState(false)
+  const [showCompanionPanel, setShowCompanionPanel] = useState(false)
+  const [companionRefreshToken, setCompanionRefreshToken] = useState(0)
   const [pendingCount, setPendingCount] = useState(0)
   const [retrying, setRetrying] = useState(false)
   const pauseTriggerRef = useRef<HTMLButtonElement>(null)
+  const companionTriggerRef = useRef<HTMLButtonElement>(null)
 
   // Letters/Circle/Jar/Wrapped/Settings used to live in home.tsx's own top
   // icon row (mobile <768px only) — now reachable from every tab via the
@@ -67,10 +72,23 @@ export function AppLayout() {
   const hubStatus = useHubStatus(user, location.pathname)
   const hubHasNotification = hasUnreadLetter || hasPendingCircleInvite || hasUnreadEncouragement
 
+  // The Companion entry button's dot — only checked at all while "Enable AI
+  // insights" is on (profiles.ai_enabled), same gate the detection/
+  // generation hooks use; the button itself is hidden entirely when it's
+  // off (see the JSX below), so there'd be nothing for the query to find
+  // anyway. companionRefreshToken (bumped on panel close) makes this
+  // re-check right after a batch gets marked shown, on top of the normal
+  // route-change refresh every other badge here already gets.
+  const hasPendingObservation = useCompanionObservationIndicator(
+    profile?.ai_enabled ? user : null,
+    `${location.pathname}:${companionRefreshToken}`
+  )
+
   // HubModal is a Radix Sheet with no SheetTrigger (controlled via
   // showHubModal state) — same gap as PauseModal above and every other
   // externally-controlled dialog in this app, see use-dialog-focus-restore.ts.
   const hubFocus = useDialogFocusRestore()
+  const companionFocus = useDialogFocusRestore()
   // Set right before picking a Pause option — PauseModal's Dialog closes in
   // that case too (same onCloseAutoFocus fires), but focus shouldn't jump
   // back to the trigger then: a sub-overlay (PauseBreathing/Recenter/
@@ -327,6 +345,47 @@ export function AppLayout() {
       >
         <AppIcon icon="pause" decorative />
       </button>
+
+      {/* Companion Floating Button — discreet entry point (anchor-companion-
+          design.md section 4/8), stacked directly above the Pause FAB on the
+          same edge so the two can never overlap at any breakpoint: same
+          right-6 column, bottom offset = Pause's own offset + Pause's height
+          (h-12 = 3rem) + a 0.75rem gap. Hidden entirely while "Enable AI
+          insights" is off — detection/generation never run either then, so
+          the panel could only ever be empty. Same muted bg-secondary circle
+          as Pause (not a bright/numbered badge) — the small dot is the only
+          thing marking it as having something new, and the accessible name
+          itself changes when it's there so it isn't a visual-only cue. */}
+      {profile?.ai_enabled && (
+        <button
+          ref={companionTriggerRef}
+          onClick={() => {
+            companionFocus.captureTrigger()
+            setShowCompanionPanel(true)
+          }}
+          className={`fixed right-6 flex h-12 w-12 items-center justify-center rounded-full bg-secondary shadow-[0_2px_10px_rgba(0,0,0,0.08)] transition-all hover:scale-110 hover:shadow-[0_4px_15px_rgba(0,0,0,0.12)] active:scale-95 ${
+            isMobile ? "" : "bottom-[5.25rem]"
+          }`}
+          style={isMobile ? { bottom: "calc(8.75rem + env(safe-area-inset-bottom))" } : undefined}
+          aria-label={t(hasPendingObservation ? "companion_panel.entry_label_with_new" : "companion_panel.entry_label")}
+          aria-haspopup="dialog"
+          aria-expanded={showCompanionPanel}
+        >
+          <AppIcon icon={Sparkles} decorative />
+          {hasPendingObservation && (
+            <span aria-hidden="true" className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-background" />
+          )}
+        </button>
+      )}
+
+      <CompanionPanel
+        open={showCompanionPanel}
+        onClose={() => {
+          setShowCompanionPanel(false)
+          setCompanionRefreshToken((k) => k + 1)
+        }}
+        onCloseAutoFocus={companionFocus.dialogContentProps.onCloseAutoFocus}
+      />
 
       <PauseModal
         open={showPauseMenu}

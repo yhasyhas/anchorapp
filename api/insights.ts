@@ -448,7 +448,8 @@ async function handleInsights(body: any, apiKey: string) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "llama-3.1-8b-instant",
+      model: "openai/gpt-oss-20b",
+      reasoning_effort: "low",
       messages: [
         { role: "system", content: buildSystemPrompt() },
         {
@@ -514,7 +515,8 @@ async function handleCompanion(body: any, apiKey: string) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "llama-3.1-8b-instant",
+      model: "openai/gpt-oss-20b",
+      reasoning_effort: "low",
       messages: [
         {
           role: "system",
@@ -579,7 +581,8 @@ async function handleReassurance(body: any, apiKey: string) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "llama-3.1-8b-instant",
+      model: "openai/gpt-oss-20b",
+      reasoning_effort: "low",
       messages: [
         {
           role: "system",
@@ -638,7 +641,8 @@ async function handleTranslateIntention(body: any, apiKey: string) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "llama-3.1-8b-instant",
+      model: "openai/gpt-oss-20b",
+      reasoning_effort: "low",
       messages: [
         {
           role: "system",
@@ -732,7 +736,8 @@ async function handleWrappedEvolution(body: any, apiKey: string) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "llama-3.1-8b-instant",
+      model: "openai/gpt-oss-20b",
+      reasoning_effort: "low",
       messages: [
         {
           role: "system",
@@ -838,7 +843,8 @@ async function handleFollowUp(body: any, apiKey: string) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "llama-3.1-8b-instant",
+      model: "openai/gpt-oss-20b",
+      reasoning_effort: "low",
       messages: [
         {
           role: "system",
@@ -932,7 +938,8 @@ async function handleMoveSuggestions(body: any, apiKey: string) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "llama-3.1-8b-instant",
+      model: "openai/gpt-oss-20b",
+      reasoning_effort: "low",
       messages: [
         {
           role: "system",

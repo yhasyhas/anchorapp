@@ -71,7 +71,21 @@ interface AiInsightResult {
 }
 
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
-const GROQ_MODEL = "llama-3.1-8b-instant"
+// llama-3.1-8b-instant was decommissioned by Groq on 2026-08-16 (confirmed
+// via a direct test call returning 404 model_not_found); openai/gpt-oss-20b
+// is Groq's own recommended replacement — same request/response shape
+// (json.choices[0].message.content), plus an extra `reasoning` field on the
+// message object that every call site here already ignores. It IS a
+// reasoning model though, which spends completion tokens on that reasoning
+// before it ever gets to `content` — with this app's max_tokens budgets
+// (tuned for the old non-reasoning model) that was enough to starve the
+// JSON-mode calls of any tokens left for real content (verified: insights
+// went from 3 real insights to a hard Groq-side "json_validate_failed" at
+// the old max_tokens). `reasoning_effort: "low"` (passed alongside `model`
+// at every call site) keeps reasoning token usage minimal so the existing
+// budgets are enough again — see api/insights.ts's own call sites for the
+// same fix, required everywhere this model is used, not just here.
+const GROQ_MODEL = "openai/gpt-oss-20b"
 
 // L'Edge Function /api/insights exige un JWT Supabase valide (rate limiting par user_id)
 // Exported for reuse by src/lib/wrapped.ts, which calls the same edge function directly
@@ -245,6 +259,7 @@ export async function generateAiInsights(
     },
     body: JSON.stringify({
       model: GROQ_MODEL,
+      reasoning_effort: "low",
       messages: [
         { role: "system", content: buildSystemPromptDev() },
         {
@@ -588,6 +603,7 @@ export async function translateCustomIntention(
       },
       body: JSON.stringify({
         model: GROQ_MODEL,
+        reasoning_effort: "low",
         messages: [
           {
             role: "system",

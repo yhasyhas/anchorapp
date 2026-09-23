@@ -633,12 +633,14 @@ async function buildMessage(params: {
   // — not worth a shaky generation just to color one push-notification line).
   const poorContext = moodStreak === 0 && !yesterdayMood && !hasIntention
 
-  // llama-3.1-8b-instant's Swahili is noticeably less fluent than its
-  // English (verified by hand: grammatically broken output in manual
-  // review — see conversation history). Hand-written fallbacks are more
-  // reliably warm and correct than a shaky AI generation, so Swahili always
-  // uses them rather than risking a sentence that reads as broken or odd to
-  // a native speaker.
+  // The Groq model this app uses had noticeably less fluent Swahili than
+  // English (verified by hand against llama-3.1-8b-instant: grammatically
+  // broken output in manual review — see conversation history). Not
+  // re-verified against openai/gpt-oss-20b (the 2026-08-16 replacement for
+  // that decommissioned model) — until someone does, hand-written fallbacks
+  // stay the safer default: more reliably warm and correct than an
+  // unverified AI generation, so Swahili always uses them rather than
+  // risking a sentence that reads as broken or odd to a native speaker.
   if (poorContext || !groqApiKey || language === "sw") {
     return { title, body: pick(STATIC_FALLBACKS[slot][language]) }
   }
@@ -697,7 +699,8 @@ async function generateWithGroq(params: {
     method: "POST",
     headers: { Authorization: `Bearer ${groqApiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "llama-3.1-8b-instant",
+      model: "openai/gpt-oss-20b",
+      reasoning_effort: "low",
       messages: [
         {
           role: "system",

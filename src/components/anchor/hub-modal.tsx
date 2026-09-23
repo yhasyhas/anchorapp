@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { BookOpen } from "lucide-react"
+import { BookOpen, Sparkles } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { AppIcon, type AppIconSource } from "@/components/icons/app-icon"
 
@@ -101,10 +101,13 @@ export function HubModal({
           ))}
         </div>
         <div className="space-y-2 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-          {/* Compass, Reflections + Settings kept as full-width rows below
-              the 2x2 grid — set-once/edit-rarely or occasional-revisit
-              foundations rather than content that accumulates like letters,
-              gratitudes or recaps. */}
+          {/* Compass, Discover, Reflections + Settings kept as full-width
+              rows below the 2x2 grid — set-once/edit-rarely or
+              occasional-revisit foundations rather than content that
+              accumulates like letters, gratitudes or recaps. Discover (the
+              Discovery Board, src/pages/discover.tsx) is opt-in, deeper
+              browsing — not a nav tab for now, per the product decision to
+              reassess once there's real usage data. */}
           <Link
             to="/compass"
             onClick={onClose}
@@ -112,6 +115,14 @@ export function HubModal({
           >
             <AppIcon icon="hub-compass" size={20} decorative className="text-foreground" />
             <span className="text-sm font-semibold text-foreground">{t("hub.compass")}</span>
+          </Link>
+          <Link
+            to="/discover"
+            onClick={onClose}
+            className="flex min-h-12 items-center gap-3 rounded-anchor-control-sm border border-border bg-card px-4 transition-colors hover:bg-accent/40"
+          >
+            <AppIcon icon={Sparkles} size={20} decorative className="text-foreground" />
+            <span className="text-sm font-semibold text-foreground">{t("hub.discover")}</span>
           </Link>
           <Link
             to="/reflections"

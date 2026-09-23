@@ -525,6 +525,7 @@
     "another": "Pendekezo lingine",
     "accepted_ack": "Vizuri — ni lako kwa leo.",
     "declined_ack": "Sawa kabisa. Hakuna shinikizo.",
+    "exploration_hint": "Jambo tofauti leo.",
     "open_detail": "Fungua pendekezo la leo",
     "follow_up_question": "Siku kadhaa zilizopita, ulifanya: {{suggestion}}. Ilikuwaje?",
     "follow_up_better": "Bora kuliko nilivyotarajia",

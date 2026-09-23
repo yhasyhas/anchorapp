@@ -9,6 +9,7 @@
 // with what she's actually accepted/declined (see the LEARNED_BIAS_*
 // section) — still no ML, just documented, named-constant rules.
 
+import type { AcceptedWithCategory } from "@/lib/companion-triggers"
 import type { MoveSuggestion } from "@/types"
 
 // Keyword hints per Compass value (canonical English strings, see
@@ -31,10 +32,22 @@ export const VALUE_KEYWORDS: Record<string, string[]> = {
   Presence: ["breathe", "notice", "savor", "slow", "mindful", "present", "walk", "listen", "sit"],
 }
 
-export interface DailySuggestionPick {
+// 'exploration' means today's pick deliberately ignored Compass/learned
+// bias in favor of an under-tried category (see EXPLORATION_RATIO below);
+// 'familiar' covers every other path (tiered rotation AND the weighted
+// learned-bias model both count as "familiar" — neither is exploration).
+// Stored on daily_suggestions so the card can explain why, and usage can be
+// measured later.
+export type SelectionReason = "familiar" | "exploration"
+
+interface RawPick {
   // move_suggestions row id, or null when the pick came from the static pool.
   sourceMoveItemId: string | null
   text: string
+}
+
+export interface DailySuggestionPick extends RawPick {
+  selectionReason: SelectionReason
 }
 
 function normalizeTitle(title: string): string {
@@ -246,7 +259,7 @@ function pickByTieredRotation(
   seed: string,
   recentTitles: Set<string>,
   excludeTitles: Set<string>
-): DailySuggestionPick {
+): RawPick {
   const valueMatched = matchByValues(usable, values)
   const notRecent = (list: MoveSuggestion[]) =>
     list.filter((s) => !recentTitles.has(normalizeTitle(s.title)))
@@ -276,7 +289,7 @@ function pickByWeightedScore(
   recentTitles: Set<string>,
   excludeTitles: Set<string>,
   history: SuggestionHistoryEntry[]
-): DailySuggestionPick {
+): RawPick {
   const stats = buildTitleAcceptanceStats(history)
   const matchedTitles = new Set(matchByValues(usable, values).map((s) => normalizeTitle(s.title)))
 
@@ -290,6 +303,84 @@ function pickByWeightedScore(
   })
 
   const chosen = weightedDeterministicPick(weighted, `${seed}|${excludeTitles.size}`)
+
+  return {
+    sourceMoveItemId: isRealRow(chosen) ? chosen.id : null,
+    text: chosen.title,
+  }
+}
+
+// ==================== DELIBERATE EXPLORATION ====================
+//
+// Product feedback (Project Anchor Alignment doc): the learned bias above
+// only ever reinforces categories already accepted — it can never surface
+// something deliberately unfamiliar, contradicting that document's own
+// "sometimes the best recommendation is deliberately unfamiliar" principle.
+// Roughly 1 day in 4, once LEARNED_BIAS_MIN_TOTAL_RESPONSES is met (same
+// gate, same sample — this never activates on the still-cold-start path),
+// today's pick ignores Compass/learned bias entirely and deliberately
+// favors a category she's never tried, or failing that the one least
+// represented in her recent accepted history.
+
+// Target long-run rate, not a strict counter — see isExplorationDay.
+export const EXPLORATION_RATIO = 0.25
+
+// Stable per user+day: same hashSeed technique as every other pick in this
+// module, landed against a [0, SCALE) range instead of an index. A given
+// (seed) always resolves the same way, so a reload never flips today's
+// verdict — but distinct seeds (different users, different days) land on
+// "explore" roughly EXPLORATION_RATIO of the time, with the actual rate
+// drifting naturally around that target over weeks rather than landing on
+// exactly 1-in-4 like a forced periodic counter would. Suffixed so this
+// roll doesn't correlate with the title pick's own hashSeed call below.
+export function isExplorationDay(seed: string): boolean {
+  const SCALE = 1_000_000
+  return hashSeed(`${seed}|exploration_roll`) % SCALE < EXPLORATION_RATIO * SCALE
+}
+
+// Never-tried categories first (priority), else the least-represented
+// category among what's actually present in the usable pool — ties broken
+// deterministically by seed, same as everything else here. Reuses
+// AcceptedWithCategory, the exact shape companion-triggers.ts's
+// detectFirstTime already resolves accepted history into (via
+// resolveAcceptedCategories) — the caller does that resolution once and
+// passes the result in, rather than this module reimplementing it.
+//
+// Returns null (never "explores") when the pool only spans one category —
+// there is nothing to deliberately favor over anything else, so forcing an
+// "exploration" pick there would just reselect the same pool under a
+// different label. The caller falls through to the normal weighted path.
+function pickByExploration(
+  usable: MoveSuggestion[],
+  acceptedWithCategory: AcceptedWithCategory[],
+  seed: string,
+  recentTitles: Set<string>,
+  excludeTitles: Set<string>
+): RawPick | null {
+  const presentCategories = [...new Set(usable.map((s) => s.category))]
+  if (presentCategories.length < 2) return null
+
+  const counts = new Map<MoveSuggestion["category"], number>()
+  for (const a of acceptedWithCategory) counts.set(a.category, (counts.get(a.category) ?? 0) + 1)
+
+  const neverTried = presentCategories.filter((c) => !counts.has(c))
+  let candidates: MoveSuggestion["category"][]
+  if (neverTried.length > 0) {
+    candidates = neverTried
+  } else {
+    const min = Math.min(...presentCategories.map((c) => counts.get(c) ?? 0))
+    candidates = presentCategories.filter((c) => (counts.get(c) ?? 0) === min)
+  }
+
+  const category =
+    candidates.length === 1 ? candidates[0] : candidates[hashSeed(`${seed}|exploration_category`) % candidates.length]
+
+  const categoryPool = usable.filter((s) => s.category === category)
+  const notRecent = categoryPool.filter((s) => !recentTitles.has(normalizeTitle(s.title)))
+  const tier = notRecent.length > 0 ? notRecent : categoryPool
+
+  const idx = hashSeed(`${seed}|exploration_title|${excludeTitles.size}`) % tier.length
+  const chosen = tier[idx]
 
   return {
     sourceMoveItemId: isRealRow(chosen) ? chosen.id : null,
@@ -316,19 +407,40 @@ export interface PickDailySuggestionParams {
   // LEARNED_BIAS_MIN_TOTAL_RESPONSES entries, falls back unchanged to
   // pickByTieredRotation — see that guard's own comment.
   history?: SuggestionHistoryEntry[]
+  // Her accepted daily_suggestions history resolved to categories (see
+  // resolveAcceptedCategories in companion-triggers.ts) — only consulted on
+  // an exploration day (see EXPLORATION_RATIO); omitted or empty just means
+  // every category looks equally untried.
+  acceptedWithCategory?: AcceptedWithCategory[]
 }
 
 // Returns null only when the pool is genuinely empty after exclusions —
 // the caller then either resets exclusions or hides the card.
 export function pickDailySuggestion(params: PickDailySuggestionParams): DailySuggestionPick | null {
-  const { pool, values, seed, recentTitles = new Set(), excludeTitles = new Set(), history = [] } = params
+  const {
+    pool,
+    values,
+    seed,
+    recentTitles = new Set(),
+    excludeTitles = new Set(),
+    history = [],
+    acceptedWithCategory = [],
+  } = params
 
   const usable = pool.filter((s) => s.title && !excludeTitles.has(normalizeTitle(s.title)))
   if (usable.length === 0) return null
 
   if (history.length < LEARNED_BIAS_MIN_TOTAL_RESPONSES) {
-    return pickByTieredRotation(usable, values, seed, recentTitles, excludeTitles)
+    return { ...pickByTieredRotation(usable, values, seed, recentTitles, excludeTitles), selectionReason: "familiar" }
   }
 
-  return pickByWeightedScore(usable, values, seed, recentTitles, excludeTitles, history)
+  if (isExplorationDay(seed)) {
+    const explorationPick = pickByExploration(usable, acceptedWithCategory, seed, recentTitles, excludeTitles)
+    if (explorationPick) return { ...explorationPick, selectionReason: "exploration" }
+  }
+
+  return {
+    ...pickByWeightedScore(usable, values, seed, recentTitles, excludeTitles, history),
+    selectionReason: "familiar",
+  }
 }

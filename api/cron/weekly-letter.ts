@@ -414,7 +414,8 @@ async function generateLetterWithGroq(params: {
     method: "POST",
     headers: { Authorization: `Bearer ${groqApiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "llama-3.1-8b-instant",
+      model: "openai/gpt-oss-20b",
+      reasoning_effort: "low",
       messages: [
         {
           role: "system",
@@ -503,12 +504,14 @@ function buildStaticLetter(
   return `Hi ${name},\n\n${introLine} ${streakLine}\n\n${journalLine}${circleLine}\n\nYou're not just trying. You're becoming. Keep trusting the process.\n\nI see you, and I'm so proud of you.`
 }
 
-// llama-3.1-8b-instant's Swahili is noticeably less fluent than its English
-// (verified by hand, see api/cron/reminders.ts) — for a single push-notification
-// line that's a minor risk, but for a multi-sentence letter a shaky
-// generation would be far more visible and undermine the whole feature. The
-// hand-written Swahili template is more reliably warm and correct, so
-// Swahili always uses it rather than calling Groq at all.
+// The Groq model this app uses had noticeably less fluent Swahili than
+// English (verified by hand against llama-3.1-8b-instant, see
+// api/cron/reminders.ts; not re-verified against openai/gpt-oss-20b, the
+// 2026-08-16 replacement for that decommissioned model) — for a single
+// push-notification line that's a minor risk, but for a multi-sentence
+// letter a shaky generation would be far more visible and undermine the
+// whole feature. The hand-written Swahili template is more reliably warm
+// and correct, so Swahili always uses it rather than calling Groq at all.
 async function buildLetterText(params: {
   language: Language
   firstName: string
@@ -672,7 +675,8 @@ async function generateStoryWithGroq(params: {
     method: "POST",
     headers: { Authorization: `Bearer ${groqApiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "llama-3.1-8b-instant",
+      model: "openai/gpt-oss-20b",
+      reasoning_effort: "low",
       messages: [
         {
           role: "system",

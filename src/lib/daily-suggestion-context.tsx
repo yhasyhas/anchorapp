@@ -20,6 +20,7 @@ import {
   getRecentlyUsedTitles,
 } from "@/lib/move-selection"
 import { pickDailySuggestion, LEARNED_BIAS_WINDOW_DAYS, type SuggestionHistoryEntry } from "@/lib/daily-suggestion"
+import { resolveAcceptedCategories, type AcceptedWithCategory } from "@/lib/companion-triggers"
 import { todayStr, localDateStr } from "@/lib/utils"
 import type { DailyAnchor, DailySuggestion, DailySuggestionStatus, MoveSuggestion } from "@/types"
 
@@ -115,6 +116,14 @@ export function DailySuggestionProvider({ children }: { children: ReactNode }) {
   // today and anything never answered — see pickDailySuggestion's own
   // guard for what happens below its minimum sample size.
   const learnedHistoryRef = useRef<SuggestionHistoryEntry[]>([])
+  // Same accepted rows, resolved to categories (resolveAcceptedCategories,
+  // companion-triggers.ts — the exact function detectFirstTime already uses
+  // for "categories touched before") — only consulted by pickDailySuggestion
+  // on an exploration day. Needs the raw move_suggestions rows kept
+  // separately from poolRef (which merges in the static pool) since
+  // resolution matches by id first, then by title across BOTH sources.
+  const moveRowsRef = useRef<{ id: string; title: string; category: MoveSuggestion["category"] }[]>([])
+  const acceptedWithCategoryRef = useRef<AcceptedWithCategory[]>([])
   // Everything already shown today this session (current pick + every
   // "another" tap) — hard-excluded from the next pick.
   const seenTitlesRef = useRef<Set<string>>(new Set())
@@ -197,7 +206,9 @@ export function DailySuggestionProvider({ children }: { children: ReactNode }) {
 
       valuesRef.current = values
       const moveRows = (moveRes?.data as MoveSuggestion[] | null) ?? []
-      poolRef.current = buildVisibleSuggestions(moveRows, currentWeekKey(), materializeDefaultSuggestions(t))
+      moveRowsRef.current = moveRows
+      const staticPool = materializeDefaultSuggestions(t)
+      poolRef.current = buildVisibleSuggestions(moveRows, currentWeekKey(), staticPool)
 
       const anchorRows = (anchorRes?.data as DailyAnchor[] | null) ?? []
       const recent = new Set<string>(getRecentlyUsedTitles(anchorRows, 3))
@@ -220,6 +231,19 @@ export function DailySuggestionProvider({ children }: { children: ReactNode }) {
             r.date !== todayStr() && (r.status === "accepted" || r.status === "declined")
         )
         .map((r) => ({ title: r.suggestion_text, status: r.status }))
+
+      // Exploration category detection (see pickByExploration in
+      // daily-suggestion.ts) — same accepted-only, today-excluded slice as
+      // above, resolved to categories via the static pool built just now
+      // plus her own real move_suggestions rows.
+      const acceptedRows = allWindow.filter(
+        (r): r is DailySuggestion & { status: "accepted" } => r.date !== todayStr() && r.status === "accepted"
+      )
+      acceptedWithCategoryRef.current = resolveAcceptedCategories(
+        acceptedRows.map((r) => ({ date: r.date, text: r.suggestion_text, sourceMoveItemId: r.source_move_item_id })),
+        moveRowsRef.current,
+        staticPool.map((s) => ({ title: s.title, category: s.category }))
+      )
 
       // Follow-up: most recent eligible past accepted suggestion (allWindow
       // is already newest-first). Resolved once here so marking it seen
@@ -252,6 +276,7 @@ export function DailySuggestionProvider({ children }: { children: ReactNode }) {
         seed: `${user!.id}:${todayStr()}`,
         recentTitles: recentTitlesRef.current,
         history: learnedHistoryRef.current,
+        acceptedWithCategory: acceptedWithCategoryRef.current,
       })
       if (!pick) {
         creatingRef.current = false
@@ -266,6 +291,7 @@ export function DailySuggestionProvider({ children }: { children: ReactNode }) {
         source_move_item_id: pick.sourceMoveItemId,
         suggestion_text: pick.text,
         status: "pending" as DailySuggestionStatus,
+        selection_reason: pick.selectionReason,
       }
       seenTitlesRef.current = new Set([norm(pick.text)])
       persistToday({
@@ -337,6 +363,7 @@ export function DailySuggestionProvider({ children }: { children: ReactNode }) {
       recentTitles: recentTitlesRef.current,
       excludeTitles: seenTitlesRef.current,
       history: learnedHistoryRef.current,
+      acceptedWithCategory: acceptedWithCategoryRef.current,
     })
     if (!pick) {
       seenTitlesRef.current = new Set([norm(suggestion.suggestion_text)])
@@ -346,6 +373,7 @@ export function DailySuggestionProvider({ children }: { children: ReactNode }) {
         seed,
         excludeTitles: seenTitlesRef.current,
         history: learnedHistoryRef.current,
+        acceptedWithCategory: acceptedWithCategoryRef.current,
       })
     }
     if (!pick) {
@@ -361,6 +389,7 @@ export function DailySuggestionProvider({ children }: { children: ReactNode }) {
       status: "pending",
       responded_at: null,
       updated_at: now,
+      selection_reason: pick.selectionReason,
     })
     await write({
       user_id: user.id,
@@ -369,6 +398,7 @@ export function DailySuggestionProvider({ children }: { children: ReactNode }) {
       suggestion_text: pick.text,
       status: "pending",
       responded_at: null,
+      selection_reason: pick.selectionReason,
     })
     setBusy(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps

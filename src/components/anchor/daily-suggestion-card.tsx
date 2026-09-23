@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AppIcon } from "@/components/icons/app-icon"
 import { cn } from "@/lib/utils"
-import type { DailySuggestionStatus } from "@/types"
+import type { DailySuggestion, DailySuggestionStatus } from "@/types"
 
 interface DailySuggestionCardProps {
   text: string
@@ -16,6 +16,11 @@ interface DailySuggestionCardProps {
   // When provided (Home), the suggestion text becomes a button that opens
   // the dedicated /anchor screen. Omitted on /anchor itself.
   onOpenDetail?: () => void
+  // 'exploration' shows a small, discreet "why this" hint — see
+  // EXPLORATION_RATIO in src/lib/daily-suggestion.ts. Never a banner, never
+  // framed as a test: just a soft note, same register as the accepted/
+  // declined acks below.
+  selectionReason?: DailySuggestion["selection_reason"]
 }
 
 // Purely presentational — src/lib/daily-suggestion-context.tsx owns the
@@ -30,6 +35,7 @@ export function DailySuggestionCard({
   onDecline,
   onAnother,
   onOpenDetail,
+  selectionReason,
 }: DailySuggestionCardProps) {
   const { t } = useTranslation()
   const accepted = status === "accepted"
@@ -62,6 +68,10 @@ export function DailySuggestionCard({
           </button>
         ) : (
           <p className="font-heading text-base font-semibold leading-snug text-foreground">{text}</p>
+        )}
+
+        {selectionReason === "exploration" && (
+          <p className="text-xs text-muted-foreground">{t("daily_suggestion.exploration_hint")}</p>
         )}
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">

@@ -94,6 +94,7 @@ export function AnchorPage() {
               onAccept={ds.accept}
               onDecline={ds.decline}
               onAnother={ds.another}
+              selectionReason={ds.suggestion.selection_reason}
             />
             <p className="text-xs text-muted-foreground">{t("anchor_screen.suggestion_note")}</p>
           </>

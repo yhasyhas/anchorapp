@@ -13,6 +13,7 @@
     "check-companion-detection": "node scripts/check-companion-detection.mjs",
     "check-companion-distress-filter": "tsx scripts/check-companion-distress-filter.ts",
     "check-companion-generation": "node scripts/check-companion-generation.mjs",
+    "check-daily-suggestion-exploration": "tsx scripts/check-daily-suggestion-exploration.ts",
     "preview": "vite preview"
   },
   "dependencies": {

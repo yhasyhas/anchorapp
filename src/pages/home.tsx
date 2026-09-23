@@ -360,6 +360,7 @@ export function HomePage() {
             onDecline={dailySuggestion.decline}
             onAnother={dailySuggestion.another}
             onOpenDetail={() => navigate("/anchor")}
+            selectionReason={dailySuggestion.suggestion.selection_reason}
           />
         </div>
       )}

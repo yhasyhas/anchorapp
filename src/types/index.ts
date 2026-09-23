@@ -299,6 +299,11 @@ export interface DailySuggestion {
   responded_at: string | null
   follow_up_shown: boolean
   follow_up_response: string | null
+  // 'exploration' when this pick deliberately ignored Compass/learned bias
+  // in favor of an under-tried category (see EXPLORATION_RATIO in
+  // src/lib/daily-suggestion.ts), 'familiar' for every other path. NULL on
+  // rows written before this column existed.
+  selection_reason: "familiar" | "exploration" | null
   created_at: string
   updated_at: string
 }

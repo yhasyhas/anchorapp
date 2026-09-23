@@ -526,6 +526,7 @@
     "another": "Another suggestion",
     "accepted_ack": "Nice — it's yours for today.",
     "declined_ack": "All good. No pressure.",
+    "exploration_hint": "Something different today.",
     "open_detail": "Open today's suggestion",
     "follow_up_question": "A couple of days ago, you {{suggestion}}. How did that feel?",
     "follow_up_better": "Better than I expected",
